@@ -32,6 +32,7 @@ dev = [
 
 [project.scripts]
 avid = "avid.main:main"
+avid-cli = "avid.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/avid"]
