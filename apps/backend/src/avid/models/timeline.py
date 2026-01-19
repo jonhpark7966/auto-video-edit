@@ -4,8 +4,6 @@ from enum import Enum
 
 from pydantic import BaseModel, Field, model_validator
 
-from avid.models.media import MediaFile
-
 
 class EditType(str, Enum):
     """Type of edit to apply."""
@@ -20,6 +18,7 @@ class EditReason(str, Enum):
 
     SILENCE = "silence"
     DUPLICATE = "duplicate"
+    FILLER = "filler"
     MANUAL = "manual"
 
 
@@ -56,49 +55,31 @@ class TimeRange(BaseModel):
 
 
 class EditDecision(BaseModel):
-    """A single editing decision for a time range."""
+    """A single editing decision for a time range on the unified timeline.
 
-    range: TimeRange = Field(..., description="Target time range")
+    This represents what happens at a specific time range:
+    - Which video track is active (or None for cut)
+    - Which audio tracks are active
+    - Speed factor for speedup
+    - Reason for the edit (silence, duplicate, manual, etc.)
+    """
+
+    range: TimeRange = Field(..., description="Target time range on unified timeline")
     edit_type: EditType = Field(..., description="Type of edit to apply")
     reason: EditReason = Field(..., description="Reason for this edit")
     confidence: float = Field(
-        ..., ge=0.0, le=1.0, description="Confidence score for automatic detection"
+        default=1.0, ge=0.0, le=1.0, description="Confidence score for automatic detection"
     )
 
-
-class Timeline(BaseModel):
-    """Complete editing timeline for a media file."""
-
-    source_media: MediaFile = Field(..., description="Source media file")
-    edit_decisions: list[EditDecision] = Field(
-        default_factory=list, description="List of edit decisions"
+    # Active tracks for this segment
+    active_video_track_id: str | None = Field(
+        default=None, description="Active video track ID (None = no video / cut)"
+    )
+    active_audio_track_ids: list[str] = Field(
+        default_factory=list, description="Active audio track IDs (can mix multiple)"
     )
 
-    @property
-    def duration_ms(self) -> int:
-        """Return original source duration."""
-        return self.source_media.info.duration_ms
-
-    @property
-    def edited_duration_ms(self) -> int:
-        """Calculate duration after applying cut edits."""
-        cut_duration = sum(
-            ed.range.duration_ms
-            for ed in self.edit_decisions
-            if ed.edit_type == EditType.CUT
-        )
-        return self.duration_ms - cut_duration
-
-    def get_decisions_at(self, timestamp_ms: int) -> list[EditDecision]:
-        """Get all edit decisions that apply to a specific timestamp."""
-        return [ed for ed in self.edit_decisions if ed.range.contains(timestamp_ms)]
-
-    def add_decision(self, decision: EditDecision) -> None:
-        """Add an edit decision to the timeline."""
-        self.edit_decisions.append(decision)
-
-    def remove_decision(self, index: int) -> EditDecision | None:
-        """Remove and return an edit decision by index."""
-        if 0 <= index < len(self.edit_decisions):
-            return self.edit_decisions.pop(index)
-        return None
+    # Speed control
+    speed_factor: float = Field(
+        default=1.0, gt=0.0, description="Speed factor (1.0 = normal, 2.0 = 2x speed)"
+    )

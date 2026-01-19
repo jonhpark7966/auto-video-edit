@@ -1,13 +1,13 @@
-"""Base class for timeline exporters."""
+"""Base class for project exporters."""
 
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from avid.models.timeline import Timeline
+from avid.models.project import Project
 
 
-class TimelineExporter(ABC):
-    """Abstract base class for timeline exporters.
+class ProjectExporter(ABC):
+    """Abstract base class for project exporters.
 
     Each exporter generates a file format compatible with
     a specific video editing application.
@@ -26,11 +26,11 @@ class TimelineExporter(ABC):
         ...
 
     @abstractmethod
-    async def export(self, timeline: Timeline, output_path: Path) -> Path:
-        """Export the timeline to the target format.
+    async def export(self, project: Project, output_path: Path) -> Path:
+        """Export the project to the target format.
 
         Args:
-            timeline: Timeline to export
+            project: Project to export
             output_path: Path for the output file
 
         Returns:

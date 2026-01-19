@@ -4,12 +4,13 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from uuid import uuid4
 
-from avid.export.base import TimelineExporter
-from avid.models.timeline import EditType, Timeline
+from avid.export.base import ProjectExporter
+from avid.models.project import Project
+from avid.models.timeline import EditType
 
 
-class PremiereXMLExporter(TimelineExporter):
-    """Export timeline to Adobe Premiere Pro XML format (.xml)."""
+class PremiereXMLExporter(ProjectExporter):
+    """Export project to Adobe Premiere Pro XML format (.xml)."""
 
     @property
     def format_name(self) -> str:
@@ -19,17 +20,17 @@ class PremiereXMLExporter(TimelineExporter):
     def file_extension(self) -> str:
         return ".xml"
 
-    async def export(self, timeline: Timeline, output_path: Path) -> Path:
-        """Export timeline to Premiere Pro XML format.
+    async def export(self, project: Project, output_path: Path) -> Path:
+        """Export project to Premiere Pro XML format.
 
         Args:
-            timeline: Timeline to export
+            project: Project to export
             output_path: Path for the output file
 
         Returns:
             Path to the exported file
         """
-        root = self._create_premiere_structure(timeline)
+        root = self._create_premiere_structure(project)
         tree = ET.ElementTree(root)
 
         # Ensure output path has correct extension
@@ -42,11 +43,23 @@ class PremiereXMLExporter(TimelineExporter):
 
         return output_path
 
-    def _create_premiere_structure(self, timeline: Timeline) -> ET.Element:
+    def _create_premiere_structure(self, project: Project) -> ET.Element:
         """Create the Premiere Pro XML document structure."""
-        media_info = timeline.source_media.info
-        fps = media_info.fps or 30
+        # Get format info from primary video track
+        video_tracks = project.get_video_tracks()
+        fps = 30.0
+        width = 1920
+        height = 1080
+
+        if video_tracks:
+            source = project.get_source_file(video_tracks[0].source_file_id)
+            if source and source.info:
+                fps = source.info.fps or 30.0
+                width = source.info.width or 1920
+                height = source.info.height or 1080
+
         timebase = int(fps)
+        duration_ms = project.duration_ms
 
         # Root element
         xmeml = ET.Element("xmeml", version="5")
@@ -54,10 +67,10 @@ class PremiereXMLExporter(TimelineExporter):
         # Sequence
         sequence = ET.SubElement(xmeml, "sequence")
         ET.SubElement(sequence, "uuid").text = str(uuid4())
-        ET.SubElement(sequence, "name").text = "Auto Edit Sequence"
+        ET.SubElement(sequence, "name").text = project.name
 
         # Duration
-        total_frames = int(timeline.duration_ms * fps / 1000)
+        total_frames = int(duration_ms * fps / 1000)
         ET.SubElement(sequence, "duration").text = str(total_frames)
 
         # Rate
@@ -79,97 +92,166 @@ class PremiereXMLExporter(TimelineExporter):
 
         # Video track
         video = ET.SubElement(media, "video")
-        video_track = ET.SubElement(video, "track")
+        video_track_elem = ET.SubElement(video, "track")
 
-        # Add clips to video track
-        self._add_clips_to_track(video_track, timeline, fps, timebase, is_video=True)
+        # Add video clips
+        self._add_video_clips(video_track_elem, project, fps, timebase, width, height)
 
         # Audio track
         audio = ET.SubElement(media, "audio")
-        audio_track = ET.SubElement(audio, "track")
+        audio_track_elem = ET.SubElement(audio, "track")
 
-        # Add clips to audio track
-        self._add_clips_to_track(audio_track, timeline, fps, timebase, is_video=False)
+        # Add audio clips
+        self._add_audio_clips(audio_track_elem, project, fps, timebase)
 
         return xmeml
 
-    def _add_clips_to_track(
+    def _add_video_clips(
         self,
         track: ET.Element,
-        timeline: Timeline,
+        project: Project,
         fps: float,
         timebase: int,
-        is_video: bool,
+        width: int,
+        height: int,
     ) -> None:
-        """Add clips to a track, excluding cut regions."""
-        media_info = timeline.source_media.info
+        """Add video clips to the track."""
+        video_tracks = project.get_video_tracks()
+        if not video_tracks:
+            return
 
-        # Get all cut decisions and sort by start time
-        cuts = sorted(
-            [ed for ed in timeline.edit_decisions if ed.edit_type == EditType.CUT],
-            key=lambda x: x.range.start_ms,
-        )
+        # If no edit decisions, add simple clips
+        if not project.edit_decisions:
+            for vtrack in video_tracks:
+                source = project.get_source_file(vtrack.source_file_id)
+                if not source:
+                    continue
 
-        # Build segments between cuts
-        segments: list[tuple[int, int]] = []  # (start_ms, end_ms)
-        current_position = 0
+                self._add_clip_item(
+                    track,
+                    source.original_name,
+                    source.path,
+                    0,
+                    source.info.duration_ms,
+                    vtrack.offset_ms,
+                    fps,
+                    timebase,
+                    width,
+                    height,
+                    is_video=True,
+                )
+            return
 
-        for cut in cuts:
-            if cut.range.start_ms > current_position:
-                segments.append((current_position, cut.range.start_ms))
-            current_position = cut.range.end_ms
+        # Add clips based on edit decisions
+        for decision in sorted(project.edit_decisions, key=lambda d: d.range.start_ms):
+            if decision.edit_type == EditType.CUT:
+                continue
 
-        # Add final segment after last cut
-        if current_position < timeline.duration_ms:
-            segments.append((current_position, timeline.duration_ms))
+            if decision.active_video_track_id:
+                vtrack = project.get_track(decision.active_video_track_id)
+                if vtrack:
+                    source = project.get_source_file(vtrack.source_file_id)
+                    if source:
+                        source_start = decision.range.start_ms - vtrack.offset_ms
+                        source_start = max(0, source_start)
 
-        # If no cuts, add the full clip
-        if not segments:
-            segments = [(0, timeline.duration_ms)]
+                        self._add_clip_item(
+                            track,
+                            source.original_name,
+                            source.path,
+                            source_start,
+                            source_start + decision.range.duration_ms,
+                            decision.range.start_ms,
+                            fps,
+                            timebase,
+                            width,
+                            height,
+                            is_video=True,
+                        )
 
-        # Create clip items for each segment
-        timeline_position = 0
-        for start_ms, end_ms in segments:
-            clip_item = ET.SubElement(track, "clipitem")
-            ET.SubElement(clip_item, "name").text = timeline.source_media.original_name
+    def _add_audio_clips(
+        self,
+        track: ET.Element,
+        project: Project,
+        fps: float,
+        timebase: int,
+    ) -> None:
+        """Add audio clips to the track."""
+        audio_tracks = project.get_audio_tracks()
+        if not audio_tracks:
+            return
 
-            # Duration of this segment
-            segment_frames = int((end_ms - start_ms) * fps / 1000)
-            ET.SubElement(clip_item, "duration").text = str(segment_frames)
+        # If no edit decisions, add simple clips
+        if not project.edit_decisions:
+            for atrack in audio_tracks:
+                source = project.get_source_file(atrack.source_file_id)
+                if not source:
+                    continue
 
-            # Rate
-            rate = ET.SubElement(clip_item, "rate")
-            ET.SubElement(rate, "timebase").text = str(timebase)
-            ET.SubElement(rate, "ntsc").text = "FALSE"
+                self._add_clip_item(
+                    track,
+                    source.original_name,
+                    source.path,
+                    0,
+                    source.info.duration_ms,
+                    atrack.offset_ms,
+                    fps,
+                    timebase,
+                    is_video=False,
+                )
 
-            # Timeline position
-            start_frame = int(timeline_position * fps / 1000)
-            end_frame = start_frame + segment_frames
-            ET.SubElement(clip_item, "start").text = str(start_frame)
-            ET.SubElement(clip_item, "end").text = str(end_frame)
+    def _add_clip_item(
+        self,
+        track: ET.Element,
+        name: str,
+        path: Path,
+        source_start_ms: int,
+        source_end_ms: int,
+        timeline_start_ms: int,
+        fps: float,
+        timebase: int,
+        width: int = 0,
+        height: int = 0,
+        is_video: bool = True,
+    ) -> None:
+        """Add a single clip item to the track."""
+        clip_item = ET.SubElement(track, "clipitem")
+        ET.SubElement(clip_item, "name").text = name
 
-            # Source in/out points
-            in_frame = int(start_ms * fps / 1000)
-            out_frame = int(end_ms * fps / 1000)
-            ET.SubElement(clip_item, "in").text = str(in_frame)
-            ET.SubElement(clip_item, "out").text = str(out_frame)
+        duration_ms = source_end_ms - source_start_ms
+        segment_frames = int(duration_ms * fps / 1000)
+        ET.SubElement(clip_item, "duration").text = str(segment_frames)
 
-            # File reference
-            file_elem = ET.SubElement(clip_item, "file")
-            ET.SubElement(file_elem, "name").text = timeline.source_media.original_name
-            ET.SubElement(file_elem, "pathurl").text = f"file://localhost{timeline.source_media.path.absolute()}"
+        # Rate
+        rate = ET.SubElement(clip_item, "rate")
+        ET.SubElement(rate, "timebase").text = str(timebase)
+        ET.SubElement(rate, "ntsc").text = "FALSE"
 
-            # Media info
-            if is_video and media_info.width and media_info.height:
-                media_elem = ET.SubElement(file_elem, "media")
-                video_elem = ET.SubElement(media_elem, "video")
-                ET.SubElement(video_elem, "duration").text = str(int(timeline.duration_ms * fps / 1000))
-                sample_char = ET.SubElement(video_elem, "samplecharacteristics")
-                ET.SubElement(sample_char, "width").text = str(media_info.width)
-                ET.SubElement(sample_char, "height").text = str(media_info.height)
+        # Timeline position
+        start_frame = int(timeline_start_ms * fps / 1000)
+        end_frame = start_frame + segment_frames
+        ET.SubElement(clip_item, "start").text = str(start_frame)
+        ET.SubElement(clip_item, "end").text = str(end_frame)
 
-            # Update timeline position for next segment
-            timeline_position += end_ms - start_ms
+        # Source in/out points
+        in_frame = int(source_start_ms * fps / 1000)
+        out_frame = int(source_end_ms * fps / 1000)
+        ET.SubElement(clip_item, "in").text = str(in_frame)
+        ET.SubElement(clip_item, "out").text = str(out_frame)
+
+        # File reference
+        file_elem = ET.SubElement(clip_item, "file")
+        ET.SubElement(file_elem, "name").text = name
+        ET.SubElement(file_elem, "pathurl").text = f"file://localhost{path.absolute()}"
+
+        # Media info for video
+        if is_video and width and height:
+            media_elem = ET.SubElement(file_elem, "media")
+            video_elem = ET.SubElement(media_elem, "video")
+            ET.SubElement(video_elem, "duration").text = str(segment_frames)
+            sample_char = ET.SubElement(video_elem, "samplecharacteristics")
+            ET.SubElement(sample_char, "width").text = str(width)
+            ET.SubElement(sample_char, "height").text = str(height)
 
     def _ms_to_frames(self, ms: int, fps: float) -> int:
         """Convert milliseconds to frames."""

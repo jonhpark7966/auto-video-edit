@@ -3,12 +3,14 @@
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from avid.export.base import TimelineExporter
-from avid.models.timeline import EditType, Timeline
+from avid.export.base import ProjectExporter
+from avid.models.project import Project
+from avid.models.timeline import EditType
+from avid.models.track import TrackType
 
 
-class FCPXMLExporter(TimelineExporter):
-    """Export timeline to Final Cut Pro XML format (.fcpxml)."""
+class FCPXMLExporter(ProjectExporter):
+    """Export project to Final Cut Pro XML format (.fcpxml)."""
 
     @property
     def format_name(self) -> str:
@@ -18,17 +20,17 @@ class FCPXMLExporter(TimelineExporter):
     def file_extension(self) -> str:
         return ".fcpxml"
 
-    async def export(self, timeline: Timeline, output_path: Path) -> Path:
-        """Export timeline to FCPXML format.
+    async def export(self, project: Project, output_path: Path) -> Path:
+        """Export project to FCPXML format.
 
         Args:
-            timeline: Timeline to export
+            project: Project to export
             output_path: Path for the output file
 
         Returns:
             Path to the exported file
         """
-        root = self._create_fcpxml_structure(timeline)
+        root = self._create_fcpxml_structure(project)
         tree = ET.ElementTree(root)
 
         # Ensure output path has correct extension
@@ -41,7 +43,7 @@ class FCPXMLExporter(TimelineExporter):
 
         return output_path
 
-    def _create_fcpxml_structure(self, timeline: Timeline) -> ET.Element:
+    def _create_fcpxml_structure(self, project: Project) -> ET.Element:
         """Create the FCPXML document structure."""
         # Root element
         fcpxml = ET.Element("fcpxml", version="1.10")
@@ -49,119 +51,210 @@ class FCPXMLExporter(TimelineExporter):
         # Resources
         resources = ET.SubElement(fcpxml, "resources")
 
+        # Get primary video track for format info
+        video_tracks = project.get_video_tracks()
+        primary_video_track = video_tracks[0] if video_tracks else None
+
+        # Determine format from primary video
+        fps = 30.0
+        width = 1920
+        height = 1080
+
+        if primary_video_track:
+            source = project.get_source_file(primary_video_track.source_file_id)
+            if source and source.info:
+                fps = source.info.fps or 30.0
+                width = source.info.width or 1920
+                height = source.info.height or 1080
+
         # Format resource
-        media_info = timeline.source_media.info
         format_id = "r1"
         format_attrs = {
             "id": format_id,
-            "name": f"FFVideoFormat{media_info.height or 1080}p{int(media_info.fps or 30)}",
+            "name": f"FFVideoFormat{height}p{int(fps)}",
+            "width": str(width),
+            "height": str(height),
+            "frameDuration": self._fps_to_frame_duration(fps),
         }
-        if media_info.width and media_info.height:
-            format_attrs["width"] = str(media_info.width)
-            format_attrs["height"] = str(media_info.height)
-        if media_info.fps:
-            format_attrs["frameDuration"] = self._fps_to_frame_duration(media_info.fps)
         ET.SubElement(resources, "format", **format_attrs)
 
-        # Asset resource
-        asset_id = "r2"
-        asset = ET.SubElement(
-            resources,
-            "asset",
-            id=asset_id,
-            name=timeline.source_media.original_name,
-            src=f"file://{timeline.source_media.path.absolute()}",
-        )
-        ET.SubElement(
-            asset,
-            "media-rep",
-            kind="original-media",
-            src=f"file://{timeline.source_media.path.absolute()}",
-        )
+        # Asset resources for each source file
+        asset_map: dict[str, str] = {}  # source_file_id -> asset_id
+        for i, source_file in enumerate(project.source_files):
+            asset_id = f"r{i + 2}"
+            asset_map[source_file.id] = asset_id
+
+            asset = ET.SubElement(
+                resources,
+                "asset",
+                id=asset_id,
+                name=source_file.original_name,
+                src=f"file://{source_file.path.absolute()}",
+            )
+            ET.SubElement(
+                asset,
+                "media-rep",
+                kind="original-media",
+                src=f"file://{source_file.path.absolute()}",
+            )
 
         # Library and Event
         library = ET.SubElement(fcpxml, "library")
-        event = ET.SubElement(library, "event", name="Auto Edit")
+        event = ET.SubElement(library, "event", name=project.name)
 
         # Project
-        project = ET.SubElement(event, "project", name="Auto Edit Project")
+        fcp_project = ET.SubElement(event, "project", name=project.name)
 
         # Sequence
+        duration_ms = project.duration_ms
         sequence = ET.SubElement(
-            project,
+            fcp_project,
             "sequence",
             format=format_id,
-            duration=self._ms_to_time(timeline.duration_ms, media_info.fps or 30),
+            duration=self._ms_to_time(duration_ms, fps),
         )
 
-        # Spine
+        # Spine (main video track)
         spine = ET.SubElement(sequence, "spine")
 
-        # Create clips based on edit decisions
-        self._add_clips_to_spine(spine, timeline, asset_id, format_id)
+        # Build timeline
+        self._build_timeline(spine, project, asset_map, format_id, fps)
 
         return fcpxml
 
-    def _add_clips_to_spine(
+    def _build_timeline(
         self,
         spine: ET.Element,
-        timeline: Timeline,
-        asset_id: str,
+        project: Project,
+        asset_map: dict[str, str],
         format_id: str,
+        fps: float,
     ) -> None:
-        """Add clips to the spine, excluding cut regions."""
-        fps = timeline.source_media.info.fps or 30
-
-        # Get all cut decisions and sort by start time
-        cuts = sorted(
-            [ed for ed in timeline.edit_decisions if ed.edit_type == EditType.CUT],
-            key=lambda x: x.range.start_ms,
-        )
-
-        # If no cuts, add the full clip
-        if not cuts:
-            clip = ET.SubElement(
-                spine,
-                "asset-clip",
-                ref=asset_id,
-                duration=self._ms_to_time(timeline.duration_ms, fps),
-                start=self._ms_to_time(0, fps),
-                format=format_id,
-            )
+        """Build the timeline with clips based on edit decisions."""
+        # If no edit decisions, add all source files as sequential clips
+        if not project.edit_decisions:
+            self._add_simple_timeline(spine, project, asset_map, format_id, fps)
             return
 
-        # Build segments between cuts
-        current_position = 0
-        for cut in cuts:
-            if cut.range.start_ms > current_position:
-                # Add segment before this cut
-                segment_duration = cut.range.start_ms - current_position
-                ET.SubElement(
-                    spine,
-                    "asset-clip",
-                    ref=asset_id,
-                    duration=self._ms_to_time(segment_duration, fps),
-                    start=self._ms_to_time(current_position, fps),
-                    format=format_id,
-                )
-            current_position = cut.range.end_ms
+        # Build timeline based on edit decisions
+        self._add_edited_timeline(spine, project, asset_map, format_id, fps)
 
-        # Add final segment after last cut
-        if current_position < timeline.duration_ms:
-            segment_duration = timeline.duration_ms - current_position
-            ET.SubElement(
-                spine,
-                "asset-clip",
-                ref=asset_id,
-                duration=self._ms_to_time(segment_duration, fps),
-                start=self._ms_to_time(current_position, fps),
-                format=format_id,
-            )
+    def _add_simple_timeline(
+        self,
+        spine: ET.Element,
+        project: Project,
+        asset_map: dict[str, str],
+        format_id: str,
+        fps: float,
+    ) -> None:
+        """Add a simple timeline with all video sources (no edits)."""
+        video_tracks = project.get_video_tracks()
+
+        if not video_tracks:
+            return
+
+        # Use first video track as primary
+        primary_track = video_tracks[0]
+        source = project.get_source_file(primary_track.source_file_id)
+
+        if not source:
+            return
+
+        asset_id = asset_map.get(source.id)
+        if not asset_id:
+            return
+
+        # Add primary video clip
+        duration_ms = source.info.duration_ms
+        ET.SubElement(
+            spine,
+            "asset-clip",
+            ref=asset_id,
+            duration=self._ms_to_time(duration_ms, fps),
+            start=self._ms_to_time(0, fps),
+            format=format_id,
+            name=source.original_name,
+        )
+
+        # Add other video tracks as connected clips (multicam style)
+        for track in video_tracks[1:]:
+            other_source = project.get_source_file(track.source_file_id)
+            if not other_source:
+                continue
+
+            other_asset_id = asset_map.get(other_source.id)
+            if not other_asset_id:
+                continue
+
+            # Connected clip with offset
+            offset_time = self._ms_to_time(track.offset_ms, fps)
+            # Note: Connected clips are added differently in FCPXML
+            # For now, we just add them to spine with their offset
+
+        # Add audio-only tracks as connected audio
+        for track in project.get_audio_tracks():
+            # Skip audio from video files (already included)
+            source = project.get_source_file(track.source_file_id)
+            if source and source.is_video:
+                continue
+
+            # Audio-only file
+            if source:
+                audio_asset_id = asset_map.get(source.id)
+                if audio_asset_id:
+                    # Add as connected audio clip
+                    # TODO: Implement connected audio clips
+                    pass
+
+    def _add_edited_timeline(
+        self,
+        spine: ET.Element,
+        project: Project,
+        asset_map: dict[str, str],
+        format_id: str,
+        fps: float,
+    ) -> None:
+        """Add timeline with edit decisions applied."""
+        # Sort edit decisions by start time
+        decisions = sorted(project.edit_decisions, key=lambda d: d.range.start_ms)
+
+        for decision in decisions:
+            if decision.edit_type == EditType.CUT:
+                # Skip this segment (cut out)
+                continue
+
+            # Get active video track
+            if decision.active_video_track_id:
+                track = project.get_track(decision.active_video_track_id)
+                if track:
+                    source = project.get_source_file(track.source_file_id)
+                    if source:
+                        asset_id = asset_map.get(source.id)
+                        if asset_id:
+                            # Calculate source start time (accounting for track offset)
+                            source_start_ms = decision.range.start_ms - track.offset_ms
+                            source_start_ms = max(0, source_start_ms)
+
+                            duration_ms = decision.range.duration_ms
+
+                            clip = ET.SubElement(
+                                spine,
+                                "asset-clip",
+                                ref=asset_id,
+                                duration=self._ms_to_time(duration_ms, fps),
+                                start=self._ms_to_time(source_start_ms, fps),
+                                format=format_id,
+                                name=source.original_name,
+                            )
+
+                            # Handle speed changes
+                            if decision.speed_factor != 1.0:
+                                # TODO: Add retime element for speed changes
+                                pass
 
     def _ms_to_time(self, ms: int, fps: float) -> str:
         """Convert milliseconds to FCPXML time format (frames/fps)."""
         frames = int(ms * fps / 1000)
-        # Use integer frame rate for duration string
         fps_int = int(fps)
         return f"{frames}/{fps_int}s"
 

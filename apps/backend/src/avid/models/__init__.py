@@ -2,14 +2,27 @@
 
 from avid.models.media import MediaFile, MediaInfo
 from avid.models.pipeline import PipelineConfig, StageResult
-from avid.models.timeline import EditDecision, TimeRange, Timeline
+from avid.models.project import Project, Transcription, TranscriptSegment
+from avid.models.timeline import EditDecision, EditReason, EditType, TimeRange
+from avid.models.track import Track, TrackType
 
 __all__ = [
+    # Media
     "MediaInfo",
     "MediaFile",
+    # Track
+    "Track",
+    "TrackType",
+    # Timeline
     "TimeRange",
+    "EditType",
+    "EditReason",
     "EditDecision",
-    "Timeline",
+    # Project
+    "Project",
+    "Transcription",
+    "TranscriptSegment",
+    # Pipeline
     "StageResult",
     "PipelineConfig",
 ]
