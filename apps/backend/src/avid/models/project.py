@@ -206,3 +206,64 @@ class Project(BaseModel):
             data = json.load(f)
 
         return cls.model_validate(data)
+
+    @classmethod
+    def load_and_merge(cls, paths: list[Path], name: str | None = None) -> "Project":
+        """Load multiple project files and merge them into one.
+
+        Edit decisions are preserved as-is (may have overlapping ranges).
+        Use FCPXMLExporter to handle merging overlapping cuts during export.
+
+        Args:
+            paths: List of project file paths to merge
+            name: Optional name for merged project
+
+        Returns:
+            Merged Project
+        """
+        if not paths:
+            raise ValueError("At least one project path is required")
+
+        # Load first project as base
+        merged = cls.load(paths[0])
+
+        # Merge remaining projects
+        for path in paths[1:]:
+            other = cls.load(path)
+            merged.merge_from(other)
+
+        if name:
+            merged.name = name
+
+        merged.updated_at = datetime.now()
+        return merged
+
+    def merge_from(self, other: "Project") -> None:
+        """Merge another project into this one.
+
+        - Source files are merged (duplicates by ID are skipped)
+        - Tracks are merged (duplicates by ID are skipped)
+        - All edit decisions are appended (may result in overlaps)
+        - Transcription from other is ignored (keeps current)
+
+        Args:
+            other: Project to merge from
+        """
+        # Merge source files (skip duplicates by ID)
+        existing_file_ids = {f.id for f in self.source_files}
+        for source_file in other.source_files:
+            if source_file.id not in existing_file_ids:
+                self.source_files.append(source_file)
+                existing_file_ids.add(source_file.id)
+
+        # Merge tracks (skip duplicates by ID)
+        existing_track_ids = {t.id for t in self.tracks}
+        for track in other.tracks:
+            if track.id not in existing_track_ids:
+                self.tracks.append(track)
+                existing_track_ids.add(track.id)
+
+        # Append all edit decisions (allow overlaps - they preserve different reasons)
+        self.edit_decisions.extend(other.edit_decisions)
+
+        self.updated_at = datetime.now()

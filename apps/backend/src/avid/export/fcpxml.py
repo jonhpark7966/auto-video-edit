@@ -234,6 +234,10 @@ class FCPXMLExporter(ProjectExporter):
         that are NOT cut out). CUT edit decisions define what to remove,
         so we include everything else.
 
+        Overlapping CUT decisions are merged into unified ranges before
+        building the timeline. This handles cases where multiple edit
+        passes (e.g., silence detection + manual cuts) have overlapping regions.
+
         Args:
             show_disabled_cuts: If True, CUT segments are included but disabled.
         """
@@ -264,15 +268,17 @@ class FCPXMLExporter(ProjectExporter):
             key=lambda d: d.range.start_ms,
         )
 
+        # Merge overlapping cut ranges
+        merged_cuts = self._merge_overlapping_ranges(
+            [(d.range.start_ms, d.range.end_ms) for d in cut_decisions]
+        )
+
         # Build all segments with their enabled/disabled state
         # Each segment: (start_ms, end_ms, enabled)
         segments: list[tuple[int, int, bool]] = []
         current_pos = 0
 
-        for decision in cut_decisions:
-            cut_start = decision.range.start_ms
-            cut_end = decision.range.end_ms
-
+        for cut_start, cut_end in merged_cuts:
             # Add segment before this cut (if any) - enabled
             if cut_start > current_pos:
                 segments.append((current_pos, cut_start, True))
@@ -282,7 +288,7 @@ class FCPXMLExporter(ProjectExporter):
                 segments.append((cut_start, cut_end, False))
 
             # Move position past the cut
-            current_pos = max(current_pos, cut_end)
+            current_pos = cut_end
 
         # Add final segment after last cut (if any) - enabled
         if current_pos < total_duration_ms:
@@ -302,6 +308,40 @@ class FCPXMLExporter(ProjectExporter):
                 clip_attrs["enabled"] = "0"
 
             ET.SubElement(spine, "asset-clip", **clip_attrs)
+
+    def _merge_overlapping_ranges(
+        self, ranges: list[tuple[int, int]]
+    ) -> list[tuple[int, int]]:
+        """Merge overlapping or adjacent time ranges.
+
+        Args:
+            ranges: List of (start_ms, end_ms) tuples
+
+        Returns:
+            List of merged (start_ms, end_ms) tuples, sorted by start time
+        """
+        if not ranges:
+            return []
+
+        # Sort by start time
+        sorted_ranges = sorted(ranges, key=lambda r: r[0])
+
+        merged: list[tuple[int, int]] = []
+        current_start, current_end = sorted_ranges[0]
+
+        for start, end in sorted_ranges[1:]:
+            if start <= current_end:
+                # Overlapping or adjacent - extend current range
+                current_end = max(current_end, end)
+            else:
+                # Gap - save current and start new
+                merged.append((current_start, current_end))
+                current_start, current_end = start, end
+
+        # Don't forget the last range
+        merged.append((current_start, current_end))
+
+        return merged
 
     def _ms_to_time(self, ms: int, fps: float) -> str:
         """Convert milliseconds to FCPXML time format (frames/fps)."""
