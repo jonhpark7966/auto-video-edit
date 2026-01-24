@@ -89,7 +89,7 @@ class FCPXMLExporter(ProjectExporter):
                 "asset",
                 id=asset_id,
                 name=source_file.original_name,
-                src=f"file://{source_file.path.absolute()}",
+                uid=source_file.id,
             )
             ET.SubElement(
                 asset,
@@ -214,43 +214,70 @@ class FCPXMLExporter(ProjectExporter):
         format_id: str,
         fps: float,
     ) -> None:
-        """Add timeline with edit decisions applied."""
-        # Sort edit decisions by start time
-        decisions = sorted(project.edit_decisions, key=lambda d: d.range.start_ms)
+        """Add timeline with edit decisions applied.
 
-        for decision in decisions:
-            if decision.edit_type == EditType.CUT:
-                # Skip this segment (cut out)
-                continue
+        This builds the timeline by finding segments to KEEP (i.e., segments
+        that are NOT cut out). CUT edit decisions define what to remove,
+        so we include everything else.
+        """
+        # Get primary video track and source
+        video_tracks = project.get_video_tracks()
+        if not video_tracks:
+            return
 
-            # Get active video track
-            if decision.active_video_track_id:
-                track = project.get_track(decision.active_video_track_id)
-                if track:
-                    source = project.get_source_file(track.source_file_id)
-                    if source:
-                        asset_id = asset_map.get(source.id)
-                        if asset_id:
-                            # Calculate source start time (accounting for track offset)
-                            source_start_ms = decision.range.start_ms - track.offset_ms
-                            source_start_ms = max(0, source_start_ms)
+        primary_track = video_tracks[0]
+        source = project.get_source_file(primary_track.source_file_id)
+        if not source:
+            return
 
-                            duration_ms = decision.range.duration_ms
+        asset_id = asset_map.get(source.id)
+        if not asset_id:
+            return
 
-                            clip = ET.SubElement(
-                                spine,
-                                "asset-clip",
-                                ref=asset_id,
-                                duration=self._ms_to_time(duration_ms, fps),
-                                start=self._ms_to_time(source_start_ms, fps),
-                                format=format_id,
-                                name=source.original_name,
-                            )
+        total_duration_ms = source.info.duration_ms
 
-                            # Handle speed changes
-                            if decision.speed_factor != 1.0:
-                                # TODO: Add retime element for speed changes
-                                pass
+        # Get all CUT decisions for this track, sorted by start time
+        cut_decisions = sorted(
+            [
+                d
+                for d in project.edit_decisions
+                if d.edit_type == EditType.CUT
+                and d.active_video_track_id == primary_track.id
+            ],
+            key=lambda d: d.range.start_ms,
+        )
+
+        # Build segments to KEEP (gaps between cuts)
+        keep_segments: list[tuple[int, int]] = []
+        current_pos = 0
+
+        for decision in cut_decisions:
+            cut_start = decision.range.start_ms
+            cut_end = decision.range.end_ms
+
+            # Add segment before this cut (if any)
+            if cut_start > current_pos:
+                keep_segments.append((current_pos, cut_start))
+
+            # Move position past the cut
+            current_pos = max(current_pos, cut_end)
+
+        # Add final segment after last cut (if any)
+        if current_pos < total_duration_ms:
+            keep_segments.append((current_pos, total_duration_ms))
+
+        # Add clips for each kept segment
+        for start_ms, end_ms in keep_segments:
+            duration_ms = end_ms - start_ms
+            ET.SubElement(
+                spine,
+                "asset-clip",
+                ref=asset_id,
+                duration=self._ms_to_time(duration_ms, fps),
+                start=self._ms_to_time(start_ms, fps),
+                format=format_id,
+                name=source.original_name,
+            )
 
     def _ms_to_time(self, ms: int, fps: float) -> str:
         """Convert milliseconds to FCPXML time format (frames/fps)."""
