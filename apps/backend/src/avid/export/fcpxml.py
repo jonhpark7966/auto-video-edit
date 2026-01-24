@@ -79,12 +79,14 @@ class FCPXMLExporter(ProjectExporter):
 
         # Format resource
         format_id = "r1"
+        format_name = self._get_format_name(width, height, fps)
+        frame_duration = self._fps_to_frame_duration(fps)
         format_attrs = {
             "id": format_id,
-            "name": f"FFVideoFormat{height}p{int(fps)}",
+            "name": format_name,
             "width": str(width),
             "height": str(height),
-            "frameDuration": self._fps_to_frame_duration(fps),
+            "frameDuration": frame_duration,
         }
         ET.SubElement(resources, "format", **format_attrs)
 
@@ -344,12 +346,78 @@ class FCPXMLExporter(ProjectExporter):
         return merged
 
     def _ms_to_time(self, ms: int, fps: float) -> str:
-        """Convert milliseconds to FCPXML time format (frames/fps)."""
-        frames = int(ms * fps / 1000)
-        fps_int = int(fps)
-        return f"{frames}/{fps_int}s"
+        """Convert milliseconds to FCPXML time format.
+
+        For NTSC frame rates (23.976, 29.97, 59.94), use 1001-based timing.
+        For integer frame rates, use simple frames/fps format.
+        """
+        # Handle common NTSC frame rates with proper rational timing
+        if abs(fps - 23.976) < 0.01:
+            # 23.976 fps: time in 1/24000s units
+            # frames * 1001 gives time in 1/24000s
+            frames = int(ms * 24000 / 1000 / 1001)
+            time_units = frames * 1001
+            return f"{time_units}/24000s"
+        elif abs(fps - 29.97) < 0.01:
+            # 29.97 fps: time in 1/30000s units
+            frames = int(ms * 30000 / 1000 / 1001)
+            time_units = frames * 1001
+            return f"{time_units}/30000s"
+        elif abs(fps - 59.94) < 0.01:
+            # 59.94 fps: time in 1/60000s units
+            frames = int(ms * 60000 / 1000 / 1001)
+            time_units = frames * 1001
+            return f"{time_units}/60000s"
+        else:
+            # Integer frame rates
+            frames = int(ms * fps / 1000)
+            fps_int = int(round(fps))
+            return f"{frames}/{fps_int}s"
 
     def _fps_to_frame_duration(self, fps: float) -> str:
-        """Convert FPS to frame duration format."""
-        fps_int = int(fps)
-        return f"1/{fps_int}s"
+        """Convert FPS to frame duration format.
+
+        Common frame rates and their durations:
+        - 23.976 fps: 1001/24000s
+        - 24 fps: 1/24s
+        - 25 fps: 1/25s
+        - 29.97 fps: 1001/30000s
+        - 30 fps: 1/30s
+        - 59.94 fps: 1001/60000s
+        - 60 fps: 1/60s
+        """
+        # Handle common NTSC frame rates with proper rational numbers
+        if abs(fps - 23.976) < 0.01:
+            return "1001/24000s"
+        elif abs(fps - 29.97) < 0.01:
+            return "1001/30000s"
+        elif abs(fps - 59.94) < 0.01:
+            return "1001/60000s"
+        else:
+            fps_int = int(round(fps))
+            return f"1/{fps_int}s"
+
+    def _get_format_name(self, width: int, height: int, fps: float) -> str:
+        """Generate FCP format name.
+
+        FCP format names follow pattern: FFVideoFormat{height}p{fps_code}
+        Common fps codes:
+        - 23.976 fps: 2398
+        - 24 fps: 24
+        - 25 fps: 25
+        - 29.97 fps: 2997
+        - 30 fps: 30
+        - 59.94 fps: 5994
+        - 60 fps: 60
+        """
+        # Determine fps code for format name
+        if abs(fps - 23.976) < 0.01:
+            fps_code = "2398"
+        elif abs(fps - 29.97) < 0.01:
+            fps_code = "2997"
+        elif abs(fps - 59.94) < 0.01:
+            fps_code = "5994"
+        else:
+            fps_code = str(int(round(fps)))
+
+        return f"FFVideoFormat{height}p{fps_code}"
