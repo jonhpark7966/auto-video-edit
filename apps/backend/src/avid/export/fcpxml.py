@@ -20,17 +20,25 @@ class FCPXMLExporter(ProjectExporter):
     def file_extension(self) -> str:
         return ".fcpxml"
 
-    async def export(self, project: Project, output_path: Path) -> Path:
+    async def export(
+        self,
+        project: Project,
+        output_path: Path,
+        show_disabled_cuts: bool = False,
+    ) -> Path:
         """Export project to FCPXML format.
 
         Args:
             project: Project to export
             output_path: Path for the output file
+            show_disabled_cuts: If True, CUT segments are included but disabled
+                               in the timeline (visible but won't play).
+                               If False, CUT segments are completely removed.
 
         Returns:
             Path to the exported file
         """
-        root = self._create_fcpxml_structure(project)
+        root = self._create_fcpxml_structure(project, show_disabled_cuts)
         tree = ET.ElementTree(root)
 
         # Ensure output path has correct extension
@@ -43,7 +51,9 @@ class FCPXMLExporter(ProjectExporter):
 
         return output_path
 
-    def _create_fcpxml_structure(self, project: Project) -> ET.Element:
+    def _create_fcpxml_structure(
+        self, project: Project, show_disabled_cuts: bool = False
+    ) -> ET.Element:
         """Create the FCPXML document structure."""
         # Root element
         fcpxml = ET.Element("fcpxml", version="1.10")
@@ -118,7 +128,7 @@ class FCPXMLExporter(ProjectExporter):
         spine = ET.SubElement(sequence, "spine")
 
         # Build timeline
-        self._build_timeline(spine, project, asset_map, format_id, fps)
+        self._build_timeline(spine, project, asset_map, format_id, fps, show_disabled_cuts)
 
         return fcpxml
 
@@ -129,6 +139,7 @@ class FCPXMLExporter(ProjectExporter):
         asset_map: dict[str, str],
         format_id: str,
         fps: float,
+        show_disabled_cuts: bool = False,
     ) -> None:
         """Build the timeline with clips based on edit decisions."""
         # If no edit decisions, add all source files as sequential clips
@@ -137,7 +148,9 @@ class FCPXMLExporter(ProjectExporter):
             return
 
         # Build timeline based on edit decisions
-        self._add_edited_timeline(spine, project, asset_map, format_id, fps)
+        self._add_edited_timeline(
+            spine, project, asset_map, format_id, fps, show_disabled_cuts
+        )
 
     def _add_simple_timeline(
         self,
@@ -213,12 +226,16 @@ class FCPXMLExporter(ProjectExporter):
         asset_map: dict[str, str],
         format_id: str,
         fps: float,
+        show_disabled_cuts: bool = False,
     ) -> None:
         """Add timeline with edit decisions applied.
 
         This builds the timeline by finding segments to KEEP (i.e., segments
         that are NOT cut out). CUT edit decisions define what to remove,
         so we include everything else.
+
+        Args:
+            show_disabled_cuts: If True, CUT segments are included but disabled.
         """
         # Get primary video track and source
         video_tracks = project.get_video_tracks()
@@ -247,37 +264,44 @@ class FCPXMLExporter(ProjectExporter):
             key=lambda d: d.range.start_ms,
         )
 
-        # Build segments to KEEP (gaps between cuts)
-        keep_segments: list[tuple[int, int]] = []
+        # Build all segments with their enabled/disabled state
+        # Each segment: (start_ms, end_ms, enabled)
+        segments: list[tuple[int, int, bool]] = []
         current_pos = 0
 
         for decision in cut_decisions:
             cut_start = decision.range.start_ms
             cut_end = decision.range.end_ms
 
-            # Add segment before this cut (if any)
+            # Add segment before this cut (if any) - enabled
             if cut_start > current_pos:
-                keep_segments.append((current_pos, cut_start))
+                segments.append((current_pos, cut_start, True))
+
+            # Add the cut segment itself - disabled (only if show_disabled_cuts)
+            if show_disabled_cuts:
+                segments.append((cut_start, cut_end, False))
 
             # Move position past the cut
             current_pos = max(current_pos, cut_end)
 
-        # Add final segment after last cut (if any)
+        # Add final segment after last cut (if any) - enabled
         if current_pos < total_duration_ms:
-            keep_segments.append((current_pos, total_duration_ms))
+            segments.append((current_pos, total_duration_ms, True))
 
-        # Add clips for each kept segment
-        for start_ms, end_ms in keep_segments:
+        # Add clips for each segment
+        for start_ms, end_ms, enabled in segments:
             duration_ms = end_ms - start_ms
-            ET.SubElement(
-                spine,
-                "asset-clip",
-                ref=asset_id,
-                duration=self._ms_to_time(duration_ms, fps),
-                start=self._ms_to_time(start_ms, fps),
-                format=format_id,
-                name=source.original_name,
-            )
+            clip_attrs = {
+                "ref": asset_id,
+                "duration": self._ms_to_time(duration_ms, fps),
+                "start": self._ms_to_time(start_ms, fps),
+                "format": format_id,
+                "name": source.original_name,
+            }
+            if not enabled:
+                clip_attrs["enabled"] = "0"
+
+            ET.SubElement(spine, "asset-clip", **clip_attrs)
 
     def _ms_to_time(self, ms: int, fps: float) -> str:
         """Convert milliseconds to FCPXML time format (frames/fps)."""
