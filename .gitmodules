@@ -1,0 +1,3 @@
+[submodule "skillthon"]
+	path = skillthon
+	url = git@github.com:jonhpark7966/skillthon.git
