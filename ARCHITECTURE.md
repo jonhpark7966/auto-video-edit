@@ -24,7 +24,7 @@
 ### 3. 음성 인식 (Whisper + 확장)
 - ✅ Whisper로 자동 자막 생성
 - ✅ Transcription Engine 교체 가능 (플러그인 구조)
-- ✅ 향후 다른 엔진 추가 예정 (Deepgram, AssemblyAI 등)
+- ✅ 향후 다른 엔진 추가 예정 (플러그인 구조)
 
 ### 4. 테스트 & 평가
 - ✅ 각 로직마다 테스트 가능
@@ -83,8 +83,7 @@
 │                  Provider Layer (Plugins)                │
 │  - Transcription Providers:                              │
 │    - WhisperProvider (기본)                             │
-│    - DeepgramProvider (향후)                            │
-│    - AssemblyAIProvider (향후)                          │
+│    - (향후 확장 가능한 플러그인 구조)                    │
 │  - AI Analysis Providers:                                │
 │    - ClaudeProvider (기본)                              │
 │    - CodexProvider (기본)                               │
@@ -527,10 +526,7 @@ transcription/
 ├── base.py              # ITranscriptionProvider 인터페이스
 ├── providers/
 │   ├── __init__.py
-│   ├── whisper.py       # WhisperProvider (기본)
-│   ├── faster_whisper.py # FasterWhisperProvider
-│   ├── deepgram.py      # DeepgramProvider (향후)
-│   └── assemblyai.py    # AssemblyAIProvider (향후)
+│   └── whisper.py       # WhisperProvider (기본)
 └── service.py           # TranscriptionService (메인)
 ```
 
@@ -629,30 +625,6 @@ class WhisperProvider:
     def supported_languages(self) -> list[str]:
         return ["ko", "en", "ja", "zh", "es", "fr", "de", ...]  # Whisper 지원 언어
 
-# providers/faster_whisper.py
-from faster_whisper import WhisperModel
-
-class FasterWhisperProvider:
-    """faster-whisper (CTranslate2 기반, 4배 빠름)"""
-    
-    def __init__(self, model_name: str = "base"):
-        self.model_name = model_name
-        self.model = None
-    
-    async def transcribe(
-        self, audio_path, language=None, options=None
-    ) -> TranscriptionResult:
-        if self.model is None:
-            self.model = WhisperModel(self.model_name)
-        
-        segments, info = self.model.transcribe(
-            str(audio_path),
-            language=language,
-            **options or {}
-        )
-        
-        # 결과 변환 (생략)
-        ...
 ```
 
 **메인 서비스**:
@@ -673,10 +645,7 @@ class TranscriptionService:
         except ImportError:
             logger.warning("Whisper not available")
         
-        try:
-            self.providers["faster-whisper-base"] = FasterWhisperProvider("base")
-        except ImportError:
-            logger.warning("faster-whisper not available")
+        # 향후 추가 엔진은 플러그인으로 등록
     
     async def transcribe(
         self,
@@ -919,9 +888,7 @@ class VideoAnalyzer:
         Returns:
             List[SceneChange] with timestamp_ms
         
-        사용 라이브러리:
-        - PySceneDetect
-        - OpenCV
+        구체적 라이브러리는 향후 결정
         """
         ...
 ```
@@ -945,9 +912,7 @@ class SpeakerAnalyzer:
             - speaker_id (0, 1, 2, ...)
             - confidence
         
-        사용 라이브러리:
-        - pyannote.audio
-        - speechbrain
+        구체적 라이브러리는 향후 결정
         """
         ...
 ```

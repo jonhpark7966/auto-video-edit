@@ -71,11 +71,8 @@
 
 ### 자동 음성 인식 (Whisper)
 - 자막이 없을 때 자동 생성
-- 플러그인 가능한 엔진:
-  - Whisper (기본)
-  - Faster-Whisper (2-4배 빠름)
-  - Deepgram (클라우드)
-  - AssemblyAI (클라우드)
+- Whisper (기본)
+- 플러그인 가능한 엔진 구조 (향후 다른 엔진 추가 가능)
 
 ### 멀티 AI 분석
 - **Claude + Codex**: 자막 분석에 두 AI 모두 사용
@@ -84,9 +81,8 @@
 - **확장 가능**: 추가 AI 프로바이더 지원
 
 ### 미래 확장 기능
-- **장면 감지**: PySceneDetect
-- **화자 분리**: pyannote-audio
-- **감정 분석**: 얼굴 표정 (MediaPipe)
+- **화면 기반 편집**: 장면 변화 감지, 얼굴 인식 등 (구체적 기술 미정)
+- **음성 기반 편집**: 화자 분리, 감정 분석 등 (구체적 기술 미정)
 
 ---
 
@@ -112,7 +108,7 @@
 
 5. **플러그인 가능한 트랜스크립션 엔진**
    - TranscriptionProvider 인터페이스
-   - Whisper, Faster-Whisper, Deepgram, AssemblyAI 지원
+    - Whisper (기본), 플러그인 가능한 엔진 인터페이스
 
 ### 기술 스택
 
@@ -125,11 +121,9 @@
 - **내보내기**: FCPXML, Premiere XML
 
 #### 추가 예정
-- **음성인식**: Whisper / Faster-Whisper (Phase 3)
+- **음성인식**: Whisper (Phase 3)
 - **멀티 AI**: Codex CLI (Phase 4)
-- **장면 감지**: PySceneDetect (Phase 6)
-- **화자 분리**: pyannote-audio (Phase 6)
-- **얼굴 감지**: MediaPipe (Phase 6)
+- **화면/음성 기반 편집**: 확장 인터페이스만 정의 (Phase 7, 구체적 기술 미정)
 - **테스트**: pytest, pytest-asyncio
 - **로깅**: Python logging
 - **평가**: scikit-learn (메트릭 계산)
@@ -282,26 +276,14 @@ class TranscriptionProvider(Protocol):
 - 로컬 실행
 - 높은 정확도
 
-**Faster-Whisper (권장)**
-- CTranslate2 기반
-- 2-4배 빠른 속도
-- 동일한 정확도
-
-**Deepgram (클라우드)**
-- API 기반
-- 실시간 처리
-- 유료
-
-**AssemblyAI (클라우드)**
-- API 기반
-- 화자 분리 지원
-- 유료
+**향후 확장**
+- 플러그인 가능한 TranscriptionProvider 인터페이스
+- 사용자가 원하는 엔진 추가 가능
 
 ### 3.3. 작업 내용
 
 - [ ] TranscriptionProvider 인터페이스 정의
 - [ ] WhisperProvider 구현
-- [ ] FasterWhisperProvider 구현
 - [ ] TranscriptionFactory (프로바이더 선택)
 - [ ] TranscribeStage 파이프라인 단계
 - [ ] SRT 파일 생성
@@ -334,7 +316,6 @@ avid-cli video.mp4 \
 ### 예상 작업 시간
 - 인터페이스 설계: 0.5일
 - Whisper 구현: 1일
-- Faster-Whisper 구현: 0.5일
 - TranscribeStage: 0.5일
 - 평가 프레임워크: 1일
 - 통합 테스트: 0.5일
@@ -586,29 +567,26 @@ avid-eval \
 
 **목표**: 고급 분석 기능 추가
 
-### 7.1. 장면 감지 (PySceneDetect)
+### 7.1. 장면 감지
 
-- [ ] SceneDetectionService 구현
-- [ ] PySceneDetect 연동
-- [ ] 장면 전환 감지
+- [ ] SceneDetectionService 인터페이스 정의
+- [ ] 장면 전환 감지 구현 (기술 선정 시 결정)
 - [ ] SceneStage 파이프라인 단계
 
 **예상 작업 시간**: 2일
 
-### 7.2. 화자 분리 (pyannote-audio)
+### 7.2. 화자 분리
 
-- [ ] SpeakerDiarizationService 구현
-- [ ] pyannote-audio 연동
-- [ ] 화자별 세그먼트 분리
+- [ ] SpeakerDiarizationService 인터페이스 정의
+- [ ] 화자별 세그먼트 분리 구현 (기술 선정 시 결정)
 - [ ] SpeakerStage 파이프라인 단계
 
 **예상 작업 시간**: 3일
 
-### 7.3. 감정 분석 (MediaPipe)
+### 7.3. 감정 분석
 
-- [ ] EmotionDetectionService 구현
-- [ ] MediaPipe 얼굴 감지
-- [ ] 표정 기반 감정 분석
+- [ ] EmotionDetectionService 인터페이스 정의
+- [ ] 감정 분석 구현 (기술 선정 시 결정)
 - [ ] EmotionStage 파이프라인 단계
 
 **예상 작업 시간**: 3일
@@ -717,10 +695,6 @@ avid-eval \
 - `srcs/C1718_compressed.srt` (자막)
 
 ### 연구 자료
-- **Faster-Whisper**: https://github.com/guillaumekln/faster-whisper
-- **PySceneDetect**: https://github.com/Breakthrough/PySceneDetect
-- **pyannote-audio**: https://github.com/pyannote/pyannote-audio
-- **MediaPipe**: https://github.com/google/mediapipe
 - **LiteLLM**: https://github.com/BerriAI/litellm
 
 ---
