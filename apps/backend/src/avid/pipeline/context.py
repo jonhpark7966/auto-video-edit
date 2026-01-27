@@ -16,19 +16,16 @@ class PipelineContext(BaseModel):
     results as the pipeline progresses.
     """
 
-    # Input media
     video_file: MediaFile | None = Field(None, description="Input video file")
     audio_file: MediaFile | None = Field(None, description="Input audio file (for separate audio)")
+    srt_path: Path | None = Field(None, description="Input SRT subtitle file path")
 
-    # Working data
     timeline: Timeline | None = Field(None, description="Current editing timeline")
     transcription: dict[str, Any] | None = Field(None, description="Transcription result")
 
-    # Paths
     working_dir: Path = Field(..., description="Working directory for temp files")
     output_dir: Path = Field(..., description="Output directory")
 
-    # Stage results
     stage_data: dict[str, dict[str, Any]] = Field(
         default_factory=dict, description="Data from completed stages"
     )
