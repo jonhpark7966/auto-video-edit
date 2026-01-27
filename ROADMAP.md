@@ -4,6 +4,12 @@
 실제 작동하는 기능을 우선 구현하고, 점진적으로 개선합니다.
 각 Phase가 완료되면 다음 Phase로 넘어갑니다.
 
+**핵심 원칙**:
+- **정확도 > 속도**: 품질이 최우선
+- **테스트 가능성**: 모든 컴포넌트는 평가 프레임워크로 검증
+- **확장 가능성**: 플러그인 가능한 아키텍처
+- **사용자 중심**: 에러 발생 시 사용자에게 명확히 알림
+
 ---
 
 ## 현재 상태 (2026-01-28)
@@ -21,11 +27,112 @@
 - **파이프라인 스테이지**: 인터페이스만 정의, 실제 구현 없음 (0개)
 - **스킬 통합**: 독립 실행만 가능, 백엔드 파이프라인과 미통합
 - **테스트**: 거의 없음
+- **평가 프레임워크**: 미구현
 
 ### 🔍 검증 필요한 것
 - **detect-silence 스킬**: 972줄의 복잡한 구현, 실제 품질 미검증
 - **subtitle-cut 스킬**: Claude 의존성, 에러 핸들링 부족
 - **FCPXML 출력**: 실제 FCP에서 테스트 필요
+
+---
+
+## 사용자 요구사항 (최종 확정)
+
+### 핵심 기능
+1. **FFmpeg + SRT 기반 편집**
+   - FFmpeg: 무음 감지, 미디어 처리
+   - SRT: 자막 기반 세그먼트 분석
+   - 구현: 백엔드 서비스 (스킬 아님)
+
+2. **결합 모드**
+   - `or` 모드: FFmpeg OR SRT 중 하나라도 컷 대상이면 제거
+   - `tight` 옵션: 컷 구간을 최소화 (보수적 접근)
+
+3. **에러 핸들링**
+   - 에러 발생 시 사용자에게 명확히 알림
+   - 규칙 기반 폴백 없음 (AI 실패 시 사용자 판단)
+
+4. **우선순위**
+   - 정확도 > 속도
+   - 품질이 최우선
+
+5. **사용 사례**
+   - 인터뷰 영상
+   - 강의 영상
+   - 팟캐스트
+
+6. **언어 지원**
+   - 1차: 한국어
+   - 2차: 다국어 확장
+
+7. **품질 중시**
+   - 모든 컴포넌트는 평가 프레임워크로 검증
+   - 정량적 메트릭 (IoU, Precision, Recall, F1)
+
+### 자동 음성 인식 (Whisper)
+- 자막이 없을 때 자동 생성
+- 플러그인 가능한 엔진:
+  - Whisper (기본)
+  - Faster-Whisper (2-4배 빠름)
+  - Deepgram (클라우드)
+  - AssemblyAI (클라우드)
+
+### 멀티 AI 분석
+- **Claude + Codex**: 자막 분석에 두 AI 모두 사용
+- **결과 집계**: 두 AI의 분석 결과를 종합
+- **기본 의사결정자**: Claude
+- **확장 가능**: 추가 AI 프로바이더 지원
+
+### 미래 확장 기능
+- **장면 감지**: PySceneDetect
+- **화자 분리**: pyannote-audio
+- **감정 분석**: 얼굴 표정 (MediaPipe)
+
+---
+
+## 아키텍처 결정
+
+### 설계 원칙
+1. **프로토콜 기반 서비스 인터페이스**
+   - 기존 패턴 유지
+   - 느슨한 결합, 높은 테스트 가능성
+
+2. **파이프라인 스테이지 시스템**
+   - 기존 패턴 유지
+   - 각 스테이지는 독립적으로 테스트 가능
+
+3. **멀티 프로바이더 패턴**
+   - Factory 패턴으로 프로바이더 선택
+   - LiteLLM 패턴 참고 (멀티 LLM 라우팅)
+
+4. **평가 프레임워크**
+   - IoU (Intersection over Union) 메트릭
+   - Precision, Recall, F1 Score
+   - Ground truth 데이터셋 기반 검증
+
+5. **플러그인 가능한 트랜스크립션 엔진**
+   - TranscriptionProvider 인터페이스
+   - Whisper, Faster-Whisper, Deepgram, AssemblyAI 지원
+
+### 기술 스택
+
+#### 현재 사용 중
+- **Backend**: Python 3.11+ / FastAPI
+- **UI**: Streamlit (Gradio에서 전환)
+- **미디어 처리**: FFmpeg
+- **데이터 검증**: Pydantic
+- **AI 분석**: Claude (Claude CLI)
+- **내보내기**: FCPXML, Premiere XML
+
+#### 추가 예정
+- **음성인식**: Whisper / Faster-Whisper (Phase 3)
+- **멀티 AI**: Codex CLI (Phase 4)
+- **장면 감지**: PySceneDetect (Phase 6)
+- **화자 분리**: pyannote-audio (Phase 6)
+- **얼굴 감지**: MediaPipe (Phase 6)
+- **테스트**: pytest, pytest-asyncio
+- **로깅**: Python logging
+- **평가**: scikit-learn (메트릭 계산)
 
 ---
 
@@ -92,17 +199,6 @@ streamlit run apps/backend/src/avid/ui/streamlit_app.py
   - [ ] 노이즈가 많은 경우
   - [ ] SRT 타이밍이 부정확한 경우
 
-**발견된 문제 기록**:
-```markdown
-# 문제 1: [제목]
-- 증상: [설명]
-- 재현 방법: [단계]
-- 예상 원인: [분석]
-- 해결 방안: [제안]
-
-# 문제 2: ...
-```
-
 ### 2.2. subtitle-cut 스킬 검증
 
 **현재 구현 분석**:
@@ -124,26 +220,13 @@ streamlit run apps/backend/src/avid/ui/streamlit_app.py
   - [ ] 잘못된 SRT 형식
   - [ ] 타임스탬프 오류
 
-**발견된 문제 기록**:
-```markdown
-# 문제 1: Claude CLI 의존성
-- 증상: Claude CLI가 없으면 크래시
-- 해결 방안: 
-  - Option 1: Claude API 직접 호출
-  - Option 2: Fallback to 규칙 기반 분석
-
-# 문제 2: 에러 핸들링 부족
-- 증상: subprocess 실패 시 크래시
-- 해결 방안: try-catch 추가, 사용자 친화적 에러 메시지
-```
-
 ### 2.3. 스킬 개선 작업
 
 **우선순위 1: 에러 핸들링**
 - [ ] 모든 subprocess 호출에 try-catch
 - [ ] 파일 존재 여부 확인
 - [ ] FFmpeg 실패 시 명확한 에러 메시지
-- [ ] Claude CLI 실패 시 Fallback
+- [ ] Claude CLI 실패 시 사용자에게 알림 (폴백 없음)
 
 **우선순위 2: 로깅**
 - [ ] Python logging 설정
@@ -169,31 +252,247 @@ streamlit run apps/backend/src/avid/ui/streamlit_app.py
 
 ---
 
-## Phase 3: 파이프라인 통합
+## Phase 3: Whisper 자동 음성 인식
 
-**목표**: 스킬을 백엔드 파이프라인에 통합
+**목표**: 자막이 없을 때 자동 생성 (플러그인 가능한 엔진)
 
-### 작업 내용
+### 3.1. TranscriptionProvider 인터페이스
+
+```python
+from typing import Protocol
+from pathlib import Path
+
+class TranscriptionProvider(Protocol):
+    """음성 인식 프로바이더 인터페이스"""
+    
+    def transcribe(
+        self,
+        audio_path: Path,
+        language: str = "ko",
+        **kwargs
+    ) -> list[SubtitleSegment]:
+        """오디오 파일을 텍스트로 변환"""
+        ...
+```
+
+### 3.2. 지원 엔진
+
+**Whisper (기본)**
+- OpenAI Whisper
+- 로컬 실행
+- 높은 정확도
+
+**Faster-Whisper (권장)**
+- CTranslate2 기반
+- 2-4배 빠른 속도
+- 동일한 정확도
+
+**Deepgram (클라우드)**
+- API 기반
+- 실시간 처리
+- 유료
+
+**AssemblyAI (클라우드)**
+- API 기반
+- 화자 분리 지원
+- 유료
+
+### 3.3. 작업 내용
+
+- [ ] TranscriptionProvider 인터페이스 정의
+- [ ] WhisperProvider 구현
+- [ ] FasterWhisperProvider 구현
+- [ ] TranscriptionFactory (프로바이더 선택)
+- [ ] TranscribeStage 파이프라인 단계
+- [ ] SRT 파일 생성
+- [ ] 자동 워크플로우: Transcribe → SubtitleCut
+
+### 3.4. 검증 방법
+
+```bash
+# 자막 없는 영상으로 테스트
+avid-cli video.mp4 \
+  --transcribe \
+  --engine faster-whisper \
+  --language ko \
+  --subtitle-cut \
+  -o output.fcpxml
+
+# 결과 확인:
+# 1. 생성된 SRT 품질
+# 2. 자동 컷 결과
+# 3. FCPXML 정상 작동
+```
+
+### 3.5. 평가 프레임워크
+
+- [ ] WER (Word Error Rate) 계산
+- [ ] 타임스탬프 정확도 (IoU)
+- [ ] Ground truth 데이터셋 준비
+- [ ] 엔진별 성능 비교
+
+### 예상 작업 시간
+- 인터페이스 설계: 0.5일
+- Whisper 구현: 1일
+- Faster-Whisper 구현: 0.5일
+- TranscribeStage: 0.5일
+- 평가 프레임워크: 1일
+- 통합 테스트: 0.5일
+- **총 예상**: 4일
+
+---
+
+## Phase 4: 멀티 AI 자막 분석
+
+**목표**: Claude + Codex로 자막 분석, 결과 집계
+
+### 4.1. SubtitleAnalysisProvider 인터페이스
+
+```python
+from typing import Protocol
+
+class SubtitleAnalysisProvider(Protocol):
+    """자막 분석 프로바이더 인터페이스"""
+    
+    def analyze(
+        self,
+        srt_path: Path,
+        analysis_type: str = "all"  # "duplicate", "incomplete", "filler", "all"
+    ) -> list[CutSegment]:
+        """자막을 분석하여 컷 대상 세그먼트 반환"""
+        ...
+```
+
+### 4.2. 지원 AI
+
+**Claude (기본 의사결정자)**
+- Claude CLI 또는 API
+- 높은 정확도
+- 의미론적 분석
+
+**Codex**
+- Codex CLI
+- 보조 분석
+- 결과 검증
+
+**확장 가능**
+- GPT-4
+- Gemini
+- 기타 LLM
+
+### 4.3. 작업 내용
+
+- [ ] SubtitleAnalysisProvider 인터페이스 정의
+- [ ] ClaudeProvider 구현 (기존 스킬 래핑)
+- [ ] CodexProvider 구현
+- [ ] MultiAIAggregator (결과 집계)
+  - [ ] 두 AI의 분석 결과 비교
+  - [ ] 일치하는 세그먼트 우선
+  - [ ] 불일치 시 Claude 결과 사용
+- [ ] SubtitleCutStage 업데이트 (멀티 AI 지원)
+
+### 4.4. 결과 집계 전략
+
+**전략 1: Voting (기본)**
+- 두 AI가 모두 컷 대상으로 판단한 세그먼트만 제거
+- 보수적 접근 (정확도 우선)
+
+**전략 2: Union**
+- 둘 중 하나라도 컷 대상으로 판단하면 제거
+- 공격적 접근 (재현율 우선)
+
+**전략 3: Claude Priority**
+- Claude 결과를 기본으로 사용
+- Codex는 검증 용도
+
+### 4.5. 검증 방법
+
+```bash
+# 멀티 AI 분석
+avid-cli video.mp4 \
+  --srt subtitles.srt \
+  --subtitle-cut \
+  --ai claude,codex \
+  --aggregation voting \
+  -o output.fcpxml
+
+# 결과 확인:
+# 1. 두 AI의 분석 결과 비교
+# 2. 집계 전략별 결과 차이
+# 3. 최종 컷 품질
+```
+
+### 4.6. 평가 프레임워크
+
+- [ ] AI별 정확도 비교
+- [ ] 집계 전략별 성능 비교
+- [ ] Ground truth 데이터셋 기반 검증
+- [ ] Precision, Recall, F1 Score
+
+### 예상 작업 시간
+- 인터페이스 설계: 0.5일
+- ClaudeProvider 구현: 0.5일
+- CodexProvider 구현: 1일
+- MultiAIAggregator: 1일
+- SubtitleCutStage 업데이트: 0.5일
+- 평가 프레임워크: 1일
+- 통합 테스트: 0.5일
+- **총 예상**: 5일
+
+---
+
+## Phase 5: 파이프라인 통합 및 백엔드 서비스화
+
+**목표**: 스킬을 백엔드 파이프라인에 통합, FFmpeg + SRT 백엔드 서비스로 구현
+
+### 5.1. 백엔드 서비스 구현
+
+**SilenceDetectionService**
+- FFmpeg silencedetect 래핑
+- SRT 갭 분석
+- `or` + `tight` 결합 모드
+- 백엔드 서비스 (스킬 아님)
+
+**SubtitleAnalysisService**
+- 멀티 AI 분석 (Claude + Codex)
+- 결과 집계
+- 백엔드 서비스 (스킬 아님)
+
+### 5.2. 파이프라인 스테이지
+
 - [ ] SilenceStage 구현
-  - [ ] detect-silence 스킬 래핑
+  - [ ] SilenceDetectionService 호출
   - [ ] EditDecision 생성
   - [ ] 진행률 콜백
 - [ ] SubtitleCutStage 구현
-  - [ ] subtitle-cut 스킬 래핑
+  - [ ] SubtitleAnalysisService 호출
   - [ ] EditDecision 생성
+- [ ] TranscribeStage 구현 (Phase 3에서)
+  - [ ] TranscriptionService 호출
+  - [ ] SRT 파일 생성
 - [ ] PipelineExecutor 연결
   - [ ] 스테이지 순차 실행
-  - [ ] 에러 핸들링
+  - [ ] 에러 핸들링 (사용자 알림)
   - [ ] 롤백 지원
 - [ ] 프로젝트 병합
   - [ ] 여러 스테이지 결과 통합
   - [ ] 겹치는 컷 처리
 
-### 검증 방법
+### 5.3. 검증 방법
+
 ```bash
 # CLI로 전체 파이프라인 실행
 avid-cli video.mp4 \
   --srt subtitles.srt \
+  --detect-silence \
+  --subtitle-cut \
+  --ai claude,codex \
+  -o output.fcpxml
+
+# 자막 없는 경우
+avid-cli video.mp4 \
+  --transcribe \
+  --engine faster-whisper \
   --detect-silence \
   --subtitle-cut \
   -o output.fcpxml
@@ -205,78 +504,130 @@ avid-cli video.mp4 \
 ```
 
 ### 예상 작업 시간
+- SilenceDetectionService: 1일
+- SubtitleAnalysisService: 1일
 - SilenceStage: 0.5일
 - SubtitleCutStage: 0.5일
 - PipelineExecutor 연결: 1일
+- 프로젝트 병합: 0.5일
 - 테스트 및 디버깅: 1일
-- **총 예상**: 3일
+- **총 예상**: 5.5일
 
 ---
 
-## Phase 4: Whisper 음성 인식 (선택)
+## Phase 6: 평가 프레임워크
 
-**목표**: 자막이 없을 때 자동 생성
+**목표**: 모든 컴포넌트를 정량적으로 평가
 
-### 작업 내용
-- [ ] TranscriptionService 구현
-  - [ ] Whisper 또는 faster-whisper 연동
-  - [ ] 타임스탬프 포함 transcription
-  - [ ] SRT 파일 생성
-- [ ] TranscribeStage 파이프라인 단계
-- [ ] 자동 워크플로우
-  - [ ] Transcribe → SubtitleCut
+### 6.1. 메트릭
 
-### 검증 방법
-- 자막 없는 영상으로 테스트
-- 생성된 SRT 품질 확인
-- 자동 컷 결과 확인
+**IoU (Intersection over Union)**
+- 예측 구간과 실제 구간의 겹침 비율
+- 0.0 (겹침 없음) ~ 1.0 (완전 일치)
+
+**Precision (정밀도)**
+- 예측한 컷 중 실제 컷의 비율
+- TP / (TP + FP)
+
+**Recall (재현율)**
+- 실제 컷 중 예측한 컷의 비율
+- TP / (TP + FN)
+
+**F1 Score**
+- Precision과 Recall의 조화 평균
+- 2 * (Precision * Recall) / (Precision + Recall)
+
+### 6.2. Ground Truth 데이터셋
+
+- [ ] 수동으로 레이블링된 테스트 데이터
+- [ ] 다양한 사용 사례 (인터뷰, 강의, 팟캐스트)
+- [ ] 다양한 언어 (한국어, 영어)
+- [ ] 엣지 케이스 포함
+
+### 6.3. 작업 내용
+
+- [ ] EvaluationFramework 구현
+  - [ ] IoU 계산
+  - [ ] Precision, Recall, F1 계산
+  - [ ] 컴포넌트별 평가
+- [ ] Ground Truth 데이터셋 준비
+- [ ] 자동 평가 스크립트
+- [ ] 성능 리포트 생성
+
+### 6.4. 검증 방법
+
+```bash
+# 평가 실행
+avid-eval \
+  --dataset test_dataset/ \
+  --component silence \
+  --output report.json
+
+# 리포트 확인:
+# {
+#   "component": "silence",
+#   "iou": 0.85,
+#   "precision": 0.90,
+#   "recall": 0.88,
+#   "f1": 0.89
+# }
+```
 
 ### 예상 작업 시간
-- TranscriptionService: 1일
-- TranscribeStage: 0.5일
-- 통합 테스트: 0.5일
-- **총 예상**: 2일
+- EvaluationFramework: 2일
+- Ground Truth 데이터셋: 2일
+- 자동 평가 스크립트: 1일
+- 성능 리포트: 0.5일
+- **총 예상**: 5.5일
 
 ---
 
-## Phase 5: 싱크 기능 (선택)
+## Phase 7: 미래 확장 기능 (선택)
+
+**목표**: 고급 분석 기능 추가
+
+### 7.1. 장면 감지 (PySceneDetect)
+
+- [ ] SceneDetectionService 구현
+- [ ] PySceneDetect 연동
+- [ ] 장면 전환 감지
+- [ ] SceneStage 파이프라인 단계
+
+**예상 작업 시간**: 2일
+
+### 7.2. 화자 분리 (pyannote-audio)
+
+- [ ] SpeakerDiarizationService 구현
+- [ ] pyannote-audio 연동
+- [ ] 화자별 세그먼트 분리
+- [ ] SpeakerStage 파이프라인 단계
+
+**예상 작업 시간**: 3일
+
+### 7.3. 감정 분석 (MediaPipe)
+
+- [ ] EmotionDetectionService 구현
+- [ ] MediaPipe 얼굴 감지
+- [ ] 표정 기반 감정 분석
+- [ ] EmotionStage 파이프라인 단계
+
+**예상 작업 시간**: 3일
+
+### 7.4. 싱크 기능 (선택)
 
 **목표**: 영상과 별도 녹음 오디오의 싱크 맞추기
 
-### 작업 내용
 - [ ] SyncService 구현
   - [ ] 오디오 파형 분석 (cross-correlation)
   - [ ] offset 계산
 - [ ] SyncStage 파이프라인 단계
 - [ ] FCPXML에 offset 반영
 
-### 검증 방법
+**검증 방법**:
 - 카메라 영상 + 별도 마이크 녹음 파일로 테스트
 - FCP에서 싱크 확인
 
-### 예상 작업 시간
-- SyncService: 2-3일
-- SyncStage: 0.5일
-- 테스트: 1일
-- **총 예상**: 4일
-
----
-
-## 기술 스택
-
-### 현재 사용 중
-- **Backend**: Python 3.11+ / FastAPI
-- **UI**: Streamlit (Gradio에서 전환)
-- **미디어 처리**: FFmpeg
-- **데이터 검증**: Pydantic
-- **AI 분석**: Claude (Claude CLI)
-- **내보내기**: FCPXML, Premiere XML
-
-### 계획 중
-- **음성인식**: Whisper / faster-whisper (Phase 4)
-- **오디오 분석**: librosa / scipy (Phase 5)
-- **테스트**: pytest, pytest-asyncio
-- **로깅**: Python logging
+**예상 작업 시간**: 4일
 
 ---
 
@@ -286,9 +637,14 @@ avid-cli video.mp4 \
 |-------|------|------|--------|----------|
 | **Phase 1** | Streamlit UI | 🔄 진행 예정 | 0% | 1일 |
 | **Phase 2** | 스킬 검증 및 개선 | 🔍 계획 중 | 0% | 1주 |
-| **Phase 3** | 파이프라인 통합 | ⏳ 대기 | 0% | 3일 |
-| **Phase 4** | Whisper 음성 인식 | ⏳ 선택 | 0% | 2일 |
-| **Phase 5** | 싱크 기능 | ⏳ 선택 | 0% | 4일 |
+| **Phase 3** | Whisper 자동 음성 인식 | ⏳ 대기 | 0% | 4일 |
+| **Phase 4** | 멀티 AI 자막 분석 | ⏳ 대기 | 0% | 5일 |
+| **Phase 5** | 파이프라인 통합 | ⏳ 대기 | 0% | 5.5일 |
+| **Phase 6** | 평가 프레임워크 | ⏳ 대기 | 0% | 5.5일 |
+| **Phase 7** | 미래 확장 기능 | ⏳ 선택 | 0% | 12일 |
+
+**총 예상 시간 (Phase 1-6)**: 약 4주
+**총 예상 시간 (Phase 1-7)**: 약 6주
 
 ---
 
@@ -309,6 +665,12 @@ avid-cli video.mp4 \
 2. 발견된 문제 문서화
 3. 개선 작업 시작
 
+### 이번 달
+1. Whisper 자동 음성 인식 구현
+2. 멀티 AI 자막 분석 구현
+3. 파이프라인 통합
+4. 평가 프레임워크 구축
+
 ---
 
 ## 알려진 문제 및 개선 사항
@@ -317,18 +679,20 @@ avid-cli video.mp4 \
 - [ ] 실제 품질 미검증 (972줄의 복잡한 구현)
 - [ ] 엣지 케이스 테스트 필요
 - [ ] 성능 최적화 필요 (FFmpeg 호출 최소화)
+- [ ] `or` + `tight` 모드로 단순화 필요
 
 ### subtitle-cut 스킬
 - [ ] Claude CLI 의존성 (없으면 크래시)
-- [ ] 에러 핸들링 부족
+- [ ] 에러 핸들링 부족 (사용자 알림 필요)
 - [ ] subprocess 실패 시 크래시
-- [ ] Fallback 메커니즘 없음
+- [ ] 멀티 AI 지원 필요 (Claude + Codex)
 
 ### 백엔드
 - [ ] 파이프라인 스테이지 미구현 (0개)
 - [ ] 테스트 코드 없음
 - [ ] 로깅 설정 없음
 - [ ] 에러 핸들링 부족
+- [ ] 평가 프레임워크 없음
 
 ### FCPXML 내보내기
 - [ ] 실제 FCP에서 테스트 필요
@@ -351,3 +715,41 @@ avid-cli video.mp4 \
 ### 테스트 미디어
 - `srcs/C1718_compressed.mp4` (비디오)
 - `srcs/C1718_compressed.srt` (자막)
+
+### 연구 자료
+- **Faster-Whisper**: https://github.com/guillaumekln/faster-whisper
+- **PySceneDetect**: https://github.com/Breakthrough/PySceneDetect
+- **pyannote-audio**: https://github.com/pyannote/pyannote-audio
+- **MediaPipe**: https://github.com/google/mediapipe
+- **LiteLLM**: https://github.com/BerriAI/litellm
+
+---
+
+## 성공 기준
+
+### Phase 1-2 완료 시
+- [ ] Streamlit UI가 작동함
+- [ ] 실제 비디오로 무음 감지 + 자막 분석 가능
+- [ ] FCPXML이 FCP에서 정상 작동
+- [ ] 에러 발생 시 사용자에게 명확히 알림
+
+### Phase 3-4 완료 시
+- [ ] 자막 없는 영상도 자동 처리 가능
+- [ ] 멀티 AI 분석 결과 집계
+- [ ] 정확도가 단일 AI보다 향상
+
+### Phase 5-6 완료 시
+- [ ] 전체 파이프라인이 백엔드 서비스로 통합
+- [ ] 모든 컴포넌트가 평가 프레임워크로 검증
+- [ ] IoU > 0.8, F1 > 0.85 달성
+
+### Phase 7 완료 시
+- [ ] 장면 감지, 화자 분리, 감정 분석 가능
+- [ ] 확장 가능한 아키텍처 검증
+- [ ] 프로덕션 레디
+
+---
+
+## 라이선스
+
+CC BY-NC-SA 4.0 (비상업적 용도로만 사용 가능)
