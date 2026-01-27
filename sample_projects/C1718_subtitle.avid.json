@@ -1,0 +1,344 @@
+{
+  "name": "Subtitle Analysis - C1718_compressed",
+  "created_at": "2026-01-24T15:49:06.617954",
+  "updated_at": "2026-01-24T15:49:06.617965",
+  "source_files": [
+    {
+      "id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a",
+      "path": "/Users/jonhpark/workspace/auto-video-edit/srcs/C1718_compressed.mp4",
+      "original_name": "C1718_compressed.mp4",
+      "info": {
+        "duration_ms": 119619,
+        "width": 3840,
+        "height": 2160,
+        "fps": 23.976,
+        "sample_rate": 48000
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "source_file_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a",
+      "track_type": "video",
+      "offset_ms": 0
+    },
+    {
+      "id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio",
+      "source_file_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a",
+      "track_type": "audio",
+      "offset_ms": 0
+    }
+  ],
+  "transcription": null,
+  "edit_decisions": [
+    {
+      "range": {
+        "start_ms": 4860,
+        "end_ms": 7980
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 7980,
+        "end_ms": 10360
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 14660,
+        "end_ms": 17800
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 22020,
+        "end_ms": 24900
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 24900,
+        "end_ms": 27380
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 27380,
+        "end_ms": 29520
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 29520,
+        "end_ms": 31520
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 32380,
+        "end_ms": 34520
+      },
+      "edit_type": "cut",
+      "reason": "filler",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 34520,
+        "end_ms": 36500
+      },
+      "edit_type": "cut",
+      "reason": "filler",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 39400,
+        "end_ms": 41780
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 41780,
+        "end_ms": 42400
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 42400,
+        "end_ms": 44500
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 44500,
+        "end_ms": 44890
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 45060,
+        "end_ms": 46700
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 46700,
+        "end_ms": 47960
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 47960,
+        "end_ms": 48880
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 63240,
+        "end_ms": 64660
+      },
+      "edit_type": "cut",
+      "reason": "filler",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 69660,
+        "end_ms": 72780
+      },
+      "edit_type": "cut",
+      "reason": "filler",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 75360,
+        "end_ms": 79560
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 81720,
+        "end_ms": 85200
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 85200,
+        "end_ms": 88120
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 88120,
+        "end_ms": 89260
+      },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "active_video_track_id": "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_video",
+      "active_audio_track_ids": [
+        "f3a3b2bc-7f8d-52ff-a077-6d18cff8a62a_audio"
+      ],
+      "speed_factor": 1.0
+    }
+  ]
+}
