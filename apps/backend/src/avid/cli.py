@@ -71,16 +71,17 @@ async def cmd_silence(args: argparse.Namespace) -> None:
     if srt_path:
         print(f"  SRT: {srt_path.name}")
     print(f"  모드: {args.mode}")
-    print(f"  tight: {args.tight}")
+    print(f"  템포: {args.tempo}")
 
     project, project_path = await service.detect(
         video_path=video_path,
         srt_path=srt_path,
         output_dir=output_dir,
         mode=args.mode,
-        tight=args.tight,
-        min_silence_ms=args.min_silence,
-        noise_db=args.noise,
+        tempo=args.tempo,
+        min_duration_ms=args.min_duration,
+        threshold_db=args.threshold,
+        padding_ms=args.padding,
     )
 
     # Export to FCPXML
@@ -205,11 +206,11 @@ def main() -> None:
     p_silence = subparsers.add_parser("silence", help="무음 감지")
     p_silence.add_argument("input", type=str, help="입력 영상/오디오 파일")
     p_silence.add_argument("--srt", type=str, help="SRT 자막 파일 (선택)")
-    p_silence.add_argument("--mode", default="or", choices=["or", "and", "ffmpeg_only", "srt_only"], help="결합 모드 (기본: or)")
-    p_silence.add_argument("--tight", action="store_true", default=True, help="tight 모드 (기본: 활성)")
-    p_silence.add_argument("--no-tight", dest="tight", action="store_false", help="tight 모드 비활성")
-    p_silence.add_argument("--min-silence", type=int, default=500, help="최소 무음 길이 ms (기본: 500)")
-    p_silence.add_argument("--noise", type=float, default=-40.0, help="노이즈 임계값 dB (기본: -40)")
+    p_silence.add_argument("--mode", default="or", choices=["or", "and", "ffmpeg", "srt", "diff"], help="감지 모드 (기본: or)")
+    p_silence.add_argument("--tempo", type=str, default="tight", choices=["relaxed", "normal", "tight"], help="템포 프리셋")
+    p_silence.add_argument("--min-duration", type=int, default=500, help="최소 무음 길이 ms (기본: 500)")
+    p_silence.add_argument("--threshold", type=float, default=None, help="무음 임계값 dB")
+    p_silence.add_argument("--padding", type=int, default=100, help="패딩 ms (기본: 100)")
     p_silence.add_argument("-o", "--output", type=str, help="출력 FCPXML 경로")
     p_silence.add_argument("-d", "--output-dir", type=str, help="출력 디렉토리")
 

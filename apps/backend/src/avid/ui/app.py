@@ -282,31 +282,51 @@ with tab_silence:
     with col_params2:
         si_mode = st.selectbox(
             "감지 모드",
-            options=["or", "and", "ffmpeg_only", "srt_only"],
+            options=["or", "and", "ffmpeg", "srt", "diff"],
             format_func={
                 "or": "OR (FFmpeg \u222a SRT)",
                 "and": "AND (FFmpeg \u2229 SRT)",
-                "ffmpeg_only": "FFmpeg만",
-                "srt_only": "SRT만",
+                "ffmpeg": "FFmpeg만",
+                "srt": "SRT만",
+                "diff": "Diff (차이 분석)",
             }.get,
             key="si_mode",
         )
-        si_tight = st.checkbox("타이트 모드", value=True, key="si_tight", help="컷 영역을 최소화합니다.")
-        si_min_silence = st.slider(
+        si_tempo = st.selectbox(
+            "템포",
+            options=["tight", "normal", "relaxed"],
+            format_func={
+                "tight": "Tight (촘촘하게)",
+                "normal": "Normal (보통)",
+                "relaxed": "Relaxed (여유롭게)",
+            }.get,
+            key="si_tempo",
+            help="컷 간격 프리셋",
+        )
+        si_min_duration = st.slider(
             "최소 무음 길이 (ms)",
             min_value=100,
             max_value=2000,
             value=500,
             step=50,
-            key="si_min_silence",
+            key="si_min_duration",
         )
-        si_noise_db = st.slider(
-            "노이즈 임계값 (dB)",
+        si_threshold_db = st.slider(
+            "무음 임계값 (dB)",
             min_value=-60.0,
             max_value=-20.0,
             value=-40.0,
             step=1.0,
-            key="si_noise_db",
+            key="si_threshold_db",
+        )
+        si_padding = st.slider(
+            "패딩 (ms)",
+            min_value=50,
+            max_value=500,
+            value=100,
+            step=25,
+            key="si_padding",
+            help="발화 전후 여백",
         )
 
     if st.button("실행", key="si_run", type="primary", disabled=si_video is None):
@@ -323,9 +343,10 @@ with tab_silence:
                         srt_path=srt_path,
                         output_dir=Path(tmpdir),
                         mode=si_mode,
-                        tight=si_tight,
-                        min_silence_ms=si_min_silence,
-                        noise_db=si_noise_db,
+                        tempo=si_tempo,
+                        min_duration_ms=si_min_duration,
+                        threshold_db=si_threshold_db,
+                        padding_ms=si_padding,
                     )
                 )
 
