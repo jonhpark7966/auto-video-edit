@@ -6,7 +6,7 @@
 
 **핵심 원칙**:
 - **정확도 > 속도**: 품질이 최우선
-- **테스트 가능성**: 모든 컴포넌트는 평가 프레임워크로 검증
+- **테스트 가능성**: 모든 컴포넌트는 FCPXML 기반 평가 프레임워크로 검증
 - **확장 가능성**: 플러그인 가능한 아키텍처
 - **사용자 중심**: 에러 발생 시 사용자에게 명확히 알림
 
@@ -27,7 +27,7 @@
 - **파이프라인 스테이지**: 인터페이스만 정의, 실제 구현 없음 (0개)
 - **스킬 통합**: 독립 실행만 가능, 백엔드 파이프라인과 미통합
 - **테스트**: 거의 없음
-- **평가 프레임워크**: 미구현
+- **평가 프레임워크**: 미구현 (FCPXML 기반 비교 방식 예정)
 
 ### 🔍 검증 필요한 것
 - **detect-silence 스킬**: 972줄의 복잡한 구현, 실제 품질 미검증
@@ -66,8 +66,10 @@
    - 2차: 다국어 확장
 
 7. **품질 중시**
-   - 모든 컴포넌트는 평가 프레임워크로 검증
-   - 정량적 메트릭 (IoU, Precision, Recall, F1)
+   - 모든 컴포넌트는 FCPXML 기반 평가 프레임워크로 검증
+   - 편집 전/후 FCPXML 비교로 자동 평가
+   - 무음 감지, 의미단위 컷편집 각각 별도 평가
+   - 스킬을 바꿔가며 반복 평가 → 품질 개선 루프
 
 ### 자동 음성 인식 (Whisper)
 - 자막이 없을 때 자동 생성
@@ -76,7 +78,7 @@
 
 ### 멀티 AI 분석 (CLI 기반)
 - **`claude` CLI + `codex` CLI**: 환경에 설치된 CLI 도구로 호출 (API SDK 아님)
-- **skillthon 서브모듈**: 참조 구현 (subtitle-cut-detector 스킬)
+- **skillthon 서브모듈**: 로컬 CLI에 설치하여 직접 호출하는 스킬
 - **결과 집계**: 두 AI의 분석 결과를 종합
 - **기본 의사결정자**: Claude
 - **확장 가능**: 추가 CLI 도구 프로바이더 지원
@@ -103,9 +105,10 @@
    - LiteLLM 패턴 참고 (멀티 LLM 라우팅)
 
 4. **평가 프레임워크**
-   - IoU (Intersection over Union) 메트릭
-   - Precision, Recall, F1 Score
-   - Ground truth 데이터셋 기반 검증
+   - FCPXML 기반 비교: 편집 전/후 FCPXML을 비교하여 자동 평가
+   - 정답 FCPXML (사람이 편집한 결과)과 결과 FCPXML 대조
+   - 무음 감지, 의미단위 컷편집 각각 별도 평가
+   - 스킬을 교체하며 반복 평가 → 품질 개선 루프
 
 5. **플러그인 가능한 트랜스크립션 엔진**
    - TranscriptionProvider 인터페이스
@@ -125,7 +128,7 @@
 - **화면/음성 기반 편집**: 확장 인터페이스만 정의 (Phase 7, 구체적 기술 미정)
 - **테스트**: pytest, pytest-asyncio
 - **로깅**: Python logging
-- **평가**: scikit-learn (메트릭 계산)
+- **평가**: FCPXML 비교 기반 자동 평가
 
 ---
 
@@ -307,16 +310,15 @@ avid-cli video.mp4 \
 
 ### 3.5. 평가 프레임워크
 
-- [ ] WER (Word Error Rate) 계산
-- [ ] 타임스탬프 정확도 (IoU)
-- [ ] Ground truth 데이터셋 준비
-- [ ] 엔진별 성능 비교
+- [ ] Whisper 생성 자막 → 편집 결과 FCPXML로 평가
+- [ ] 정답 FCPXML과 비교하여 자막 품질이 최종 편집에 미치는 영향 측정
+- [ ] 엔진별 성능 비교 (FCPXML 결과 기준)
 
 ### 예상 작업 시간
 - 인터페이스 설계: 0.5일
 - Whisper 구현: 1일
 - TranscribeStage: 0.5일
-- 평가 프레임워크: 1일
+- FCPXML 기반 평가: 1일
 - 통합 테스트: 0.5일
 - **총 예상**: 4일
 
@@ -348,7 +350,7 @@ class SubtitleAnalysisProvider(Protocol):
 **Claude (기본 의사결정자)**
 - `claude` CLI (Claude Code) — subprocess로 호출
 - 높은 정확도, 의미론적 분석
-- skillthon/subtitle-cut-detector 스킬이 참조 구현
+- skillthon/subtitle-cut-detector 스킬을 로컬 CLI에 설치하여 호출
 
 **Codex**
 - `codex` CLI — subprocess로 호출
@@ -401,10 +403,10 @@ avid-cli video.mp4 \
 
 ### 4.6. 평가 프레임워크
 
-- [ ] AI별 정확도 비교
-- [ ] 집계 전략별 성능 비교
-- [ ] Ground truth 데이터셋 기반 검증
-- [ ] Precision, Recall, F1 Score
+- [ ] AI별 FCPXML 결과 비교
+- [ ] 집계 전략별 FCPXML 결과 비교
+- [ ] 정답 FCPXML과 대조하여 자동 평가
+- [ ] 스킬 변경 → 재평가 반복
 
 ### 예상 작업 시간
 - 인터페이스 설계: 0.5일
@@ -412,7 +414,7 @@ avid-cli video.mp4 \
 - CodexProvider 구현: 1일
 - MultiAIAggregator: 1일
 - SubtitleCutStage 업데이트: 0.5일
-- 평가 프레임워크: 1일
+- FCPXML 기반 평가: 1일
 - 통합 테스트: 0.5일
 - **총 예상**: 5일
 
@@ -492,69 +494,74 @@ avid-cli video.mp4 \
 
 ---
 
-## Phase 6: 평가 프레임워크
+## Phase 6: 평가 프레임워크 (FCPXML 기반)
 
-**목표**: 모든 컴포넌트를 정량적으로 평가
+**목표**: FCPXML 편집 전/후 비교로 모든 컴포넌트를 자동 평가
 
-### 6.1. 메트릭
+### 6.1. 평가 방식
 
-**IoU (Intersection over Union)**
-- 예측 구간과 실제 구간의 겹침 비율
-- 0.0 (겹침 없음) ~ 1.0 (완전 일치)
+**핵심**: 각 편집 행위(무음 컷, 의미단위 컷)의 결과는 FCPXML로 표현됨. 사람이 편집한 정답 FCPXML과 자동 생성 FCPXML을 비교하여 품질을 측정.
 
-**Precision (정밀도)**
-- 예측한 컷 중 실제 컷의 비율
-- TP / (TP + FP)
+**평가 루프**:
+```
+스킬 변경 → 편집 실행 → 결과 FCPXML 생성 → 정답 FCPXML과 비교 → 메트릭 산출 → 반복
+```
 
-**Recall (재현율)**
-- 실제 컷 중 예측한 컷의 비율
-- TP / (TP + FN)
-
-**F1 Score**
-- Precision과 Recall의 조화 평균
-- 2 * (Precision * Recall) / (Precision + Recall)
+**평가 단위**:
+- 무음 감지 평가: `ground_truth_silence.fcpxml` vs 결과
+- 의미단위 컷편집 평가: `ground_truth_subtitle.fcpxml` vs 결과
 
 ### 6.2. Ground Truth 데이터셋
 
-- [ ] 수동으로 레이블링된 테스트 데이터
+- [ ] 사람이 직접 편집한 정답 FCPXML 준비
 - [ ] 다양한 사용 사례 (인터뷰, 강의, 팟캐스트)
 - [ ] 다양한 언어 (한국어, 영어)
 - [ ] 엣지 케이스 포함
+- [ ] 무음 컷 / 의미단위 컷 각각 별도 정답
 
 ### 6.3. 작업 내용
 
-- [ ] EvaluationFramework 구현
-  - [ ] IoU 계산
-  - [ ] Precision, Recall, F1 계산
-  - [ ] 컴포넌트별 평가
-- [ ] Ground Truth 데이터셋 준비
-- [ ] 자동 평가 스크립트
-- [ ] 성능 리포트 생성
+- [ ] FCPXMLComparator 구현 (편집 전/후 FCPXML 비교)
+  - [ ] FCPXML에서 편집 구간 추출
+  - [ ] 시간축 기준 구간 매칭
+  - [ ] 일치/불일치 산출
+- [ ] EvaluationRunner 구현
+  - [ ] 무음 감지 평가
+  - [ ] 의미단위 컷편집 평가
+- [ ] Ground Truth FCPXML 준비
+- [ ] 자동 평가 스크립트 (스킬 교체 후 재평가)
+- [ ] 평가 리포트 생성
 
 ### 6.4. 검증 방법
 
 ```bash
-# 평가 실행
+# 무음 감지 평가
 avid-eval \
-  --dataset test_dataset/ \
+  --test-case test_data/cases/interview_01/ \
   --component silence \
   --output report.json
 
-# 리포트 확인:
+# 의미단위 컷편집 평가
+avid-eval \
+  --test-case test_data/cases/interview_01/ \
+  --component subtitle-cut \
+  --output report.json
+
+# 리포트:
 # {
 #   "component": "silence",
-#   "iou": 0.85,
-#   "precision": 0.90,
-#   "recall": 0.88,
-#   "f1": 0.89
+#   "matched_cuts": 12,
+#   "missed_cuts": 1,
+#   "extra_cuts": 2,
+#   "timeline_overlap_ratio": 0.87
 # }
 ```
 
 ### 예상 작업 시간
-- EvaluationFramework: 2일
-- Ground Truth 데이터셋: 2일
+- FCPXMLComparator: 2일
+- Ground Truth FCPXML 준비: 2일
 - 자동 평가 스크립트: 1일
-- 성능 리포트: 0.5일
+- 평가 리포트: 0.5일
 - **총 예상**: 5.5일
 
 ---

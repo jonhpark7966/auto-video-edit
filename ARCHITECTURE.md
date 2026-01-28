@@ -16,7 +16,7 @@
 
 ### 2. 자막 기반 편집 결정 (Multi-AI, CLI 기반)
 - ✅ `claude` CLI + `codex` CLI로 호출 (API SDK 아님)
-- ✅ skillthon 서브모듈의 스킬이 참조 구현
+- ✅ skillthon 서브모듈의 스킬을 로컬 CLI에 설치하여 직접 호출
 - ✅ 두 AI의 의견을 합쳐서 결정
 - ✅ 최종 결정자: Claude (기본값, 변경 가능)
 - ✅ 향후 다른 CLI 도구 추가 예정 (확장 가능한 구조)
@@ -30,7 +30,9 @@
 ### 4. 테스트 & 평가
 - ✅ 각 로직마다 테스트 가능
 - ✅ Evaluation 프레임워크 구축
-- ✅ 정확도 측정 (Precision, Recall, F1)
+- ✅ FCPXML 기반 평가: 편집 전/후 FCPXML을 비교하여 자동 평가
+- ✅ 무음 감지, 의미단위 컷편집 각각 별도 평가
+- ✅ 스킬을 바꿔가며 반복 평가 → 품질 개선 루프
 - ✅ 문서화 (테스트 방법, 평가 기준)
 
 ### 5. 향후 확장
@@ -92,10 +94,10 @@
 └─────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────┐
-│                  Evaluation Layer (Testing)              │
-│  - GroundTruthManager: 정답 데이터 관리                 │
-│  - MetricsCalculator: 정확도 측정 (P/R/F1)              │
-│  - EvaluationRunner: 평가 실행                          │
+│                  Evaluation Layer (FCPXML 기반)           │
+│  - FCPXMLComparator: 편집 전/후 FCPXML 비교             │
+│  - GroundTruthManager: 정답 FCPXML 관리                 │
+│  - EvaluationRunner: 컴포넌트별 평가 실행               │
 │  - ReportGenerator: 평가 리포트 생성                    │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -222,7 +224,7 @@ except SRTParseError as e:
 - `claude` CLI = Claude Code (환경에 설치된 CLI)
 - `codex` CLI = Codex CLI (환경에 설치된 CLI)
 - API 키 직접 관리 불필요 — CLI가 인증을 처리함
-- skillthon 서브모듈의 스킬이 참조 구현
+- skillthon 서브모듈의 스킬을 로컬 CLI에 설치하여 직접 호출
 
 **위치**: `apps/backend/src/avid/services/ai_analysis/`
 
@@ -239,9 +241,9 @@ ai_analysis/
 └── service.py           # AIAnalysisService (메인)
 ```
 
-**CLI 호출 패턴** (skillthon 참조):
+**CLI 호출 패턴** (skillthon 스킬을 설치한 후 호출):
 ```python
-# Claude Code CLI 호출 (subtitle-cut 스킬의 claude_analyzer.py 참조)
+# Claude Code CLI 호출 (설치된 subtitle-cut 스킬 활용)
 result = subprocess.run(
     ["claude", "-p", prompt, "--output-format", "text"],
     capture_output=True, text=True, timeout=120,
@@ -531,7 +533,23 @@ class TranscriptionService:
 
 ---
 
-### 4. 평가 프레임워크 (Evaluation)
+### 4. 평가 프레임워크 (FCPXML 기반 Evaluation)
+
+**핵심 원칙**: 편집 결과는 FCPXML로 표현되므로, 평가도 FCPXML 비교로 수행한다.
+
+**평가 단위**:
+- 무음 감지 → FCPXML (무음 컷 결과)
+- 의미단위 컷편집 → FCPXML (자막 기반 컷 결과)
+- 각각 별도로 평가
+
+**평가 흐름**:
+```
+1. 원본 영상 + 정답 FCPXML (사람이 편집한 결과) 준비
+2. 스킬 실행 → 결과 FCPXML 생성
+3. 정답 FCPXML vs 결과 FCPXML 자동 비교
+4. 메트릭 산출
+5. 스킬 변경 → 2번부터 반복 (품질 개선 루프)
+```
 
 **위치**: `apps/backend/src/avid/evaluation/`
 
@@ -539,174 +557,83 @@ class TranscriptionService:
 ```
 evaluation/
 ├── __init__.py
-├── ground_truth.py      # 정답 데이터 관리
-├── metrics.py           # 정확도 측정 (P/R/F1)
-├── runner.py            # 평가 실행
-└── report.py            # 리포트 생성
+├── fcpxml_comparator.py  # FCPXML 편집 전/후 비교
+├── ground_truth.py       # 정답 FCPXML 관리
+├── runner.py             # 컴포넌트별 평가 실행
+└── report.py             # 리포트 생성
 ```
 
 **정답 데이터 형식**:
-```json
-// test_data/ground_truth/video1_silence.json
-{
-  "video_path": "test_data/videos/video1.mp4",
-  "audio_path": "test_data/audio/video1.wav",
-  "srt_path": "test_data/subtitles/video1.srt",
-  "ground_truth": {
-    "silence_regions": [
-      {"start_ms": 1000, "end_ms": 2500, "reason": "pause"},
-      {"start_ms": 5000, "end_ms": 7000, "reason": "long_silence"}
-    ],
-    "subtitle_cuts": [
-      {"segment_index": 1, "reason": "duplicate"},
-      {"segment_index": 5, "reason": "incomplete"}
-    ]
-  },
-  "metadata": {
-    "annotator": "human",
-    "date": "2026-01-28",
-    "notes": "인터뷰 영상, 배경 음악 없음"
-  }
-}
+```
+test_data/
+├── cases/
+│   ├── interview_01/
+│   │   ├── source.mp4                    # 원본 영상
+│   │   ├── source.srt                    # 원본 자막
+│   │   ├── ground_truth_silence.fcpxml   # 사람이 편집한 무음 컷 결과
+│   │   ├── ground_truth_subtitle.fcpxml  # 사람이 편집한 의미단위 컷 결과
+│   │   └── metadata.json                 # 영상 메타 (장르, 언어 등)
+│   ├── lecture_01/
+│   │   └── ...
+│   └── podcast_01/
+│       └── ...
 ```
 
-**메트릭 계산**:
+**FCPXML 비교 방식**:
 ```python
-# metrics.py
-class MetricsCalculator:
-    def calculate_silence_detection_metrics(
+# fcpxml_comparator.py
+class FCPXMLComparator:
+    def compare(
         self,
-        predicted: list[TimeRange],
-        ground_truth: list[TimeRange],
-        iou_threshold: float = 0.5,
-    ) -> dict[str, float]:
-        """무음 감지 정확도 측정
+        predicted_fcpxml: Path,
+        ground_truth_fcpxml: Path,
+    ) -> ComparisonResult:
+        """두 FCPXML의 편집 결정을 비교
         
-        Args:
-            predicted: 예측된 무음 구간
-            ground_truth: 정답 무음 구간
-            iou_threshold: IoU 임계값 (겹침 비율)
+        1. 양쪽 FCPXML에서 편집 구간(컷/유지) 추출
+        2. 시간축 기준으로 구간 매칭
+        3. 일치/불일치 구간 산출
         
         Returns:
-            {
-                "precision": 0.85,
-                "recall": 0.90,
-                "f1": 0.87,
-                "iou_mean": 0.75,
-            }
+            ComparisonResult with:
+            - matched_cuts: 정답과 일치하는 컷 구간
+            - missed_cuts: 정답에는 있지만 빠뜨린 컷 구간
+            - extra_cuts: 정답에 없는데 추가된 컷 구간
+            - timeline_overlap_ratio: 전체 타임라인 일치 비율
         """
-        true_positives = 0
-        false_positives = 0
-        false_negatives = 0
-        ious = []
-        
-        # 1. True Positives & IoU 계산
-        matched_gt = set()
-        for pred in predicted:
-            best_iou = 0
-            best_gt_idx = None
-            
-            for gt_idx, gt in enumerate(ground_truth):
-                if gt_idx in matched_gt:
-                    continue
-                
-                iou = self._calculate_iou(pred, gt)
-                if iou > best_iou:
-                    best_iou = iou
-                    best_gt_idx = gt_idx
-            
-            if best_iou >= iou_threshold:
-                true_positives += 1
-                matched_gt.add(best_gt_idx)
-                ious.append(best_iou)
-            else:
-                false_positives += 1
-        
-        # 2. False Negatives
-        false_negatives = len(ground_truth) - len(matched_gt)
-        
-        # 3. Precision, Recall, F1
-        precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0
-        recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0
-        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-        
-        return {
-            "precision": precision,
-            "recall": recall,
-            "f1": f1,
-            "iou_mean": sum(ious) / len(ious) if ious else 0,
-            "true_positives": true_positives,
-            "false_positives": false_positives,
-            "false_negatives": false_negatives,
-        }
-    
-    def _calculate_iou(self, range1: TimeRange, range2: TimeRange) -> float:
-        """IoU (Intersection over Union) 계산"""
-        intersection_start = max(range1.start_ms, range2.start_ms)
-        intersection_end = min(range1.end_ms, range2.end_ms)
-        
-        if intersection_start >= intersection_end:
-            return 0.0
-        
-        intersection = intersection_end - intersection_start
-        union = (range1.end_ms - range1.start_ms) + (range2.end_ms - range2.start_ms) - intersection
-        
-        return intersection / union if union > 0 else 0.0
 ```
 
 **평가 실행**:
 ```python
 # runner.py
 class EvaluationRunner:
-    def __init__(
+    async def evaluate_silence_detection(
         self,
-        audio_analyzer: AudioAnalyzer,
-        ai_analysis_service: AIAnalysisService,
-    ):
-        self.audio_analyzer = audio_analyzer
-        self.ai_analysis_service = ai_analysis_service
-        self.metrics_calculator = MetricsCalculator()
-    
-    async def run_silence_detection_evaluation(
-        self,
-        test_cases: list[Path],  # ground_truth JSON 파일들
+        test_case_dir: Path,
     ) -> EvaluationReport:
-        """무음 감지 평가 실행"""
-        results = []
+        """무음 감지 평가
         
-        for test_case_path in test_cases:
-            # 1. 정답 데이터 로드
-            gt = GroundTruth.load(test_case_path)
-            
-            # 2. 무음 감지 실행
-            predicted = await self.audio_analyzer.detect_silence(
-                gt.audio_path,
-                gt.srt_path,
-                min_silence_ms=500,
-                silence_threshold_db=-40.0,
-            )
-            
-            # 3. 메트릭 계산
-            metrics = self.metrics_calculator.calculate_silence_detection_metrics(
-                predicted.silence_regions,
-                gt.silence_regions,
-            )
-            
-            results.append({
-                "test_case": test_case_path.name,
-                "metrics": metrics,
-                "predicted_count": len(predicted.silence_regions),
-                "ground_truth_count": len(gt.silence_regions),
-            })
+        1. 스킬 실행 → 결과 FCPXML 생성
+        2. ground_truth_silence.fcpxml와 비교
+        3. 메트릭 산출
+        """
+
+    async def evaluate_subtitle_cut(
+        self,
+        test_case_dir: Path,
+    ) -> EvaluationReport:
+        """의미단위 컷편집 평가
         
-        # 4. 전체 평균 계산
-        avg_metrics = self._calculate_average_metrics(results)
-        
-        return EvaluationReport(
-            test_cases=results,
-            average_metrics=avg_metrics,
-            timestamp=datetime.now(),
-        )
+        1. 스킬 실행 → 결과 FCPXML 생성
+        2. ground_truth_subtitle.fcpxml와 비교
+        3. 메트릭 산출
+        """
+
+    async def run_all(
+        self,
+        test_cases: list[Path],
+    ) -> list[EvaluationReport]:
+        """모든 테스트 케이스에 대해 평가 실행 → 종합 리포트"""
 ```
 
 ---
@@ -857,20 +784,19 @@ async def test_full_pipeline():
 
 ### 평가 테스트
 ```python
-# tests/evaluation/test_metrics.py
-def test_silence_detection_metrics():
-    calculator = MetricsCalculator()
+# tests/evaluation/test_fcpxml_comparator.py
+def test_silence_evaluation():
+    comparator = FCPXMLComparator()
     
-    predicted = [TimeRange(1000, 2000), TimeRange(5000, 6000)]
-    ground_truth = [TimeRange(1100, 2100), TimeRange(5000, 6000)]
-    
-    metrics = calculator.calculate_silence_detection_metrics(
-        predicted, ground_truth, iou_threshold=0.5
+    result = comparator.compare(
+        predicted_fcpxml="output/silence_result.fcpxml",
+        ground_truth_fcpxml="test_data/cases/interview_01/ground_truth_silence.fcpxml",
     )
     
-    assert metrics["precision"] > 0.8
-    assert metrics["recall"] > 0.8
-    assert metrics["f1"] > 0.8
+    # 컷 구간 일치율 확인
+    assert result.timeline_overlap_ratio > 0.8
+    assert len(result.missed_cuts) == 0  # 빠뜨린 컷 없음
+    assert len(result.extra_cuts) <= 2   # 불필요한 컷 최소화
 ```
 
 ---
@@ -880,7 +806,7 @@ def test_silence_detection_metrics():
 ### 사용자 문서
 - `docs/USER_GUIDE.md`: 사용자 가이드
 - `docs/API.md`: API 문서
-- `docs/EVALUATION.md`: 평가 방법
+- `docs/EVALUATION.md`: FCPXML 기반 평가 방법
 
 ### 개발자 문서
 - `docs/ARCHITECTURE.md`: 이 문서
@@ -904,10 +830,10 @@ def test_silence_detection_metrics():
 4. 통합 테스트 작성
 
 ### Phase 3: 평가 프레임워크 (3일)
-1. GroundTruth 관리
-2. MetricsCalculator 구현
-3. EvaluationRunner 구현
-4. 테스트 데이터 준비
+1. FCPXMLComparator 구현 (편집 전/후 FCPXML 비교)
+2. GroundTruth FCPXML 관리
+3. EvaluationRunner 구현 (컴포넌트별 평가)
+4. 테스트 데이터 준비 (정답 FCPXML 포함)
 
 ### Phase 4: UI 구현 (2일)
 1. Streamlit UI 기본 구조
@@ -918,5 +844,5 @@ def test_silence_detection_metrics():
 ### Phase 5: 문서화 및 배포 (2일)
 1. 사용자 가이드 작성
 2. API 문서 작성
-3. 평가 방법 문서 작성
+3. FCPXML 기반 평가 방법 문서 작성
 4. Docker 이미지 빌드
