@@ -49,9 +49,9 @@ ffmpeg -i video.mp4 -af silencedetect=noise=-40dB:d=0.5 -f null -
 
 **검증 방법**:
 1. 다양한 오디오 샘플 준비 (5-10개)
-2. 수동으로 무음 구간 확인 (Audacity 등)
-3. detect-silence 결과와 비교
-4. 정확도 측정 (precision, recall)
+2. 사람이 직접 편집한 정답 FCPXML 준비
+3. detect-silence 스킬 실행 → 결과 FCPXML 생성
+4. 정답 FCPXML vs 결과 FCPXML 자동 비교
 
 #### 1.2. SRT 갭 분석 정확도
 **우려 사항**:
@@ -240,9 +240,9 @@ def analyze_with_claude(segments):
 
 **검증 방법**:
 1. 다양한 자막 샘플 준비 (10-20개)
-2. 수동으로 중복/불완전 구간 표시
-3. Claude 분석 결과와 비교
-4. 정확도 측정 (precision, recall, F1)
+2. 사람이 직접 편집한 정답 FCPXML 준비
+3. subtitle-cut 스킬 실행 → 결과 FCPXML 생성
+4. 정답 FCPXML vs 결과 FCPXML 자동 비교
 
 #### 2.2. Claude CLI 의존성
 **문제**: Claude CLI가 없으면 크래시
@@ -510,28 +510,25 @@ test_data/
 │   ├── inaccurate.srt         # 부정확한 타이밍
 │   └── overlapping.srt        # 겹치는 자막
 └── ground_truth/
-    ├── short_silence.json     # 수동 표시한 무음 구간
-    ├── duplicate_intro.json   # 수동 표시한 중복 구간
+    ├── short_silence.fcpxml   # 사람이 편집한 무음 컷 정답 FCPXML
+    ├── duplicate_intro.fcpxml # 사람이 편집한 의미단위 컷 정답 FCPXML
     └── ...
 ```
 
-### 4.2. 정확도 측정
+### 4.2. 정확도 측정 (FCPXML 기반)
 
-**메트릭**:
-```python
-# Precision: 감지한 것 중 실제 맞는 비율
-precision = true_positives / (true_positives + false_positives)
+**방식**: 각 편집 행위(무음 컷, 의미단위 컷)의 결과 FCPXML을 정답 FCPXML과 비교하여 자동 평가.
 
-# Recall: 실제 있는 것 중 감지한 비율
-recall = true_positives / (true_positives + false_negatives)
-
-# F1 Score: Precision과 Recall의 조화 평균
-f1 = 2 * (precision * recall) / (precision + recall)
+**평가 루프**:
+```
+스킬 변경 → 편집 실행 → 결과 FCPXML 생성 → 정답 FCPXML과 비교 → 메트릭 산출 → 반복
 ```
 
-**목표**:
-- detect-silence: F1 > 0.85
-- subtitle-cut: F1 > 0.80
+**주요 메트릭**:
+- matched_cuts: 정답과 일치하는 컷 구간 수
+- missed_cuts: 정답에는 있지만 빠뜨린 컷 구간
+- extra_cuts: 정답에 없는데 추가된 컷 구간
+- timeline_overlap_ratio: 전체 타임라인 일치 비율
 
 ### 4.3. 성능 측정
 

@@ -86,16 +86,15 @@ FCPXML 내보내기 → Final Cut Pro에서 편집
 
 ## 평가 방법
 
-모든 컴포넌트는 정량적으로 평가한다.
+FCPXML 기반 자동 평가. 각 편집 행위의 결과를 정답과 비교한다.
 
-| 메트릭 | 설명 | 목표 |
-|--------|------|------|
-| IoU | 예측 구간과 정답 구간의 겹침 비율 | > 0.8 |
-| Precision | 컷 판단 중 실제 맞는 비율 | > 0.85 |
-| Recall | 실제 컷 대상 중 감지한 비율 | > 0.85 |
-| F1 | Precision과 Recall의 조화 평균 | > 0.85 |
+**방식**:
+1. 사람이 직접 편집한 정답 FCPXML을 준비 (무음 컷, 의미단위 컷 각각)
+2. 스킬 실행 → 결과 FCPXML 생성
+3. 정답 FCPXML vs 결과 FCPXML 자동 비교
+4. 스킬을 바꿔가며 반복 → 품질 개선 루프
 
-수동 레이블링된 ground truth 데이터셋으로 검증.
+**평가 단위**: 무음 감지와 의미단위 컷편집을 각각 별도로 평가한다.
 
 ---
 
@@ -108,7 +107,7 @@ FCPXML 내보내기 → Final Cut Pro에서 편집
 | Phase 3 | Whisper 자동 음성 인식 | 4일 |
 | Phase 4 | 멀티 AI 자막 분석 | 5일 |
 | Phase 5 | 파이프라인 통합 | 5.5일 |
-| Phase 6 | 평가 프레임워크 | 5.5일 |
+| Phase 6 | FCPXML 기반 평가 프레임워크 | 5.5일 |
 | Phase 7 | 미래 확장 (장면 감지, 화자 분리 등) | 선택 |
 
 Phase 1~6까지 약 4주 소요 예상.
@@ -117,8 +116,8 @@ Phase 1~6까지 약 4주 소요 예상.
 
 ## 기존 자산
 
-- **skillthon/detect-silence**: FFmpeg 무음 감지 스킬 (972줄, 참조 구현)
-- **skillthon/subtitle-cut-detector**: Claude CLI 자막 분석 스킬 (참조 구현)
+- **skillthon/detect-silence**: FFmpeg 무음 감지 스킬 (972줄, 로컬 CLI에 설치하여 호출)
+- **skillthon/subtitle-cut-detector**: Claude CLI 자막 분석 스킬 (로컬 CLI에 설치하여 호출)
 - **FCPXML Exporter**: 이미 구현됨
 - **데이터 모델**: Project, Track, EditDecision 등 Pydantic 모델
 
@@ -127,6 +126,7 @@ Phase 1~6까지 약 4주 소요 예상.
 ## 제약 사항
 
 - `claude` CLI와 `codex` CLI가 환경에 설치되어 있어야 함
+- skillthon 스킬이 로컬 CLI에 설치되어 있어야 함
 - FFmpeg 필수
 - AI 실패 시 자동 대체 로직 없음 — 사용자가 직접 판단
 - 비상업적 용도만 허용 (CC BY-NC-SA 4.0)
