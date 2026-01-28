@@ -259,50 +259,9 @@ RuntimeError: Claude CLI error: API rate limit exceeded
 ```
 
 **해결 방안**:
-- **Option 1**: Claude API 직접 호출 (anthropic Python SDK)
-  ```python
-  import anthropic
-  
-  client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-  message = client.messages.create(
-      model="claude-3-5-sonnet-20241022",
-      max_tokens=4096,
-      messages=[{"role": "user", "content": prompt}]
-  )
-  ```
-  
-- **Option 2**: Fallback to 규칙 기반 분석
-  ```python
-  def analyze_with_rules(segments):
-      cuts = []
-      for i, seg in enumerate(segments):
-          # 규칙 1: 너무 짧은 세그먼트 (< 2초, < 10자)
-          if seg.duration_ms < 2000 and len(seg.text) < 10:
-              cuts.append({"segment_index": i, "reason": "filler"})
-          
-          # 규칙 2: 불완전한 문장 (조사로 끝남)
-          if seg.text.endswith(("는", "을", "를", "이", "가", "하는")):
-              cuts.append({"segment_index": i, "reason": "incomplete"})
-          
-          # 규칙 3: 중복 (텍스트 유사도)
-          for j in range(i):
-              similarity = difflib.SequenceMatcher(None, seg.text, segments[j].text).ratio()
-              if similarity > 0.8:
-                  cuts.append({"segment_index": i, "reason": "duplicate"})
-                  break
-      
-      return cuts
-  ```
-
-- **Option 3**: 하이브리드 (Claude 우선, 실패 시 규칙 기반)
-  ```python
-  def analyze_subtitles(segments):
-      try:
-          return analyze_with_claude(segments)
-      except (FileNotFoundError, RuntimeError) as e:
-          logger.warning(f"Claude failed: {e}. Falling back to rule-based.")
-          return analyze_with_rules(segments)
-  ```
+- `claude` CLI가 설치되어 있는지 `shutil.which("claude")`로 확인
+- 설치 안 되어 있으면 사용자에게 에러 메시지 표시 (fallback 없음)
+- 에러 메시지 예: "claude CLI가 설치되어 있지 않습니다. Claude Code를 설치해주세요."
 
 #### 2.3. 에러 핸들링 부족
 **문제**: subprocess 실패 시 크래시
@@ -429,30 +388,15 @@ JSON만 출력하세요.'''
 
 ### 🐛 예상 문제점
 
-#### 문제 1: Claude 비용
-**증상**: API 호출 비용이 높을 수 있음
-
-**예상 비용**:
-```
-# Claude 3.5 Sonnet 가격 (2026-01-28 기준)
-- Input: $3 / 1M tokens
-- Output: $15 / 1M tokens
-
-# 10분 영상 (약 100개 세그먼트)
-- 프롬프트: ~2000 tokens
-- 응답: ~500 tokens
-- 비용: ~$0.01 per video
-
-# 100개 영상 처리 시: ~$1
-```
+#### 문제 1: Claude CLI 처리 비용
+**증상**: Claude CLI 호출 시 내부적으로 API 비용이 발생할 수 있음
 
 **해결 방안**:
 - 캐싱 (같은 자막은 재분석 안함)
 - 배치 처리 (여러 영상 한 번에)
-- 규칙 기반 pre-filtering (명확한 케이스는 Claude 호출 안함)
 
 #### 문제 2: 느린 처리 속도
-**증상**: Claude API 호출이 느림 (5-10초)
+**증상**: Claude CLI 호출이 느림 (5-10초)
 
 **측정**:
 ```python
@@ -470,7 +414,7 @@ print(f"Claude analysis took {elapsed:.2f}s")
 - 백그라운드 작업 (UI 블로킹 방지)
 
 #### 문제 3: 테스트 어려움
-**증상**: Claude API 호출이 필요해서 단위 테스트 어려움
+**증상**: Claude CLI 호출이 필요해서 단위 테스트 어려움
 
 **해결 방안**:
 ```python
@@ -504,7 +448,7 @@ def test_analyze_with_claude(mocker):
 - [ ] detect-silence: FFmpeg 실패 처리
 - [ ] detect-silence: 파일 경로 검증
 - [ ] subtitle-cut: Claude CLI 실패 처리
-- [ ] subtitle-cut: Fallback to 규칙 기반
+- [ ] subtitle-cut: CLI 실패 시 사용자에게 에러 메시지 표시 (fallback 없음)
 - [ ] 모든 subprocess 호출에 timeout
 - [ ] 사용자 친화적 에러 메시지
 
@@ -519,8 +463,7 @@ def test_analyze_with_claude(mocker):
   - [ ] 결합 로직 (5가지 모드)
 - [ ] subtitle-cut 단위 테스트
   - [ ] SRT 파싱
-  - [ ] Claude 응답 파싱
-  - [ ] 규칙 기반 분석
+   - [ ] Claude CLI 응답 파싱
 - [ ] 통합 테스트
   - [ ] 전체 워크플로우
   - [ ] 샘플 비디오로 end-to-end
@@ -639,10 +582,9 @@ ffmpeg_calls = count_subprocess_calls("ffmpeg")
 - 기본값은 `ffmpeg`가 맞는가?
 - `and` vs `or` 중 어느 것이 더 실용적인가?
 
-### 질문 2: subtitle-cut Fallback
-- Claude 실패 시 규칙 기반으로 fallback할 것인가?
-- 아니면 에러를 발생시킬 것인가?
-- 규칙 기반 분석의 품질은 충분한가?
+### 질문 2: subtitle-cut 에러 처리
+- ✅ 확정: Claude CLI 실패 시 사용자에게 에러 메시지 표시
+- ✅ 확정: 규칙 기반 fallback 없음 (AI 실패 시 사용자 판단)
 
 ### 질문 3: 성능 vs 정확도
 - 처리 속도를 위해 정확도를 희생할 수 있는가?

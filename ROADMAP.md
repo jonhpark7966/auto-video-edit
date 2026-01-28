@@ -74,11 +74,12 @@
 - Whisper (기본)
 - 플러그인 가능한 엔진 구조 (향후 다른 엔진 추가 가능)
 
-### 멀티 AI 분석
-- **Claude + Codex**: 자막 분석에 두 AI 모두 사용
+### 멀티 AI 분석 (CLI 기반)
+- **`claude` CLI + `codex` CLI**: 환경에 설치된 CLI 도구로 호출 (API SDK 아님)
+- **skillthon 서브모듈**: 참조 구현 (subtitle-cut-detector 스킬)
 - **결과 집계**: 두 AI의 분석 결과를 종합
 - **기본 의사결정자**: Claude
-- **확장 가능**: 추가 AI 프로바이더 지원
+- **확장 가능**: 추가 CLI 도구 프로바이더 지원
 
 ### 미래 확장 기능
 - **화면 기반 편집**: 장면 변화 감지, 얼굴 인식 등 (구체적 기술 미정)
@@ -117,12 +118,10 @@
 - **UI**: Streamlit (Gradio에서 전환)
 - **미디어 처리**: FFmpeg
 - **데이터 검증**: Pydantic
-- **AI 분석**: Claude (Claude CLI)
-- **내보내기**: FCPXML, Premiere XML
+- **AI 분석**: `claude` CLI (Claude Code), `codex` CLI
 
 #### 추가 예정
 - **음성인식**: Whisper (Phase 3)
-- **멀티 AI**: Codex CLI (Phase 4)
 - **화면/음성 기반 편집**: 확장 인터페이스만 정의 (Phase 7, 구체적 기술 미정)
 - **테스트**: pytest, pytest-asyncio
 - **로깅**: Python logging
@@ -323,9 +322,9 @@ avid-cli video.mp4 \
 
 ---
 
-## Phase 4: 멀티 AI 자막 분석
+## Phase 4: 멀티 AI 자막 분석 (CLI 기반)
 
-**목표**: Claude + Codex로 자막 분석, 결과 집계
+**목표**: `claude` CLI + `codex` CLI로 자막 분석, 결과 집계
 
 ### 4.1. SubtitleAnalysisProvider 인터페이스
 
@@ -333,33 +332,30 @@ avid-cli video.mp4 \
 from typing import Protocol
 
 class SubtitleAnalysisProvider(Protocol):
-    """자막 분석 프로바이더 인터페이스"""
+    """자막 분석 프로바이더 인터페이스 (CLI 기반)"""
     
     def analyze(
         self,
         srt_path: Path,
-        analysis_type: str = "all"  # "duplicate", "incomplete", "filler", "all"
+        analysis_type: str = "all"
     ) -> list[CutSegment]:
-        """자막을 분석하여 컷 대상 세그먼트 반환"""
+        """CLI 도구를 통해 자막 분석"""
         ...
 ```
 
-### 4.2. 지원 AI
+### 4.2. 지원 AI (CLI 도구)
 
 **Claude (기본 의사결정자)**
-- Claude CLI 또는 API
-- 높은 정확도
-- 의미론적 분석
+- `claude` CLI (Claude Code) — subprocess로 호출
+- 높은 정확도, 의미론적 분석
+- skillthon/subtitle-cut-detector 스킬이 참조 구현
 
 **Codex**
-- Codex CLI
-- 보조 분석
-- 결과 검증
+- `codex` CLI — subprocess로 호출
+- 보조 분석, 결과 검증
 
 **확장 가능**
-- GPT-4
-- Gemini
-- 기타 LLM
+- 환경에 설치된 다른 CLI 도구 추가 가능
 
 ### 4.3. 작업 내용
 

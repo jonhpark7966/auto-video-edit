@@ -14,11 +14,12 @@
 - ✅ 실패 시 사용자에게 명확한 에러 메시지
 - ❌ 규칙 기반 Fallback 불필요
 
-### 2. 자막 기반 편집 결정 (Multi-AI)
-- ✅ Claude + Codex 모두 호출
+### 2. 자막 기반 편집 결정 (Multi-AI, CLI 기반)
+- ✅ `claude` CLI + `codex` CLI로 호출 (API SDK 아님)
+- ✅ skillthon 서브모듈의 스킬이 참조 구현
 - ✅ 두 AI의 의견을 합쳐서 결정
 - ✅ 최종 결정자: Claude (기본값, 변경 가능)
-- ✅ 향후 다른 AI 추가 예정 (확장 가능한 구조)
+- ✅ 향후 다른 CLI 도구 추가 예정 (확장 가능한 구조)
 - ✅ 실패 시 사용자에게 알림
 
 ### 3. 음성 인식 (Whisper + 확장)
@@ -80,15 +81,14 @@
 └─────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────┐
-│                  Provider Layer (Plugins)                │
+│                  Provider Layer (CLI Tools)              │
 │  - Transcription Providers:                              │
 │    - WhisperProvider (기본)                             │
 │    - (향후 확장 가능한 플러그인 구조)                    │
-│  - AI Analysis Providers:                                │
-│    - ClaudeProvider (기본)                              │
-│    - CodexProvider (기본)                               │
-│    - GeminiProvider (향후)                              │
-│    - GPT4Provider (향후)                                │
+│  - AI Analysis Providers (CLI 기반):                     │
+│    - ClaudeProvider (claude CLI)                        │
+│    - CodexProvider (codex CLI)                          │
+│    - (향후 CLI 도구 추가 가능)                          │
 └─────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────┐
@@ -216,7 +216,13 @@ except SRTParseError as e:
 
 ---
 
-### 2. AI 분석 서비스 (Multi-Provider)
+### 2. AI 분석 서비스 (Multi-Provider, CLI 기반)
+
+**핵심 원칙**: Claude와 Codex는 **CLI 도구**로 호출한다 (API SDK가 아님).
+- `claude` CLI = Claude Code (환경에 설치된 CLI)
+- `codex` CLI = Codex CLI (환경에 설치된 CLI)
+- API 키 직접 관리 불필요 — CLI가 인증을 처리함
+- skillthon 서브모듈의 스킬이 참조 구현
 
 **위치**: `apps/backend/src/avid/services/ai_analysis/`
 
@@ -227,135 +233,95 @@ ai_analysis/
 ├── base.py              # IAIProvider 인터페이스
 ├── providers/
 │   ├── __init__.py
-│   ├── claude.py        # ClaudeProvider
-│   ├── codex.py         # CodexProvider
-│   ├── gemini.py        # GeminiProvider (향후)
-│   └── gpt4.py          # GPT4Provider (향후)
+│   ├── claude.py        # ClaudeProvider (claude CLI)
+│   └── codex.py         # CodexProvider (codex CLI)
 ├── aggregator.py        # 여러 AI 결과 합치기
 └── service.py           # AIAnalysisService (메인)
 ```
 
+**CLI 호출 패턴** (skillthon 참조):
+```python
+# Claude Code CLI 호출 (subtitle-cut 스킬의 claude_analyzer.py 참조)
+result = subprocess.run(
+    ["claude", "-p", prompt, "--output-format", "text"],
+    capture_output=True, text=True, timeout=120,
+)
+
+# Codex CLI 호출
+result = subprocess.run(
+    ["codex", "--quiet", "--approval-mode", "full-auto", "-p", prompt],
+    capture_output=True, text=True, timeout=120,
+)
+```
+
 **인터페이스**:
 ```python
-# base.py
-from abc import ABC, abstractmethod
-from typing import Protocol
-
 class IAIProvider(Protocol):
-    """AI 분석 제공자 인터페이스"""
-    
     async def analyze_subtitles(
         self,
         segments: list[SubtitleSegment],
         options: dict[str, Any],
-    ) -> AIAnalysisResult:
-        """자막 세그먼트 분석
-        
-        Args:
-            segments: 자막 세그먼트 리스트
-            options: 분석 옵션 (keep_alternatives 등)
-        
-        Returns:
-            AIAnalysisResult with:
-            - cuts: 잘라야 할 세그먼트
-            - keeps: 유지할 세그먼트
-            - confidence: 신뢰도
-            - reasoning: 판단 근거
-        
-        Raises:
-            AIProviderError: AI 호출 실패
-        """
-        ...
+    ) -> AIAnalysisResult: ...
     
     @property
-    def name(self) -> str:
-        """제공자 이름 (claude, codex, gemini 등)"""
-        ...
+    def name(self) -> str: ...
     
     @property
     def is_available(self) -> bool:
-        """사용 가능 여부 (API 키 확인 등)"""
+        """CLI 바이너리가 설치되어 있는지 확인"""
         ...
 ```
 
 **구현 예시**:
 ```python
-# providers/claude.py
-import anthropic
+# providers/claude.py — Claude Code CLI 사용
+import shutil
+import subprocess
 
 class ClaudeProvider:
-    def __init__(self, api_key: str | None = None):
-        self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
-        if not self.api_key:
-            raise ValueError("ANTHROPIC_API_KEY not found")
-        self.client = anthropic.Anthropic(api_key=self.api_key)
+    def __init__(self):
+        self._available = shutil.which("claude") is not None
     
-    async def analyze_subtitles(
-        self, segments, options
-    ) -> AIAnalysisResult:
+    async def analyze_subtitles(self, segments, options) -> AIAnalysisResult:
+        if not self._available:
+            raise AIProviderError("claude CLI not found")
+        
         prompt = self._build_prompt(segments, options)
         
-        try:
-            message = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=4096,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            response_text = message.content[0].text
-        except anthropic.APIError as e:
-            raise AIProviderError(f"Claude API failed: {e}") from e
+        result = await asyncio.to_thread(
+            subprocess.run,
+            ["claude", "-p", prompt, "--output-format", "text"],
+            capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode != 0:
+            raise AIProviderError(f"claude CLI failed: {result.stderr}")
         
-        # JSON 파싱
-        result = self._parse_response(response_text)
-        return result
-    
-    @property
-    def name(self) -> str:
-        return "claude"
+        return self._parse_response(result.stdout)
     
     @property
     def is_available(self) -> bool:
-        return bool(self.api_key)
+        return self._available
 
-# providers/codex.py
-import subprocess
-
+# providers/codex.py — Codex CLI 사용
 class CodexProvider:
     def __init__(self):
-        # Codex CLI 확인
-        try:
-            subprocess.run(["codex", "--version"], capture_output=True, check=True)
-            self._available = True
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            self._available = False
+        self._available = shutil.which("codex") is not None
     
-    async def analyze_subtitles(
-        self, segments, options
-    ) -> AIAnalysisResult:
+    async def analyze_subtitles(self, segments, options) -> AIAnalysisResult:
         if not self._available:
-            raise AIProviderError("Codex CLI not found")
+            raise AIProviderError("codex CLI not found")
         
         prompt = self._build_prompt(segments, options)
         
-        try:
-            result = subprocess.run(
-                ["codex", "-p", prompt, "--output-format", "json"],
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-            if result.returncode != 0:
-                raise AIProviderError(f"Codex failed: {result.stderr}")
-        except subprocess.TimeoutExpired:
-            raise AIProviderError("Codex timeout (> 2 minutes)")
+        result = await asyncio.to_thread(
+            subprocess.run,
+            ["codex", "--quiet", "--approval-mode", "full-auto", "-p", prompt],
+            capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode != 0:
+            raise AIProviderError(f"codex CLI failed: {result.stderr}")
         
-        # JSON 파싱
-        result = self._parse_response(result.stdout)
-        return result
-    
-    @property
-    def name(self) -> str:
-        return "codex"
+        return self._parse_response(result.stdout)
     
     @property
     def is_available(self) -> bool:
@@ -364,153 +330,30 @@ class CodexProvider:
 
 **결과 합치기 (Aggregator)**:
 ```python
-# aggregator.py
 class AIResultAggregator:
-    """여러 AI의 결과를 합치는 로직"""
-    
     def aggregate(
         self,
         results: dict[str, AIAnalysisResult],
         decision_maker: str = "claude",
     ) -> AIAnalysisResult:
-        """여러 AI 결과를 합쳐서 최종 결정
-        
-        Args:
-            results: {provider_name: AIAnalysisResult}
-            decision_maker: 최종 결정자 (claude, codex, vote 등)
-        
-        Returns:
-            최종 AIAnalysisResult
-        
-        전략:
-        1. 모든 AI가 동의하는 것: 높은 신뢰도
-        2. 일부만 동의: 중간 신뢰도
-        3. 의견 불일치: decision_maker의 판단 따름
-        """
-        all_cuts = {}  # segment_index -> list of providers
-        all_keeps = {}
-        
-        # 1. 모든 결과 수집
-        for provider_name, result in results.items():
-            for cut in result.cuts:
-                seg_idx = cut["segment_index"]
-                if seg_idx not in all_cuts:
-                    all_cuts[seg_idx] = []
-                all_cuts[seg_idx].append(provider_name)
-            
-            for keep in result.keeps:
-                seg_idx = keep["segment_index"]
-                if seg_idx not in all_keeps:
-                    all_keeps[seg_idx] = []
-                all_keeps[seg_idx].append(provider_name)
-        
-        # 2. 신뢰도 계산
-        final_cuts = []
-        for seg_idx, providers in all_cuts.items():
-            confidence = len(providers) / len(results)
-            
-            # decision_maker의 판단 확인
-            decision_maker_agrees = decision_maker in providers
-            
-            # 최종 결정
-            if confidence >= 0.5 or decision_maker_agrees:
-                final_cuts.append({
-                    "segment_index": seg_idx,
-                    "confidence": confidence,
-                    "agreed_by": providers,
-                    "decision_maker_agrees": decision_maker_agrees,
-                })
-        
-        return AIAnalysisResult(
-            cuts=final_cuts,
-            keeps=[],  # 생략
-            metadata={
-                "providers": list(results.keys()),
-                "decision_maker": decision_maker,
-                "aggregation_strategy": "majority_vote_with_tiebreaker",
-            }
-        )
+        """전략: decision_maker가 동의하거나 과반수가 동의하면 cut"""
+        ...
 ```
 
 **메인 서비스**:
 ```python
-# service.py
 class AIAnalysisService:
-    def __init__(self, providers: list[IAIProvider]):
-        self.providers = {p.name: p for p in providers}
-        self.aggregator = AIResultAggregator()
+    def __init__(self):
+        # CLI 바이너리 존재 여부로 자동 검색
+        self.providers = self._auto_discover()
     
-    async def analyze_subtitles(
-        self,
-        segments: list[SubtitleSegment],
-        provider_names: list[str] = ["claude", "codex"],
-        decision_maker: str = "claude",
-        options: dict[str, Any] | None = None,
-    ) -> AIAnalysisResult:
-        """여러 AI로 자막 분석
-        
-        Args:
-            segments: 자막 세그먼트
-            provider_names: 사용할 AI 목록
-            decision_maker: 최종 결정자
-            options: 분석 옵션
-        
-        Returns:
-            합쳐진 AIAnalysisResult
-        
-        Raises:
-            AIProviderError: 모든 AI 실패 시
-        """
-        options = options or {}
-        results = {}
-        errors = {}
-        
-        # 1. 모든 AI 호출 (병렬)
-        tasks = []
-        for name in provider_names:
-            provider = self.providers.get(name)
-            if not provider:
-                errors[name] = f"Provider '{name}' not found"
-                continue
-            if not provider.is_available:
-                errors[name] = f"Provider '{name}' not available"
-                continue
-            
-            tasks.append(self._call_provider(provider, segments, options))
-        
-        # 2. 결과 수집
-        task_results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        for i, result in enumerate(task_results):
-            provider_name = provider_names[i]
-            if isinstance(result, Exception):
-                errors[provider_name] = str(result)
-            else:
-                results[provider_name] = result
-        
-        # 3. 에러 처리
-        if not results:
-            # 모든 AI 실패
-            error_msg = "\n".join([f"{k}: {v}" for k, v in errors.items()])
-            raise AIProviderError(f"All AI providers failed:\n{error_msg}")
-        
-        if errors:
-            # 일부 실패 (경고만)
-            logger.warning(f"Some AI providers failed: {errors}")
-        
-        # 4. 결과 합치기
-        final_result = self.aggregator.aggregate(results, decision_maker)
-        final_result.metadata["errors"] = errors
-        
-        return final_result
+    def _auto_discover(self):
+        candidates = [ClaudeProvider(), CodexProvider()]
+        return {p.name: p for p in candidates if p.is_available}
     
-    async def _call_provider(
-        self, provider, segments, options
-    ) -> AIAnalysisResult:
-        try:
-            return await provider.analyze_subtitles(segments, options)
-        except Exception as e:
-            raise AIProviderError(f"{provider.name} failed: {e}") from e
+    async def analyze(self, segments, provider_names=None, decision_maker="claude"):
+        # 선택된 프로바이더 병렬 실행 → 결과 집계
+        ...
 ```
 
 ---
@@ -936,9 +779,7 @@ class EmotionAnalyzer:
             - emotion (happy, sad, angry, neutral)
             - confidence
         
-        사용 라이브러리:
-        - speechbrain
-        - transformers (Wav2Vec2)
+        구체적 라이브러리는 향후 결정
         """
         ...
 ```
@@ -961,14 +802,20 @@ def test_ffmpeg_silence_detection():
 
 # tests/services/test_ai_analysis.py
 @pytest.mark.asyncio
-async def test_claude_provider():
+async def test_claude_provider(mocker):
+    # claude CLI 응답을 mock
+    mock_response = '{"cuts": [{"index": 1, "reason": "duplicate"}]}'
+    mocker.patch('subprocess.run', return_value=Mock(
+        stdout=mock_response, returncode=0
+    ))
+    
     provider = ClaudeProvider()
     segments = [
         SubtitleSegment(start_ms=0, end_ms=1000, text="안녕하세요"),
-        SubtitleSegment(start_ms=1000, end_ms=2000, text="안녕하세요"),  # 중복
+        SubtitleSegment(start_ms=1000, end_ms=2000, text="안녕하세요"),
     ]
     result = await provider.analyze_subtitles(segments, {})
-    assert len(result.cuts) == 1  # 중복 감지
+    assert len(result.cuts) == 1
 ```
 
 ### 통합 테스트
@@ -991,10 +838,9 @@ async def test_full_pipeline():
     )
     
     # 3. AI 분석
-    ai_service = AIAnalysisService([ClaudeProvider(), CodexProvider()])
-    ai_result = await ai_service.analyze_subtitles(
+    ai_service = AIAnalysisService()  # CLI 자동 검색
+    ai_result = await ai_service.analyze(
         segments=transcription.segments,
-        provider_names=["claude", "codex"],
     )
     
     # 4. 프로젝트 생성
