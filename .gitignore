@@ -97,3 +97,6 @@ outputs/
 temp/
 *.fcpxml
 *.prproj
+
+# Sample media files
+samples/
