@@ -5,7 +5,7 @@ from pathlib import Path
 
 from avid.export.base import ProjectExporter
 from avid.models.project import Project, TranscriptSegment
-from avid.models.timeline import EditType
+from avid.models.timeline import EditDecision, EditReason, EditType
 from avid.models.track import TrackType
 
 
@@ -25,6 +25,8 @@ class FCPXMLExporter(ProjectExporter):
         project: Project,
         output_path: Path,
         show_disabled_cuts: bool = False,
+        silence_mode: str = "cut",
+        content_mode: str = "disabled",
     ) -> tuple[Path, Path | None]:
         """Export project to FCPXML format with adjusted SRT.
 
@@ -34,20 +36,24 @@ class FCPXMLExporter(ProjectExporter):
             show_disabled_cuts: If True, CUT segments are included but disabled
                                in the timeline (visible but won't play).
                                If False, CUT segments are completely removed.
+            silence_mode: How to handle SILENCE edits - "cut" (remove) or "disabled"
+            content_mode: How to handle DUPLICATE/FILLER edits - "cut" or "disabled"
 
         Returns:
             Tuple of (fcpxml_path, srt_path or None if no transcription)
 
-        Two modes:
-        1. CUT mode (show_disabled_cuts=False):
-           - Cut segments are removed from timeline
-           - SRT timestamps adjusted to match shortened timeline
+        Modes:
+        1. CUT mode: Segments are removed from timeline
+        2. DISABLED mode: Segments are present but disabled (for review in FCP)
 
-        2. Disabled mode (show_disabled_cuts=True):
-           - All segments present, cut ones are disabled
-           - SRT timestamps unchanged (original timing preserved)
+        The silence_mode and content_mode parameters allow different treatment:
+        - silence_mode="cut", content_mode="disabled" (default):
+          Silence is automatically cut, but content edits are shown as disabled for review.
         """
-        root = self._create_fcpxml_structure(project, show_disabled_cuts)
+        # Apply mode-based filtering to edit decisions
+        processed_project = self._apply_edit_modes(project, silence_mode, content_mode)
+
+        root = self._create_fcpxml_structure(processed_project, show_disabled_cuts)
         tree = ET.ElementTree(root)
 
         # Ensure output path has correct extension
@@ -64,9 +70,65 @@ class FCPXMLExporter(ProjectExporter):
         srt_path = None
         if project.transcription and project.transcription.segments:
             srt_path = output_path.with_suffix(".srt")
-            self._export_adjusted_srt(project, srt_path, show_disabled_cuts)
+            self._export_adjusted_srt(processed_project, srt_path, show_disabled_cuts)
 
         return output_path, srt_path
+
+    def _apply_edit_modes(
+        self,
+        project: Project,
+        silence_mode: str,
+        content_mode: str,
+    ) -> Project:
+        """Apply edit mode settings to filter/modify edit decisions.
+
+        Args:
+            project: Original project
+            silence_mode: "cut" or "disabled" for SILENCE edits
+            content_mode: "cut" or "disabled" for DUPLICATE/FILLER edits
+
+        Returns:
+            Project with modified edit decisions
+        """
+        # Create a copy with modified edit decisions
+        new_decisions = []
+
+        for decision in project.edit_decisions:
+            # Determine which mode applies to this decision
+            if decision.reason == EditReason.SILENCE:
+                mode = silence_mode
+            elif decision.reason in (EditReason.DUPLICATE, EditReason.FILLER):
+                mode = content_mode
+            else:
+                # MANUAL or other reasons - keep as-is
+                new_decisions.append(decision)
+                continue
+
+            # Determine target edit_type based on mode
+            target_edit_type = EditType.CUT if mode == "cut" else EditType.MUTE
+
+            # Only create new decision if edit_type needs to change
+            if decision.edit_type != target_edit_type:
+                new_decision = EditDecision(
+                    range=decision.range,
+                    edit_type=target_edit_type,
+                    reason=decision.reason,
+                    confidence=decision.confidence,
+                    note=decision.note,
+                    active_video_track_id=decision.active_video_track_id,
+                    active_audio_track_ids=decision.active_audio_track_ids,
+                    speed_factor=decision.speed_factor,
+                )
+                new_decisions.append(new_decision)
+            else:
+                new_decisions.append(decision)
+
+        # Create a new project with modified decisions
+        # We use model_copy to avoid modifying the original
+        new_project = project.model_copy(deep=True)
+        new_project.edit_decisions = new_decisions
+
+        return new_project
 
     def _export_adjusted_srt(
         self,
@@ -321,7 +383,8 @@ class FCPXMLExporter(ProjectExporter):
             asset_map: Source file ID to asset ID mapping
             format_id: Format resource ID
             fps: Frame rate
-            show_disabled_cuts: If True, include disabled clips; if False, remove them
+            show_disabled_cuts: If True, include disabled CUT clips; if False, remove them
+                               MUTE clips are always shown as disabled.
         """
         video_tracks = project.get_video_tracks()
         if not video_tracks:
@@ -352,40 +415,89 @@ class FCPXMLExporter(ProjectExporter):
             )
             return
 
-        # Get CUT decisions
-        cut_decisions = sorted(
-            [
-                d
-                for d in project.edit_decisions
-                if d.edit_type == EditType.CUT
-                and d.active_video_track_id == primary_track.id
-            ],
-            key=lambda d: d.range.start_ms,
-        )
+        # Get CUT decisions (will be removed or shown as disabled)
+        cut_decisions = [
+            d
+            for d in project.edit_decisions
+            if d.edit_type == EditType.CUT
+            and d.active_video_track_id == primary_track.id
+        ]
 
-        # Merge overlapping cuts
+        # Get MUTE decisions (always shown as disabled)
+        mute_decisions = [
+            d
+            for d in project.edit_decisions
+            if d.edit_type == EditType.MUTE
+            and d.active_video_track_id == primary_track.id
+        ]
+
+        # Merge overlapping ranges for each type
         merged_cuts = self._merge_overlapping_ranges(
             [(d.range.start_ms, d.range.end_ms) for d in cut_decisions]
         )
+        merged_mutes = self._merge_overlapping_ranges(
+            [(d.range.start_ms, d.range.end_ms) for d in mute_decisions]
+        )
 
-        # Build segments: (source_start_ms, source_end_ms, enabled)
-        segments: list[tuple[int, int, bool]] = []
-        current_pos = 0
+        # Build segment states: collect all boundary points and determine state for each range
+        # State: 'enabled', 'disabled', 'removed'
+        boundary_points = {0, total_duration_ms}
+        for start, end in merged_cuts:
+            boundary_points.add(start)
+            boundary_points.add(end)
+        for start, end in merged_mutes:
+            boundary_points.add(start)
+            boundary_points.add(end)
 
-        for cut_start, cut_end in merged_cuts:
-            if cut_start > current_pos:
-                segments.append((current_pos, cut_start, True))
-            if show_disabled_cuts:
-                segments.append((cut_start, cut_end, False))
-            current_pos = cut_end
+        sorted_boundaries = sorted(boundary_points)
 
-        if current_pos < total_duration_ms:
-            segments.append((current_pos, total_duration_ms, True))
+        # For each range between boundaries, determine the state
+        # Priority: REMOVED > DISABLED > ENABLED
+        segments: list[tuple[int, int, str]] = []  # (start_ms, end_ms, state)
+
+        for i in range(len(sorted_boundaries) - 1):
+            range_start = sorted_boundaries[i]
+            range_end = sorted_boundaries[i + 1]
+
+            if range_start >= range_end:
+                continue
+
+            # Check if this range is in a CUT region
+            is_cut = any(
+                cut_start <= range_start and range_end <= cut_end
+                for cut_start, cut_end in merged_cuts
+            )
+
+            # Check if this range is in a MUTE region
+            is_mute = any(
+                mute_start <= range_start and range_end <= mute_end
+                for mute_start, mute_end in merged_mutes
+            )
+
+            # Determine state
+            if is_cut:
+                if show_disabled_cuts:
+                    state = 'disabled'
+                else:
+                    state = 'removed'
+            elif is_mute:
+                state = 'disabled'
+            else:
+                state = 'enabled'
+
+            segments.append((range_start, range_end, state))
+
+        # Filter out removed segments and convert to (start, end, enabled_bool)
+        final_segments: list[tuple[int, int, bool]] = [
+            (start, end, state == 'enabled')
+            for start, end, state in segments
+            if state != 'removed'
+        ]
 
         # Convert all boundary points to frames ONCE to ensure continuity
         # This prevents gaps caused by independent rounding
         boundary_points_ms = [0]
-        for start_ms, end_ms, _ in segments:
+        for start_ms, end_ms, _ in final_segments:
             if start_ms not in boundary_points_ms:
                 boundary_points_ms.append(start_ms)
             if end_ms not in boundary_points_ms:
@@ -399,7 +511,7 @@ class FCPXMLExporter(ProjectExporter):
             ms_to_frames_map[ms] = frames
 
         # Create clips for each segment using pre-calculated frame positions
-        for source_start_ms, source_end_ms, enabled in segments:
+        for source_start_ms, source_end_ms, enabled in final_segments:
             start_frames = ms_to_frames_map[source_start_ms]
             end_frames = ms_to_frames_map[source_end_ms]
             duration_frames = end_frames - start_frames

@@ -70,6 +70,10 @@ class EditDecision(BaseModel):
     confidence: float = Field(
         default=1.0, ge=0.0, le=1.0, description="Confidence score for automatic detection"
     )
+    note: str | None = Field(
+        default=None,
+        description="Detailed edit reason (e.g., 'segment 7의 인트로가 더 완성도 높음')",
+    )
 
     # Active tracks for this segment
     active_video_track_id: str | None = Field(

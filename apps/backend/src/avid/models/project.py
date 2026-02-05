@@ -241,29 +241,75 @@ class Project(BaseModel):
     def merge_from(self, other: "Project") -> None:
         """Merge another project into this one.
 
-        - Source files are merged (duplicates by ID are skipped)
-        - Tracks are merged (duplicates by ID are skipped)
-        - All edit decisions are appended (may result in overlaps)
+        - Source files with same path are consolidated (IDs mapped)
+        - Tracks are merged with ID remapping for consolidated sources
+        - All edit decisions are appended with track ID remapping
         - Transcription from other is ignored (keeps current)
 
         Args:
             other: Project to merge from
         """
-        # Merge source files (skip duplicates by ID)
+        # Build mapping from other's IDs to this project's IDs
+        # for source files with the same path
+        source_id_map: dict[str, str] = {}  # other_id -> self_id
+        track_id_map: dict[str, str] = {}   # other_track_id -> self_track_id
+
+        # Map source files by path
+        existing_paths = {str(f.path): f.id for f in self.source_files}
         existing_file_ids = {f.id for f in self.source_files}
+
         for source_file in other.source_files:
-            if source_file.id not in existing_file_ids:
+            path_str = str(source_file.path)
+            if path_str in existing_paths:
+                # Same path exists - map the ID
+                source_id_map[source_file.id] = existing_paths[path_str]
+            elif source_file.id not in existing_file_ids:
+                # New source file - add it
                 self.source_files.append(source_file)
                 existing_file_ids.add(source_file.id)
+                existing_paths[path_str] = source_file.id
 
-        # Merge tracks (skip duplicates by ID)
+        # Build track ID mapping based on source ID mapping
         existing_track_ids = {t.id for t in self.tracks}
         for track in other.tracks:
-            if track.id not in existing_track_ids:
+            if track.source_file_id in source_id_map:
+                # Source was consolidated - map track ID too
+                mapped_source_id = source_id_map[track.source_file_id]
+                # Find corresponding track in self
+                for self_track in self.tracks:
+                    if (self_track.source_file_id == mapped_source_id and
+                        self_track.track_type == track.track_type):
+                        track_id_map[track.id] = self_track.id
+                        break
+            elif track.id not in existing_track_ids:
+                # New track - add it
                 self.tracks.append(track)
                 existing_track_ids.add(track.id)
 
-        # Append all edit decisions (allow overlaps - they preserve different reasons)
-        self.edit_decisions.extend(other.edit_decisions)
+        # Append edit decisions with remapped track IDs
+        for decision in other.edit_decisions:
+            # Remap video track ID if needed
+            video_track_id = decision.active_video_track_id
+            if video_track_id and video_track_id in track_id_map:
+                video_track_id = track_id_map[video_track_id]
+
+            # Remap audio track IDs if needed
+            audio_track_ids = [
+                track_id_map.get(aid, aid)
+                for aid in decision.active_audio_track_ids
+            ]
+
+            # Create remapped decision
+            remapped_decision = EditDecision(
+                range=decision.range,
+                edit_type=decision.edit_type,
+                reason=decision.reason,
+                confidence=decision.confidence,
+                note=decision.note,
+                active_video_track_id=video_track_id,
+                active_audio_track_ids=audio_track_ids,
+                speed_factor=decision.speed_factor,
+            )
+            self.edit_decisions.append(remapped_decision)
 
         self.updated_at = datetime.now()
