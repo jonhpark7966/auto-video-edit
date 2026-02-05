@@ -7,8 +7,7 @@ This allows for easy swapping of implementations and better testability.
 from pathlib import Path
 from typing import Any, Protocol
 
-from avid.models.media import MediaFile, MediaInfo
-from avid.models.timeline import TimeRange
+from avid.models.media import MediaInfo
 
 
 class IMediaService(Protocol):
@@ -83,44 +82,6 @@ class ITranscriptionService(Protocol):
             - text: Full transcription text
             - segments: List of {start, end, text} segments
             - language: Detected or specified language
-        """
-        ...
-
-
-class IAudioAnalyzer(Protocol):
-    """Interface for audio analysis operations."""
-
-    async def detect_silence(
-        self,
-        audio_path: Path,
-        min_silence_ms: int = 500,
-        silence_threshold_db: float = -40.0,
-    ) -> list[TimeRange]:
-        """Detect silent sections in audio.
-
-        Args:
-            audio_path: Path to audio file
-            min_silence_ms: Minimum silence duration to detect
-            silence_threshold_db: Volume threshold for silence
-
-        Returns:
-            List of TimeRange objects for silent sections
-        """
-        ...
-
-    async def get_volume_levels(
-        self,
-        audio_path: Path,
-        window_ms: int = 100,
-    ) -> list[tuple[int, float]]:
-        """Get volume levels over time.
-
-        Args:
-            audio_path: Path to audio file
-            window_ms: Analysis window size in milliseconds
-
-        Returns:
-            List of (timestamp_ms, volume_db) tuples
         """
         ...
 

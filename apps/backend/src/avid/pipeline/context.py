@@ -6,7 +6,6 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from avid.models.media import MediaFile
-from avid.models.timeline import Timeline
 
 
 class PipelineContext(BaseModel):
@@ -21,7 +20,7 @@ class PipelineContext(BaseModel):
     audio_file: MediaFile | None = Field(None, description="Input audio file (for separate audio)")
 
     # Working data
-    timeline: Timeline | None = Field(None, description="Current editing timeline")
+    timeline: Any | None = Field(None, description="Current editing timeline")
     transcription: dict[str, Any] | None = Field(None, description="Transcription result")
 
     # Paths
