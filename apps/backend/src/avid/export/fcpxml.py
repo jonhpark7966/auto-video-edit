@@ -382,14 +382,35 @@ class FCPXMLExporter(ProjectExporter):
         if current_pos < total_duration_ms:
             segments.append((current_pos, total_duration_ms, True))
 
-        # Create clips for each segment
+        # Convert all boundary points to frames ONCE to ensure continuity
+        # This prevents gaps caused by independent rounding
+        boundary_points_ms = [0]
+        for start_ms, end_ms, _ in segments:
+            if start_ms not in boundary_points_ms:
+                boundary_points_ms.append(start_ms)
+            if end_ms not in boundary_points_ms:
+                boundary_points_ms.append(end_ms)
+        boundary_points_ms.sort()
+
+        # Convert to frame units (for 23.976fps: units of 1001/24000s)
+        ms_to_frames_map: dict[int, int] = {}
+        for ms in boundary_points_ms:
+            frames = self._ms_to_frames(ms, fps)
+            ms_to_frames_map[ms] = frames
+
+        # Create clips for each segment using pre-calculated frame positions
         for source_start_ms, source_end_ms, enabled in segments:
-            duration_ms = source_end_ms - source_start_ms
+            start_frames = ms_to_frames_map[source_start_ms]
+            end_frames = ms_to_frames_map[source_end_ms]
+            duration_frames = end_frames - start_frames
+
+            if duration_frames <= 0:
+                continue
 
             clip_attrs = {
                 "ref": asset_id,
-                "duration": self._ms_to_time(duration_ms, fps),
-                "start": self._ms_to_time(source_start_ms, fps),
+                "duration": self._frames_to_time(duration_frames, fps),
+                "start": self._frames_to_time(start_frames, fps),
                 "format": format_id,
                 "tcFormat": "NDF",
                 "name": source.original_name,
@@ -612,34 +633,46 @@ class FCPXMLExporter(ProjectExporter):
 
         return merged
 
+    def _ms_to_frames(self, ms: int, fps: float) -> int:
+        """Convert milliseconds to frame count.
+
+        For NTSC frame rates, uses proper 1001-based calculation.
+        """
+        if abs(fps - 23.976) < 0.01:
+            return int(ms * 24000 / 1000 / 1001)
+        elif abs(fps - 29.97) < 0.01:
+            return int(ms * 30000 / 1000 / 1001)
+        elif abs(fps - 59.94) < 0.01:
+            return int(ms * 60000 / 1000 / 1001)
+        else:
+            return int(ms * fps / 1000)
+
+    def _frames_to_time(self, frames: int, fps: float) -> str:
+        """Convert frame count to FCPXML time format.
+
+        For NTSC frame rates, uses 1001-based timing.
+        """
+        if abs(fps - 23.976) < 0.01:
+            time_units = frames * 1001
+            return f"{time_units}/24000s"
+        elif abs(fps - 29.97) < 0.01:
+            time_units = frames * 1001
+            return f"{time_units}/30000s"
+        elif abs(fps - 59.94) < 0.01:
+            time_units = frames * 1001
+            return f"{time_units}/60000s"
+        else:
+            fps_int = int(round(fps))
+            return f"{frames}/{fps_int}s"
+
     def _ms_to_time(self, ms: int, fps: float) -> str:
         """Convert milliseconds to FCPXML time format.
 
         For NTSC frame rates (23.976, 29.97, 59.94), use 1001-based timing.
         For integer frame rates, use simple frames/fps format.
         """
-        # Handle common NTSC frame rates with proper rational timing
-        if abs(fps - 23.976) < 0.01:
-            # 23.976 fps: time in 1/24000s units
-            # frames * 1001 gives time in 1/24000s
-            frames = int(ms * 24000 / 1000 / 1001)
-            time_units = frames * 1001
-            return f"{time_units}/24000s"
-        elif abs(fps - 29.97) < 0.01:
-            # 29.97 fps: time in 1/30000s units
-            frames = int(ms * 30000 / 1000 / 1001)
-            time_units = frames * 1001
-            return f"{time_units}/30000s"
-        elif abs(fps - 59.94) < 0.01:
-            # 59.94 fps: time in 1/60000s units
-            frames = int(ms * 60000 / 1000 / 1001)
-            time_units = frames * 1001
-            return f"{time_units}/60000s"
-        else:
-            # Integer frame rates
-            frames = int(ms * fps / 1000)
-            fps_int = int(round(fps))
-            return f"{frames}/{fps_int}s"
+        frames = self._ms_to_frames(ms, fps)
+        return self._frames_to_time(frames, fps)
 
     def _fps_to_frame_duration(self, fps: float) -> str:
         """Convert FPS to frame duration format.
