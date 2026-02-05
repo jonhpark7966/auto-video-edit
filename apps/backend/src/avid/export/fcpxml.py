@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from avid.export.base import ProjectExporter
-from avid.models.project import Project
+from avid.models.project import Project, TranscriptSegment
 from avid.models.timeline import EditType
 from avid.models.track import TrackType
 
@@ -25,8 +25,8 @@ class FCPXMLExporter(ProjectExporter):
         project: Project,
         output_path: Path,
         show_disabled_cuts: bool = False,
-    ) -> Path:
-        """Export project to FCPXML format.
+    ) -> tuple[Path, Path | None]:
+        """Export project to FCPXML format with adjusted SRT.
 
         Args:
             project: Project to export
@@ -36,7 +36,16 @@ class FCPXMLExporter(ProjectExporter):
                                If False, CUT segments are completely removed.
 
         Returns:
-            Path to the exported file
+            Tuple of (fcpxml_path, srt_path or None if no transcription)
+
+        Two modes:
+        1. CUT mode (show_disabled_cuts=False):
+           - Cut segments are removed from timeline
+           - SRT timestamps adjusted to match shortened timeline
+
+        2. Disabled mode (show_disabled_cuts=True):
+           - All segments present, cut ones are disabled
+           - SRT timestamps unchanged (original timing preserved)
         """
         root = self._create_fcpxml_structure(project, show_disabled_cuts)
         tree = ET.ElementTree(root)
@@ -45,18 +54,119 @@ class FCPXMLExporter(ProjectExporter):
         if not output_path.suffix == self.file_extension:
             output_path = output_path.with_suffix(self.file_extension)
 
-        # Write with XML declaration
-        with open(output_path, "wb") as f:
-            tree.write(f, encoding="utf-8", xml_declaration=True)
+        # Write with XML declaration and DOCTYPE
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write('<?xml version="1.0" encoding="UTF-8"?>\n')
+            f.write('<!DOCTYPE fcpxml>\n\n')
+            tree.write(f, encoding="unicode")
 
-        return output_path
+        # Generate adjusted SRT if transcription exists
+        srt_path = None
+        if project.transcription and project.transcription.segments:
+            srt_path = output_path.with_suffix(".srt")
+            self._export_adjusted_srt(project, srt_path, show_disabled_cuts)
+
+        return output_path, srt_path
+
+    def _export_adjusted_srt(
+        self,
+        project: Project,
+        output_path: Path,
+        show_disabled_cuts: bool = False,
+    ) -> None:
+        """Export SRT with timestamps adjusted for cuts.
+
+        For CUT mode: timestamps are shifted earlier by the total duration of cuts before them.
+        For DISABLED mode: timestamps remain unchanged.
+
+        Args:
+            project: Project with transcription and edit decisions
+            output_path: Path for the SRT file
+            show_disabled_cuts: If True, keep original timestamps; if False, adjust for cuts
+        """
+        if not project.transcription:
+            return
+
+        video_tracks = project.get_video_tracks()
+        if not video_tracks:
+            return
+
+        primary_track = video_tracks[0]
+
+        # Get CUT decisions (only actual cuts, not disabled)
+        # In disabled mode, nothing is actually cut from timeline
+        if show_disabled_cuts:
+            # Disabled mode: no timestamp adjustment needed
+            cuts_to_apply: list[tuple[int, int]] = []
+        else:
+            # CUT mode: get all cut ranges
+            cut_decisions = [
+                d
+                for d in project.edit_decisions
+                if d.edit_type == EditType.CUT
+                and d.active_video_track_id == primary_track.id
+            ]
+            cuts_to_apply = self._merge_overlapping_ranges(
+                [(d.range.start_ms, d.range.end_ms) for d in cut_decisions]
+            )
+
+        def adjust_time(original_ms: int) -> int:
+            """Adjust timestamp by subtracting all cuts that come before it."""
+            adjusted = original_ms
+            for cut_start, cut_end in cuts_to_apply:
+                if cut_end <= original_ms:
+                    # Cut is entirely before this timestamp
+                    adjusted -= (cut_end - cut_start)
+                elif cut_start < original_ms < cut_end:
+                    # Timestamp is inside a cut (shouldn't happen for kept segments)
+                    adjusted -= (original_ms - cut_start)
+            return max(0, adjusted)
+
+        def is_segment_kept(start_ms: int, end_ms: int) -> bool:
+            """Check if a segment is kept (not entirely within a cut)."""
+            for cut_start, cut_end in cuts_to_apply:
+                if cut_start <= start_ms and end_ms <= cut_end:
+                    return False
+            return True
+
+        def ms_to_srt_time(ms: int) -> str:
+            """Convert milliseconds to SRT time format."""
+            hours = ms // 3600000
+            minutes = (ms % 3600000) // 60000
+            seconds = (ms % 60000) // 1000
+            millis = ms % 1000
+            return f"{hours:02d}:{minutes:02d}:{seconds:02d},{millis:03d}"
+
+        # Generate adjusted SRT
+        srt_lines = []
+        segment_num = 1
+
+        for seg in project.transcription.segments:
+            # Skip segments that fall entirely within cuts
+            if not is_segment_kept(seg.start_ms, seg.end_ms):
+                continue
+
+            # Adjust timestamps
+            new_start = adjust_time(seg.start_ms)
+            new_end = adjust_time(seg.end_ms)
+
+            if new_end > new_start:
+                srt_lines.append(f"{segment_num}")
+                srt_lines.append(f"{ms_to_srt_time(new_start)} --> {ms_to_srt_time(new_end)}")
+                srt_lines.append(seg.text)
+                srt_lines.append("")
+                segment_num += 1
+
+        # Write SRT file
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(srt_lines))
 
     def _create_fcpxml_structure(
         self, project: Project, show_disabled_cuts: bool = False
     ) -> ET.Element:
         """Create the FCPXML document structure."""
         # Root element
-        fcpxml = ET.Element("fcpxml", version="1.10")
+        fcpxml = ET.Element("fcpxml", version="1.13")
 
         # Resources
         resources = ET.SubElement(fcpxml, "resources")
@@ -84,25 +194,47 @@ class FCPXMLExporter(ProjectExporter):
         format_attrs = {
             "id": format_id,
             "name": format_name,
+            "frameDuration": frame_duration,
             "width": str(width),
             "height": str(height),
-            "frameDuration": frame_duration,
+            "colorSpace": "1-1-1 (Rec. 709)",
         }
         ET.SubElement(resources, "format", **format_attrs)
 
         # Asset resources for each source file
         asset_map: dict[str, str] = {}  # source_file_id -> asset_id
+        next_resource_id = 2
         for i, source_file in enumerate(project.source_files):
-            asset_id = f"r{i + 2}"
+            asset_id = f"r{next_resource_id}"
+            next_resource_id += 1
             asset_map[source_file.id] = asset_id
 
-            asset = ET.SubElement(
-                resources,
-                "asset",
-                id=asset_id,
-                name=source_file.original_name,
-                uid=source_file.id,
-            )
+            # Build asset attributes matching FCP's export format
+            # Note: uid is omitted - FCP uses file hash for uid, using arbitrary values causes crashes
+            has_audio = source_file.info and source_file.info.sample_rate is not None
+            asset_attrs = {
+                "id": asset_id,
+                "name": source_file.original_name.rsplit(".", 1)[0],  # Name without extension
+                "start": "0s",
+                "hasVideo": "1" if source_file.is_video else "0",
+                "format": format_id,
+                "hasAudio": "1" if has_audio else "0",
+            }
+
+            # Add duration in milliseconds/1000s format (FCP standard)
+            if source_file.info and source_file.info.duration_ms:
+                asset_attrs["duration"] = f"{source_file.info.duration_ms}/1000s"
+
+            # Add audio info if available
+            if source_file.info:
+                if source_file.info.sample_rate:
+                    asset_attrs["audioRate"] = str(source_file.info.sample_rate)
+                    asset_attrs["audioChannels"] = "2"  # Default to stereo
+                if source_file.is_video:
+                    asset_attrs["videoSources"] = "1"
+                    asset_attrs["audioSources"] = "1" if has_audio else "0"
+
+            asset = ET.SubElement(resources, "asset", **asset_attrs)
             ET.SubElement(
                 asset,
                 "media-rep",
@@ -117,8 +249,14 @@ class FCPXMLExporter(ProjectExporter):
         # Project
         fcp_project = ET.SubElement(event, "project", name=project.name)
 
-        # Sequence
-        duration_ms = project.duration_ms
+        # Sequence - duration depends on mode
+        if show_disabled_cuts:
+            # Full duration (all segments)
+            duration_ms = project.duration_ms
+        else:
+            # Calculate duration without cuts
+            duration_ms = self._calculate_kept_duration(project)
+
         sequence = ET.SubElement(
             fcp_project,
             "sequence",
@@ -129,10 +267,137 @@ class FCPXMLExporter(ProjectExporter):
         # Spine (main video track)
         spine = ET.SubElement(sequence, "spine")
 
-        # Build timeline
-        self._build_timeline(spine, project, asset_map, format_id, fps, show_disabled_cuts)
+        # Build timeline (video clips only, no embedded captions)
+        self._build_video_timeline(
+            spine, project, asset_map, format_id, fps, show_disabled_cuts
+        )
 
         return fcpxml
+
+    def _calculate_kept_duration(self, project: Project) -> int:
+        """Calculate total duration of kept segments (excluding cuts)."""
+        video_tracks = project.get_video_tracks()
+        if not video_tracks:
+            return 0
+
+        primary_track = video_tracks[0]
+        source = project.get_source_file(primary_track.source_file_id)
+        if not source:
+            return 0
+
+        total_duration_ms = source.info.duration_ms
+
+        # Get all CUT decisions
+        cut_decisions = [
+            d
+            for d in project.edit_decisions
+            if d.edit_type == EditType.CUT
+            and d.active_video_track_id == primary_track.id
+        ]
+
+        # Merge overlapping cuts
+        merged_cuts = self._merge_overlapping_ranges(
+            [(d.range.start_ms, d.range.end_ms) for d in cut_decisions]
+        )
+
+        # Subtract cut durations
+        cut_duration = sum(end - start for start, end in merged_cuts)
+        return total_duration_ms - cut_duration
+
+    def _build_video_timeline(
+        self,
+        spine: ET.Element,
+        project: Project,
+        asset_map: dict[str, str],
+        format_id: str,
+        fps: float,
+        show_disabled_cuts: bool = False,
+    ) -> None:
+        """Build the video timeline with clips (no embedded captions).
+
+        Args:
+            spine: Parent spine element
+            project: Project with edit decisions
+            asset_map: Source file ID to asset ID mapping
+            format_id: Format resource ID
+            fps: Frame rate
+            show_disabled_cuts: If True, include disabled clips; if False, remove them
+        """
+        video_tracks = project.get_video_tracks()
+        if not video_tracks:
+            return
+
+        primary_track = video_tracks[0]
+        source = project.get_source_file(primary_track.source_file_id)
+        if not source:
+            return
+
+        asset_id = asset_map.get(source.id)
+        if not asset_id:
+            return
+
+        total_duration_ms = source.info.duration_ms
+
+        # If no edit decisions, simple timeline with single clip
+        if not project.edit_decisions:
+            ET.SubElement(
+                spine,
+                "asset-clip",
+                ref=asset_id,
+                duration=self._ms_to_time(total_duration_ms, fps),
+                start=self._ms_to_time(0, fps),
+                format=format_id,
+                tcFormat="NDF",
+                name=source.original_name,
+            )
+            return
+
+        # Get CUT decisions
+        cut_decisions = sorted(
+            [
+                d
+                for d in project.edit_decisions
+                if d.edit_type == EditType.CUT
+                and d.active_video_track_id == primary_track.id
+            ],
+            key=lambda d: d.range.start_ms,
+        )
+
+        # Merge overlapping cuts
+        merged_cuts = self._merge_overlapping_ranges(
+            [(d.range.start_ms, d.range.end_ms) for d in cut_decisions]
+        )
+
+        # Build segments: (source_start_ms, source_end_ms, enabled)
+        segments: list[tuple[int, int, bool]] = []
+        current_pos = 0
+
+        for cut_start, cut_end in merged_cuts:
+            if cut_start > current_pos:
+                segments.append((current_pos, cut_start, True))
+            if show_disabled_cuts:
+                segments.append((cut_start, cut_end, False))
+            current_pos = cut_end
+
+        if current_pos < total_duration_ms:
+            segments.append((current_pos, total_duration_ms, True))
+
+        # Create clips for each segment
+        for source_start_ms, source_end_ms, enabled in segments:
+            duration_ms = source_end_ms - source_start_ms
+
+            clip_attrs = {
+                "ref": asset_id,
+                "duration": self._ms_to_time(duration_ms, fps),
+                "start": self._ms_to_time(source_start_ms, fps),
+                "format": format_id,
+                "tcFormat": "NDF",
+                "name": source.original_name,
+            }
+            if not enabled:
+                clip_attrs["enabled"] = "0"
+
+            ET.SubElement(spine, "asset-clip", **clip_attrs)
 
     def _build_timeline(
         self,
@@ -143,7 +408,7 @@ class FCPXMLExporter(ProjectExporter):
         fps: float,
         show_disabled_cuts: bool = False,
     ) -> None:
-        """Build the timeline with clips based on edit decisions."""
+        """Build the timeline with clips based on edit decisions (legacy, no captions)."""
         # If no edit decisions, add all source files as sequential clips
         if not project.edit_decisions:
             self._add_simple_timeline(spine, project, asset_map, format_id, fps)
@@ -188,6 +453,7 @@ class FCPXMLExporter(ProjectExporter):
             duration=self._ms_to_time(duration_ms, fps),
             start=self._ms_to_time(0, fps),
             format=format_id,
+            tcFormat="NDF",
             name=source.original_name,
         )
 
@@ -304,6 +570,7 @@ class FCPXMLExporter(ProjectExporter):
                 "duration": self._ms_to_time(duration_ms, fps),
                 "start": self._ms_to_time(start_ms, fps),
                 "format": format_id,
+                "tcFormat": "NDF",
                 "name": source.original_name,
             }
             if not enabled:
@@ -400,7 +667,10 @@ class FCPXMLExporter(ProjectExporter):
     def _get_format_name(self, width: int, height: int, fps: float) -> str:
         """Generate FCP format name.
 
-        FCP format names follow pattern: FFVideoFormat{height}p{fps_code}
+        FCP format names follow pattern: FFVideoFormat{width}x{height}p{fps_code}
+        For 4K UHD: FFVideoFormat3840x2160p2398
+        For 1080p: FFVideoFormat1920x1080p2398
+
         Common fps codes:
         - 23.976 fps: 2398
         - 24 fps: 24
@@ -420,4 +690,4 @@ class FCPXMLExporter(ProjectExporter):
         else:
             fps_code = str(int(round(fps)))
 
-        return f"FFVideoFormat{height}p{fps_code}"
+        return f"FFVideoFormat{width}x{height}p{fps_code}"
