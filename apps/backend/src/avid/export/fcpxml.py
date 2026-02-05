@@ -27,6 +27,7 @@ class FCPXMLExporter(ProjectExporter):
         show_disabled_cuts: bool = False,
         silence_mode: str = "cut",
         content_mode: str = "disabled",
+        merge_short_gaps_ms: int = 500,
     ) -> tuple[Path, Path | None]:
         """Export project to FCPXML format with adjusted SRT.
 
@@ -38,6 +39,8 @@ class FCPXMLExporter(ProjectExporter):
                                If False, CUT segments are completely removed.
             silence_mode: How to handle SILENCE edits - "cut" (remove) or "disabled"
             content_mode: How to handle DUPLICATE/FILLER edits - "cut" or "disabled"
+            merge_short_gaps_ms: Short enabled segments (< this duration) between
+                                disabled segments will also be disabled. Set to 0 to disable.
 
         Returns:
             Tuple of (fcpxml_path, srt_path or None if no transcription)
@@ -53,7 +56,9 @@ class FCPXMLExporter(ProjectExporter):
         # Apply mode-based filtering to edit decisions
         processed_project = self._apply_edit_modes(project, silence_mode, content_mode)
 
-        root = self._create_fcpxml_structure(processed_project, show_disabled_cuts)
+        root = self._create_fcpxml_structure(
+            processed_project, show_disabled_cuts, merge_short_gaps_ms
+        )
         tree = ET.ElementTree(root)
 
         # Ensure output path has correct extension
@@ -224,7 +229,10 @@ class FCPXMLExporter(ProjectExporter):
             f.write("\n".join(srt_lines))
 
     def _create_fcpxml_structure(
-        self, project: Project, show_disabled_cuts: bool = False
+        self,
+        project: Project,
+        show_disabled_cuts: bool = False,
+        merge_short_gaps_ms: int = 500,
     ) -> ET.Element:
         """Create the FCPXML document structure."""
         # Root element
@@ -331,7 +339,8 @@ class FCPXMLExporter(ProjectExporter):
 
         # Build timeline (video clips only, no embedded captions)
         self._build_video_timeline(
-            spine, project, asset_map, format_id, fps, show_disabled_cuts
+            spine, project, asset_map, format_id, fps, show_disabled_cuts,
+            merge_short_gaps_ms
         )
 
         return fcpxml
@@ -374,6 +383,7 @@ class FCPXMLExporter(ProjectExporter):
         format_id: str,
         fps: float,
         show_disabled_cuts: bool = False,
+        merge_short_gaps_ms: int = 500,
     ) -> None:
         """Build the video timeline with clips (no embedded captions).
 
@@ -385,6 +395,8 @@ class FCPXMLExporter(ProjectExporter):
             fps: Frame rate
             show_disabled_cuts: If True, include disabled CUT clips; if False, remove them
                                MUTE clips are always shown as disabled.
+            merge_short_gaps_ms: Short enabled segments (< this duration) between
+                                disabled segments will also be disabled.
         """
         video_tracks = project.get_video_tracks()
         if not video_tracks:
@@ -493,6 +505,10 @@ class FCPXMLExporter(ProjectExporter):
             for start, end, state in segments
             if state != 'removed'
         ]
+
+        # Merge short enabled gaps between disabled segments
+        if merge_short_gaps_ms > 0:
+            final_segments = self._merge_short_gaps(final_segments, merge_short_gaps_ms)
 
         # Convert all boundary points to frames ONCE to ensure continuity
         # This prevents gaps caused by independent rounding
@@ -744,6 +760,45 @@ class FCPXMLExporter(ProjectExporter):
         merged.append((current_start, current_end))
 
         return merged
+
+    def _merge_short_gaps(
+        self,
+        segments: list[tuple[int, int, bool]],
+        threshold_ms: int,
+    ) -> list[tuple[int, int, bool]]:
+        """Disable short enabled segments that are surrounded by disabled segments.
+
+        When a short enabled segment (< threshold_ms) has disabled segments on both
+        sides, it should also be disabled. This prevents tiny "islands" of enabled
+        content between disabled regions.
+
+        Args:
+            segments: List of (start_ms, end_ms, enabled) tuples
+            threshold_ms: Segments shorter than this duration will be disabled
+                         if surrounded by disabled segments
+
+        Returns:
+            Modified list with short gaps disabled
+        """
+        if len(segments) < 3:
+            return segments
+
+        result = list(segments)
+
+        for i in range(1, len(result) - 1):
+            start, end, enabled = result[i]
+            duration = end - start
+
+            if enabled and duration < threshold_ms:
+                # Check if neighbors are both disabled
+                prev_enabled = result[i - 1][2]
+                next_enabled = result[i + 1][2]
+
+                if not prev_enabled and not next_enabled:
+                    # Both neighbors are disabled, so disable this segment too
+                    result[i] = (start, end, False)
+
+        return result
 
     def _ms_to_frames(self, ms: int, fps: float) -> int:
         """Convert milliseconds to frame count.
