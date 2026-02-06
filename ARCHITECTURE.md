@@ -16,8 +16,10 @@
 
 ### 2. 자막 기반 편집 결정 (Multi-AI, CLI 기반)
 - ✅ `claude` CLI + `codex` CLI로 호출 (API SDK 아님)
-- ✅ skillthon 서브모듈의 스킬을 로컬 CLI에 설치하여 직접 호출
-- ✅ 두 AI의 의견을 합쳐서 결정
+- ✅ 두 가지 편집 모드:
+  - **subtitle-cut**: 강의/설명 영상 — 정보 효율성 (중복, 필러, 말실수 제거)
+  - **podcast-cut**: 팟캐스트/인터뷰 — 재미 기준 (지루한 구간 제거, 하이라이트 보존)
+- ✅ 공통 모듈 (`skills/_common/`)로 SRT 파서, CLI 유틸 등 코드 공유
 - ✅ 최종 결정자: Claude (기본값, 변경 가능)
 - ✅ 향후 다른 CLI 도구 추가 예정 (확장 가능한 구조)
 - ✅ 실패 시 사용자에게 알림
@@ -68,7 +70,8 @@
 │                   Stage Layer (Processing)               │
 │  - TranscribeStage: 음성 → 텍스트                       │
 │  - SilenceDetectionStage: 무음 감지                     │
-│  - SubtitleAnalysisStage: 자막 분석 (Multi-AI)          │
+│  - SubtitleAnalysisStage: 자막 분석 (강의/설명)         │
+│  - PodcastAnalysisStage: 팟캐스트 분석 (재미 기준)      │
 │  - SceneDetectionStage: 화면 변화 감지 (향후)           │
 │  - SpeakerDiarizationStage: 화자 분리 (향후)            │
 └─────────────────────────────────────────────────────────┘
@@ -78,6 +81,7 @@
 │  - TranscriptionService: 음성 인식 (플러그인)            │
 │  - AudioAnalyzer: 오디오 분석 (FFmpeg)                  │
 │  - AIAnalysisService: AI 기반 분석 (플러그인)           │
+│  - PodcastCutService: 팟캐스트 편집 워크플로우          │
 │  - VideoAnalyzer: 비디오 분석 (향후)                    │
 │  - MediaService: 미디어 처리 (FFmpeg)                   │
 └─────────────────────────────────────────────────────────┘
@@ -86,6 +90,7 @@
 │                  Provider Layer (CLI Tools)              │
 │  - Transcription Providers:                              │
 │    - WhisperProvider (기본)                             │
+│    - ChalnaProvider (팟캐스트용)                        │
 │    - (향후 확장 가능한 플러그인 구조)                    │
 │  - AI Analysis Providers (CLI 기반):                     │
 │    - ClaudeProvider (claude CLI)                        │
@@ -638,7 +643,64 @@ class EvaluationRunner:
 
 ---
 
-### 5. 향후 확장 (화면/음성 기반 편집)
+### 5. 스킬 구조 (Skills Architecture)
+
+**Two-Pass 편집 아키텍처**를 적용한 세 가지 스킬이 공통 모듈을 공유:
+
+```
+SRT ──→ [Pass 1: transcript-overview] ──storyline.json──→ [Pass 2: subtitle-cut 또는 podcast-cut] ──→ Project JSON
+```
+
+- **Pass 1 (transcript-overview)**: 전체 SRT를 읽고 스토리 구조, 챕터, 의존성(setup-payoff, callback), 핵심 순간 분석
+- **Pass 2 (subtitle-cut / podcast-cut)**: Pass 1 결과를 `--context`로 받아 맥락을 알고 편집 결정
+
+이를 통해: setup을 자르면 payoff가 의미 없어지는 문제, callback anchor 소실, Q&A 쌍 분리 등을 방지.
+
+```
+skills/
+├── _common/                   # 공통 모듈
+│   ├── __init__.py
+│   ├── srt_parser.py          # SRT 파서 (SubtitleSegment, parse_srt 등)
+│   ├── video_info.py          # ffprobe 기반 비디오 정보 추출
+│   ├── base_models.py         # AnalysisResult 공통 모델
+│   ├── cli_utils.py           # call_claude(), call_codex(), parse_json_response()
+│   └── context_utils.py       # Two-Pass 컨텍스트 포맷팅/필터링 헬퍼
+├── transcript-overview/       # Pass 1: 스토리 구조 분석
+│   ├── SKILL.md
+│   ├── main.py                # 진입점 (python main.py)
+│   ├── claude_analyzer.py     # 적응적 분석 (≤150/151-400/400+)
+│   ├── models.py              # TranscriptOverview, Chapter, Dependency 등
+│   └── __init__.py
+├── subtitle-cut/              # Pass 2: 강의/설명 영상 편집
+│   ├── SKILL.md
+│   ├── main.py                # 진입점 (--context 지원)
+│   ├── claude_analyzer.py     # Claude 분석기 (storyline_context 주입)
+│   ├── codex_analyzer.py      # Codex 분석기 (storyline_context 주입)
+│   └── models.py              # CutReason, KeepReason
+└── podcast-cut/               # Pass 2: 팟캐스트/인터뷰 편집
+    ├── main.py                # 진입점 (--context 지원)
+    ├── claude_analyzer.py     # 청크별 컨텍스트 필터링 (storyline_context 주입)
+    └── models.py              # PodcastCutReason, PodcastKeepReason
+```
+
+**실행 방식**: 스킬은 Python 패키지로 import되지 않고, `python main.py`로 subprocess 실행됨.
+백엔드 서비스(`TranscriptOverviewService`, `SubtitleCutService`, `PodcastCutService`)가 스킬의 `main.py`를 subprocess로 호출하거나, 자체적으로 Claude CLI를 직접 호출.
+
+**subtitle-cut vs podcast-cut 비교**:
+
+| 항목 | subtitle-cut | podcast-cut |
+|------|-------------|-------------|
+| 대상 | 강의, 설명, 튜토리얼 | 팟캐스트, 인터뷰, 대담 |
+| 목표 | 정보 효율성 | 재미/몰입 유지 |
+| CUT 기준 | duplicate, incomplete, filler, fumble | boring, tangent, repetitive, long_pause, crosstalk, irrelevant |
+| KEEP 기준 | best_take, unique | funny, witty, chemistry, reaction, callback, climax, engaging, emotional |
+| 점수 체계 | 없음 | entertainment_score (1-10) |
+| AI 프로바이더 | Claude, Codex | Claude |
+| 컨텍스트 처리 | 전체 storyline 주입 | 청크별 필터링된 storyline 주입 |
+
+---
+
+### 6. 향후 확장 (화면/음성 기반 편집)
 
 **Scene Detection (화면 변화 감지)**:
 ```python

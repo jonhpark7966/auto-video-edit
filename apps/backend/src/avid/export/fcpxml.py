@@ -79,6 +79,22 @@ class FCPXMLExporter(ProjectExporter):
 
         return output_path, srt_path
 
+    # Content reasons that should be affected by content_mode
+    CONTENT_REASONS = {
+        # Lecture reasons
+        EditReason.DUPLICATE,
+        EditReason.FILLER,
+        EditReason.INCOMPLETE,
+        EditReason.FUMBLE,
+        # Podcast cut reasons
+        EditReason.BORING,
+        EditReason.TANGENT,
+        EditReason.REPETITIVE,
+        EditReason.LONG_PAUSE,
+        EditReason.CROSSTALK,
+        EditReason.IRRELEVANT,
+    }
+
     def _apply_edit_modes(
         self,
         project: Project,
@@ -90,7 +106,7 @@ class FCPXMLExporter(ProjectExporter):
         Args:
             project: Original project
             silence_mode: "cut" or "disabled" for SILENCE edits
-            content_mode: "cut" or "disabled" for DUPLICATE/FILLER edits
+            content_mode: "cut" or "disabled" for content edits (filler, boring, etc.)
 
         Returns:
             Project with modified edit decisions
@@ -102,10 +118,10 @@ class FCPXMLExporter(ProjectExporter):
             # Determine which mode applies to this decision
             if decision.reason == EditReason.SILENCE:
                 mode = silence_mode
-            elif decision.reason in (EditReason.DUPLICATE, EditReason.FILLER):
+            elif decision.reason in self.CONTENT_REASONS:
                 mode = content_mode
             else:
-                # MANUAL or other reasons - keep as-is
+                # MANUAL or keep reasons - keep as-is
                 new_decisions.append(decision)
                 continue
 

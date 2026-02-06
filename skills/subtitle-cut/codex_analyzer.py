@@ -1,13 +1,18 @@
-"""Codex CLI-based subtitle analysis.
+"""Codex CLI-based subtitle analysis for lecture/explanation videos.
 
 Uses Codex CLI to semantically analyze subtitles and decide what to cut.
+Focuses on removing duplicates, incomplete takes, and fillers.
 """
 
-import json
-import subprocess
+import sys
+from pathlib import Path
 
-from srt_parser import SubtitleSegment
-from models import AnalysisResult
+# Add skills directory to path for imports
+skills_dir = Path(__file__).parent.parent
+if str(skills_dir) not in sys.path:
+    sys.path.insert(0, str(skills_dir))
+
+from _common import SubtitleSegment, AnalysisResult, call_codex, parse_json_response, format_context_for_prompt
 
 
 ANALYSIS_PROMPT = '''당신은 영상 편집 전문가입니다. 아래 자막 세그먼트들을 분석해서 어떤 부분을 잘라야 하는지 판단해주세요.
@@ -63,55 +68,17 @@ def format_segments_for_prompt(segments: list[SubtitleSegment]) -> str:
     return "\n".join(lines)
 
 
-def call_codex(prompt: str) -> str:
-    """Call Codex CLI and get response.
-
-    Uses Codex CLI with --json flag for structured output.
-    """
-    try:
-        result = subprocess.run(
-            ["codex", "-p", prompt, "--json"],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if result.returncode != 0:
-            raise RuntimeError(f"Codex CLI error: {result.stderr}")
-        return result.stdout.strip()
-    except FileNotFoundError:
-        raise RuntimeError("Codex CLI not found. Please install codex.")
-    except subprocess.TimeoutExpired:
-        raise RuntimeError("Codex CLI timeout")
-
-
-def parse_response(response: str) -> dict:
-    """Parse Codex's JSON response."""
-    # Try direct JSON parse first
-    try:
-        return json.loads(response)
-    except json.JSONDecodeError:
-        pass
-
-    # Find JSON in response
-    start = response.find("{")
-    end = response.rfind("}") + 1
-
-    if start == -1 or end == 0:
-        raise ValueError(f"No JSON found in response: {response[:200]}")
-
-    json_str = response[start:end]
-    return json.loads(json_str)
-
-
 def analyze_with_codex(
     segments: list[SubtitleSegment],
     keep_alternatives: bool = False,
+    storyline_context: dict | None = None,
 ) -> AnalysisResult:
     """Analyze subtitle segments using Codex CLI.
 
     Args:
         segments: List of subtitle segments to analyze
         keep_alternatives: If True, ask Codex to identify good alternatives
+        storyline_context: Optional storyline dict from Pass 1 (transcript-overview)
 
     Returns:
         AnalysisResult with cuts and keeps
@@ -119,6 +86,11 @@ def analyze_with_codex(
     # Format prompt
     segments_text = format_segments_for_prompt(segments)
     prompt = ANALYSIS_PROMPT.format(segments=segments_text)
+
+    # Inject storyline context if available
+    if storyline_context:
+        context_text = format_context_for_prompt(storyline_context)
+        prompt = context_text + "\n\n" + prompt
 
     if keep_alternatives:
         prompt += "\n\n추가로, 좋은 대안이 있는 경우 'has_alternative': true와 'alternative_to': [segment_index]를 추가해주세요."
@@ -128,8 +100,8 @@ def analyze_with_codex(
 
     # Parse response
     try:
-        data = parse_response(response)
-    except (json.JSONDecodeError, ValueError) as e:
+        data = parse_json_response(response)
+    except (ValueError, Exception) as e:
         print(f"Failed to parse Codex response: {e}")
         print(f"Response: {response[:500]}")
         raise

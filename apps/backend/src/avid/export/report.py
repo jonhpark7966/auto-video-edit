@@ -24,10 +24,30 @@ def _ms_to_timestamp(ms: int) -> str:
 def _reason_to_korean(reason: EditReason) -> str:
     """Convert EditReason to Korean display text."""
     mapping = {
+        # Common
         EditReason.SILENCE: "무음",
         EditReason.DUPLICATE: "중복",
         EditReason.FILLER: "필러/불완전",
         EditReason.MANUAL: "수동",
+        # Lecture
+        EditReason.INCOMPLETE: "불완전",
+        EditReason.FUMBLE: "말실수",
+        # Podcast cut reasons
+        EditReason.BORING: "지루함",
+        EditReason.TANGENT: "탈선",
+        EditReason.REPETITIVE: "반복",
+        EditReason.LONG_PAUSE: "긴 침묵",
+        EditReason.CROSSTALK: "동시 발화",
+        EditReason.IRRELEVANT: "무관한 내용",
+        # Podcast keep reasons
+        EditReason.FUNNY: "유머",
+        EditReason.WITTY: "재치",
+        EditReason.CHEMISTRY: "케미",
+        EditReason.REACTION: "리액션",
+        EditReason.CALLBACK: "콜백 유머",
+        EditReason.CLIMAX: "클라이맥스",
+        EditReason.ENGAGING: "흥미로운",
+        EditReason.EMOTIONAL: "감정적",
     }
     return mapping.get(reason, reason.value)
 
@@ -83,26 +103,21 @@ def generate_edit_report(
     total_decisions = 0
     total_duration_ms = 0
 
-    for reason in [EditReason.SILENCE, EditReason.DUPLICATE, EditReason.FILLER, EditReason.MANUAL]:
-        if reason in by_reason:
-            decisions = by_reason[reason]
-            count = len(decisions)
-            duration_ms = sum(d.range.duration_ms for d in decisions)
-            duration_str = _ms_to_timestamp(duration_ms)
-            reason_korean = _reason_to_korean(reason)
-            lines.append(f"| {reason_korean} | {count}개 | {duration_str} |")
-            total_decisions += count
-            total_duration_ms += duration_ms
+    for reason in by_reason.keys():
+        decisions = by_reason[reason]
+        count = len(decisions)
+        duration_ms = sum(d.range.duration_ms for d in decisions)
+        duration_str = _ms_to_timestamp(duration_ms)
+        reason_korean = _reason_to_korean(reason)
+        lines.append(f"| {reason_korean} | {count}개 | {duration_str} |")
+        total_decisions += count
+        total_duration_ms += duration_ms
 
     lines.append(f"| **합계** | **{total_decisions}개** | **{_ms_to_timestamp(total_duration_ms)}** |")
     lines.append("")
 
     # Detailed sections by reason
-    for reason in [EditReason.SILENCE, EditReason.DUPLICATE, EditReason.FILLER, EditReason.MANUAL]:
-        if reason not in by_reason:
-            continue
-
-        decisions = by_reason[reason]
+    for reason, decisions in by_reason.items():
         reason_korean = _reason_to_korean(reason)
 
         lines.append(f"## {reason_korean} ({len(decisions)}개)")

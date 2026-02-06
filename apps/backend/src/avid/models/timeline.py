@@ -14,12 +14,40 @@ class EditType(str, Enum):
 
 
 class EditReason(str, Enum):
-    """Reason for the edit."""
+    """Reason for the edit.
 
+    Includes reasons for both:
+    - Lecture/explanation videos (subtitle-cut): information efficiency focused
+    - Podcast videos (podcast-cut): entertainment value focused
+    """
+
+    # Common reasons
     SILENCE = "silence"
     DUPLICATE = "duplicate"
     FILLER = "filler"
     MANUAL = "manual"
+
+    # Lecture/explanation video reasons (subtitle-cut)
+    INCOMPLETE = "incomplete"  # Sentence cut off or incomplete
+    FUMBLE = "fumble"          # Stumbling, mispronunciation
+
+    # Podcast cut reasons (segments to remove)
+    BORING = "boring"          # Low energy, consecutive short answers
+    TANGENT = "tangent"        # Boring tangent (interesting tangents kept!)
+    REPETITIVE = "repetitive"  # Same story repeated
+    LONG_PAUSE = "long_pause"  # Silence > 3 seconds
+    CROSSTALK = "crosstalk"    # Overlapping speech, hard to understand
+    IRRELEVANT = "irrelevant"  # TMI, inside jokes
+
+    # Podcast keep reasons (segments with high entertainment value)
+    FUNNY = "funny"            # Humor, jokes, laughter
+    WITTY = "witty"            # Clever responses, wordplay
+    CHEMISTRY = "chemistry"    # Good dynamic, back-and-forth
+    REACTION = "reaction"      # Surprise, laughter, empathy
+    CALLBACK = "callback"      # Callback humor, running jokes
+    CLIMAX = "climax"          # Key story point
+    ENGAGING = "engaging"      # Interesting story
+    EMOTIONAL = "emotional"    # Emotional moments
 
 
 class TimeRange(BaseModel):

@@ -12,15 +12,19 @@
 
 ---
 
-## 현재 상태 (2026-01-28)
+## 현재 상태 (2026-02-07)
 
 ### ✅ 완료된 것
 - **MediaService**: FFmpeg 래퍼 (미디어 정보 추출, 오디오 추출)
-- **FCPXML Exporter**: Final Cut Pro XML 내보내기 (NTSC 프레임 레이트 지원, 프로젝트 병합)
-- **데이터 모델**: Project, Track, EditDecision, Timeline (Pydantic)
-- **Skillthon 스킬**:
-  - `subtitle-cut-detector`: Claude 기반 자막 분석 (중복, 불완전, 필러 감지)
-  - `detect-silence`: FFmpeg 기반 무음 감지 (SRT 결합 지원, 5가지 모드)
+- **FCPXML Exporter**: Final Cut Pro XML 내보내기 (NTSC 프레임 레이트 지원, 프로젝트 병합, 강의/팟캐스트 EditReason 모두 지원)
+- **데이터 모델**: Project, Track, EditDecision, Timeline (Pydantic) — EditReason 확장 완료 (강의 + 팟캐스트)
+- **스킬 (skills/)**:
+  - `subtitle-cut`: 강의/설명 영상용 자막 분석 (중복, 불완전, 필러, 말실수 감지)
+  - `podcast-cut`: 팟캐스트/인터뷰용 재미 기준 분석 (entertainment_score 1-10)
+  - `_common`: 스킬 간 공통 모듈 (SRT 파서, CLI 유틸, 비디오 정보, 공통 모델)
+- **PodcastCutService**: 팟캐스트 전체 워크플로우 (chalna 전사 → 챕터 분석 → 엔터테인먼트 분석 → 무음 감지 → FCPXML)
+- **CLI**: `avid-cli podcast-cut` 서브커맨드 (review/final 모드 지원)
+- **리포트 생성기**: 동적 EditReason 지원 (강의/팟캐스트 모두)
 
 ### ⚠️ 문제가 있는 것
 - **Gradio UI**: Placeholder 구현만 있음, 파이프라인 미연결 → **삭제 예정**

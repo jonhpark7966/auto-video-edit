@@ -1,35 +1,20 @@
-"""Data models for subtitle-cut skill."""
+"""Data models for subtitle-cut skill.
 
-from dataclasses import dataclass, field
+These are specific to lecture/explanation video editing.
+"""
+
 from enum import Enum
 
 
 class CutReason(str, Enum):
-    """Reason for cutting a segment."""
-    DUPLICATE = "duplicate"
-    INCOMPLETE = "incomplete"
-    FILLER = "filler"
-    FUMBLE = "fumble"
+    """Reason for cutting a segment in lecture/explanation videos."""
+    DUPLICATE = "duplicate"   # Same content repeated, keeping best take
+    INCOMPLETE = "incomplete" # Sentence cut off or incomplete
+    FILLER = "filler"         # Meaningless filler words, hesitation
+    FUMBLE = "fumble"         # Stumbling, mispronunciation
 
 
 class KeepReason(str, Enum):
-    """Reason for keeping a segment."""
-    BEST_TAKE = "best_take"
-    UNIQUE = "unique"
-
-
-@dataclass
-class SegmentAnalysis:
-    """Analysis result for a single subtitle segment."""
-    segment_index: int
-    action: str  # "cut" or "keep"
-    reason: str
-    note: str = ""
-
-
-@dataclass
-class AnalysisResult:
-    """Complete analysis result from Claude/Codex."""
-    cuts: list[dict] = field(default_factory=list)  # {"segment_index": int, "reason": str, "note": str}
-    keeps: list[dict] = field(default_factory=list)  # {"segment_index": int, "is_best_take": bool, "note": str}
-    raw_response: str = ""
+    """Reason for keeping a segment in lecture/explanation videos."""
+    BEST_TAKE = "best_take"   # Best version among duplicates
+    UNIQUE = "unique"         # Unique content, no alternatives

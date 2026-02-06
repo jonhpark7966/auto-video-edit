@@ -34,6 +34,7 @@ class SubtitleCutService:
         video_path: Path,
         output_dir: Path | None = None,
         source_id: str | None = None,
+        storyline_path: Path | None = None,
     ) -> tuple[Project, Path]:
         """Analyze subtitles and return Project with edit decisions.
 
@@ -42,6 +43,7 @@ class SubtitleCutService:
             video_path: Path to source video file
             output_dir: Output directory
             source_id: Optional source file ID (for project consistency)
+            storyline_path: Optional path to storyline.json from Pass 1
 
         Returns:
             Tuple of (Project with edit_decisions, path to .avid.json)
@@ -78,6 +80,11 @@ class SubtitleCutService:
 
         if source_id:
             cmd.extend(["--source-id", source_id])
+
+        if storyline_path:
+            storyline_path = Path(storyline_path).resolve()
+            if storyline_path.exists():
+                cmd.extend(["--context", str(storyline_path)])
 
         # Run skill (cwd = script directory for relative imports)
         result = await asyncio.to_thread(

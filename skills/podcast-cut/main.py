@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
-"""Main entry point for subtitle cut detector skill.
+"""Main entry point for podcast cut skill.
 
-Uses Claude or Codex CLI to analyze subtitles and decide what to cut.
-Optimized for single-speaker educational/explanation videos.
+Uses Claude CLI to analyze podcast transcripts for entertainment value
+and decide what to cut based on engagement, not information efficiency.
 
 Usage:
     python main.py <srt_file> <video_file> [options]
 
 Options:
-    --provider {claude,codex}   AI provider to use (default: claude)
     --edit-type {disabled,cut}  Default edit type for content edits (default: disabled)
-    --keep-alternatives         Keep good alternative takes for user to choose
     --output <path>             Output path for project JSON
     --source-id <id>            Use existing source file ID
     --report-only               Only print analysis report, don't save project
+    --min-score <int>           Minimum entertainment score to keep (default: 4)
 """
 
 import argparse
@@ -31,7 +30,6 @@ if str(skills_dir) not in sys.path:
 
 from _common import parse_srt_file, get_video_info, load_storyline
 from claude_analyzer import analyze_with_claude
-from codex_analyzer import analyze_with_codex
 
 
 def generate_deterministic_uuid(file_path: str) -> str:
@@ -41,14 +39,25 @@ def generate_deterministic_uuid(file_path: str) -> str:
 
 
 def reason_to_edit_reason(reason: str) -> str:
-    """Convert Claude's reason to EditReason string."""
-    mapping = {
-        "duplicate": "duplicate",
-        "incomplete": "filler",
-        "filler": "filler",
-        "fumble": "filler",
+    """Convert podcast reason to EditReason string for AVID compatibility.
+
+    Maps podcast-specific reasons to the extended EditReason enum.
+    """
+    # Direct mappings - these should match the extended EditReason enum
+    direct_reasons = {
+        # Cut reasons
+        "boring", "tangent", "repetitive", "long_pause",
+        "crosstalk", "irrelevant", "filler",
+        # Keep reasons
+        "funny", "witty", "chemistry", "reaction",
+        "callback", "climax", "engaging", "emotional",
     }
-    return mapping.get(reason, "manual")
+
+    if reason in direct_reasons:
+        return reason
+
+    # Fallback for unknown reasons
+    return "manual"
 
 
 def generate_project_json(
@@ -60,7 +69,7 @@ def generate_project_json(
     source_file_id: str | None = None,
     edit_type: str = "disabled",
 ) -> dict:
-    """Generate project JSON from Claude's analysis.
+    """Generate project JSON from podcast analysis.
 
     Args:
         cuts: List of cut decisions from analyzer
@@ -128,15 +137,21 @@ def generate_project_json(
         # Convert edit_type: "disabled" -> "mute" (for avid model compatibility)
         actual_edit_type = "mute" if edit_type == "disabled" else edit_type
 
+        # Include entertainment_score in the note if present
+        note = cut.get("note", "")
+        entertainment_score = cut.get("entertainment_score")
+        if entertainment_score is not None:
+            note = f"[Score: {entertainment_score}/10] {note}"
+
         edit_decision = {
             "range": {
                 "start_ms": seg.start_ms,
                 "end_ms": seg.end_ms,
             },
-            "edit_type": actual_edit_type,  # "cut" or "mute"
+            "edit_type": actual_edit_type,
             "reason": reason_to_edit_reason(cut.get("reason", "manual")),
             "confidence": 0.9,
-            "note": cut.get("note", ""),  # Include detailed note
+            "note": note,
             "active_video_track_id": video_track_id,
             "active_audio_track_ids": [audio_track_id],
             "speed_factor": 1.0,
@@ -146,29 +161,43 @@ def generate_project_json(
     return project
 
 
-def print_analysis_report(cuts: list[dict], keeps: list[dict], segments: list) -> None:
-    """Print analysis report."""
+def print_analysis_report(
+    cuts: list[dict],
+    keeps: list[dict],
+    segments: list,
+) -> None:
+    """Print podcast analysis report with entertainment scores."""
     segment_map = {seg.index: seg for seg in segments}
 
     print("=" * 60)
-    print("SUBTITLE ANALYSIS REPORT")
+    print("PODCAST ANALYSIS REPORT")
     print("=" * 60)
     print()
     print(f"Total segments: {len(segments)}")
     print(f"Segments to CUT: {len(cuts)}")
     print(f"Segments to KEEP: {len(keeps)}")
+
+    # Calculate average entertainment scores
+    if cuts:
+        avg_cut_score = sum(c.get("entertainment_score", 5) for c in cuts) / len(cuts)
+        print(f"Avg entertainment score (cuts): {avg_cut_score:.1f}")
+    if keeps:
+        avg_keep_score = sum(k.get("entertainment_score", 5) for k in keeps) / len(keeps)
+        print(f"Avg entertainment score (keeps): {avg_keep_score:.1f}")
     print()
 
     if cuts:
         print("-" * 60)
         print("## CUTS (segments to remove)")
         print("-" * 60)
-        for cut in cuts:
+        for cut in sorted(cuts, key=lambda x: x.get("entertainment_score", 5)):
             seg = segment_map.get(cut["segment_index"])
             if not seg:
                 continue
             time_str = f"{seg.start_ms // 1000}s - {seg.end_ms // 1000}s"
-            print(f"\n[{seg.index}] {time_str} ({cut.get('reason', 'unknown')})")
+            score = cut.get("entertainment_score", "?")
+            reason = cut.get("reason", "unknown")
+            print(f"\n[{seg.index}] {time_str} ({reason}) [Score: {score}/10]")
             print(f"    \"{seg.text[:60]}{'...' if len(seg.text) > 60 else ''}\"")
             if cut.get("note"):
                 print(f"    -> {cut['note']}")
@@ -178,13 +207,18 @@ def print_analysis_report(cuts: list[dict], keeps: list[dict], segments: list) -
         print("-" * 60)
         print("## KEEPS (segments to preserve)")
         print("-" * 60)
-        for keep in keeps:
+        # Sort by entertainment score (highest first)
+        for keep in sorted(keeps, key=lambda x: x.get("entertainment_score", 5), reverse=True):
             seg = segment_map.get(keep["segment_index"])
             if not seg:
                 continue
             time_str = f"{seg.start_ms // 1000}s - {seg.end_ms // 1000}s"
-            best = " [BEST]" if keep.get("is_best_take") else ""
-            print(f"\n[{seg.index}] {time_str}{best}")
+            score = keep.get("entertainment_score", "?")
+            reason = keep.get("reason", "unknown")
+
+            # Highlight high-score segments
+            highlight = " ★" if score and score >= 8 else ""
+            print(f"\n[{seg.index}] {time_str} ({reason}) [Score: {score}/10]{highlight}")
             print(f"    \"{seg.text[:60]}{'...' if len(seg.text) > 60 else ''}\"")
             if keep.get("note"):
                 print(f"    -> {keep['note']}")
@@ -195,26 +229,15 @@ def print_analysis_report(cuts: list[dict], keeps: list[dict], segments: list) -
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Analyze subtitles using AI and generate edit decisions"
+        description="Analyze podcast transcripts for entertainment value and generate edit decisions"
     )
     parser.add_argument("srt_file", help="Path to SRT subtitle file")
     parser.add_argument("video_file", help="Path to source video file")
-    parser.add_argument(
-        "--provider",
-        choices=["claude", "codex"],
-        default="claude",
-        help="AI provider to use (default: claude)",
-    )
     parser.add_argument(
         "--edit-type",
         choices=["disabled", "cut"],
         default="disabled",
         help="Default edit type for content edits (default: disabled)",
-    )
-    parser.add_argument(
-        "--keep-alternatives",
-        action="store_true",
-        help="Keep good alternative takes for user to choose",
     )
     parser.add_argument("--output", "-o", help="Output path for project JSON")
     parser.add_argument("--source-id", help="Use existing source file ID")
@@ -222,6 +245,12 @@ def main():
         "--report-only",
         action="store_true",
         help="Only print analysis report, don't save project",
+    )
+    parser.add_argument(
+        "--min-score",
+        type=int,
+        default=4,
+        help="Minimum entertainment score to keep (default: 4)",
     )
     parser.add_argument(
         "--context",
@@ -255,12 +284,9 @@ def main():
         else:
             print(f"Warning: Context file not found: {context_path}", file=sys.stderr)
 
-    # Analyze with chosen provider
-    print(f"\nAnalyzing with {args.provider.upper()}...")
-    if args.provider == "claude":
-        result = analyze_with_claude(segments, keep_alternatives=args.keep_alternatives, storyline_context=storyline_context)
-    else:
-        result = analyze_with_codex(segments, keep_alternatives=args.keep_alternatives, storyline_context=storyline_context)
+    # Analyze with Claude
+    print("\nAnalyzing podcast with Claude for entertainment value...")
+    result = analyze_with_claude(segments, storyline_context=storyline_context)
 
     # Print report
     print_analysis_report(result.cuts, result.keeps, segments)
@@ -279,13 +305,13 @@ def main():
             print(f"  FPS: {video_info['fps']}")
 
     # Generate project
-    output_path = args.output or str(srt_path.with_suffix("").with_suffix(".avid.json"))
+    output_path = args.output or str(srt_path.with_suffix("").with_suffix(".podcast.avid.json"))
 
     project = generate_project_json(
         cuts=result.cuts,
         segments=segments,
         source_video_path=str(video_path),
-        project_name=f"Subtitle Analysis - {srt_path.stem}",
+        project_name=f"Podcast Analysis - {srt_path.stem}",
         video_info=video_info,
         source_file_id=args.source_id,
         edit_type=args.edit_type,

@@ -1,10 +1,19 @@
-"""Subtitle Cut Detector skill for auto-video-edit."""
+"""Subtitle Cut Detector skill for auto-video-edit.
 
-from .srt_parser import SubtitleSegment, parse_srt_file, parse_srt
-from .models import AnalysisResult, CutReason, KeepReason
+Optimized for single-speaker educational/explanation videos.
+Focuses on removing duplicates, incomplete takes, and fillers.
+"""
+
+from skills._common import (
+    SubtitleSegment,
+    parse_srt_file,
+    parse_srt,
+    AnalysisResult,
+    get_video_info,
+)
+from .models import CutReason, KeepReason
 from .claude_analyzer import analyze_with_claude
 from .codex_analyzer import analyze_with_codex
-from .video_info import get_video_info
 
 __all__ = [
     "SubtitleSegment",
