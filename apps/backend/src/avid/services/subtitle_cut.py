@@ -130,7 +130,20 @@ class SubtitleCutService:
         # Step 2: Parse SRT and find silence gaps
         print("  Step 2: Finding silence gaps from SRT...")
         srt_segments = _parse_srt(srt_path)
-        silence_gaps = _find_silence_gaps(srt_segments, self.silence_min_gap_ms)
+
+        # Get total video duration for trailing silence detection
+        video_track = next(
+            (t for t in project.tracks if t.track_type.value == "video"), None
+        )
+        total_duration_ms = None
+        if video_track:
+            source = project.get_source_file(video_track.source_file_id)
+            if source and source.info and source.info.duration_ms:
+                total_duration_ms = source.info.duration_ms
+
+        silence_gaps = _find_silence_gaps(
+            srt_segments, self.silence_min_gap_ms, total_duration_ms
+        )
         print(f"  Silence gaps: {len(silence_gaps)}")
 
         # Step 3: Populate transcription
@@ -153,9 +166,6 @@ class SubtitleCutService:
                 )
 
         # Step 4: Add silence CUT decisions
-        video_track = next(
-            (t for t in project.tracks if t.track_type.value == "video"), None
-        )
         audio_track = next(
             (t for t in project.tracks if t.track_type.value == "audio"), None
         )
@@ -204,7 +214,9 @@ def _parse_srt(srt_path: Path) -> list[dict]:
 
 
 def _find_silence_gaps(
-    segments: list[dict], min_gap_ms: int = 500
+    segments: list[dict],
+    min_gap_ms: int = 500,
+    total_duration_ms: int | None = None,
 ) -> list[tuple[int, int]]:
     """Find silence regions from gaps between SRT segments."""
     if not segments:
@@ -224,5 +236,12 @@ def _find_silence_gaps(
         gap_ms = next_start - current_end
         if gap_ms >= min_gap_ms:
             gaps.append((current_end, next_start))
+
+    # Silence at end (after last subtitle to end of video)
+    if total_duration_ms is not None:
+        last_end = sorted_segs[-1]["end_ms"]
+        trailing_gap = total_duration_ms - last_end
+        if trailing_gap >= min_gap_ms:
+            gaps.append((last_end, total_duration_ms))
 
     return gaps
