@@ -160,7 +160,8 @@ class PodcastCutService:
 
         # Step 4: Find silence gaps from SRT
         print("Step 4: Finding silence gaps from SRT...")
-        silence_regions = self._find_silence_gaps(segments)
+        total_duration_ms = self._get_duration(audio_path)
+        silence_regions = self._find_silence_gaps(segments, total_duration_ms)
         print(f"  Found {len(silence_regions)} silence gaps")
 
         # Step 5: Build project
@@ -466,11 +467,16 @@ class PodcastCutService:
         h, m, s, ms = map(int, match.groups())
         return h * 3600000 + m * 60000 + s * 1000 + ms
 
-    def _find_silence_gaps(self, segments: list[SubtitleSegment]) -> list[SilenceRegion]:
+    def _find_silence_gaps(
+        self,
+        segments: list[SubtitleSegment],
+        total_duration_ms: int | None = None,
+    ) -> list[SilenceRegion]:
         """Find silence regions from gaps between SRT segments.
 
         Args:
             segments: Parsed SRT segments (must be sorted by start time)
+            total_duration_ms: Total duration of the media file for trailing silence
 
         Returns:
             List of SilenceRegion objects
@@ -499,6 +505,16 @@ class PodcastCutService:
                 regions.append(SilenceRegion(
                     start_ms=current_end,
                     end_ms=next_start,
+                ))
+
+        # Check for silence at the end (after last subtitle)
+        if total_duration_ms is not None:
+            last_end = sorted_segments[-1].end_ms
+            trailing_gap = total_duration_ms - last_end
+            if trailing_gap >= self.silence_min_gap_ms:
+                regions.append(SilenceRegion(
+                    start_ms=last_end,
+                    end_ms=total_duration_ms,
                 ))
 
         return regions
