@@ -93,6 +93,7 @@ class FCPXMLExporter(ProjectExporter):
         EditReason.LONG_PAUSE,
         EditReason.CROSSTALK,
         EditReason.IRRELEVANT,
+        EditReason.DRAGGING,
     }
 
     def _apply_edit_modes(

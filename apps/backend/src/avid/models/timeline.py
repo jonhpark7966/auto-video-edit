@@ -38,6 +38,7 @@ class EditReason(str, Enum):
     LONG_PAUSE = "long_pause"  # Silence > 3 seconds
     CROSSTALK = "crosstalk"    # Overlapping speech, hard to understand
     IRRELEVANT = "irrelevant"  # TMI, inside jokes
+    DRAGGING = "dragging"      # Rambling, no clear point
 
     # Podcast keep reasons (segments with high entertainment value)
     FUNNY = "funny"            # Humor, jokes, laughter

@@ -22,39 +22,46 @@ CHUNK_SIZE = 80  # Process 80 segments at a time
 CHUNK_OVERLAP = 5  # Overlap to maintain context
 
 
-PODCAST_ANALYSIS_PROMPT = '''당신은 인기 팟캐스트 편집자입니다. 아래 자막 세그먼트들을 분석해서 어떤 부분을 잘라야 하는지 판단해주세요.
+PODCAST_ANALYSIS_PROMPT = '''당신은 유명 유튜브 하이라이트 편집자입니다. 긴 팟캐스트에서 **재미있는 부분만 골라내는** 전문가입니다.
 
 ## 핵심 원칙
-팟캐스트 편집의 목표는 **"재미없는 구간을 제거하여 청취자의 몰입을 유지하는 것"**입니다.
-강의 영상과 다르게, 정보 전달보다 **재미와 몰입**이 더 중요합니다.
+당신의 목표는 **과감하게 자르는 것**입니다.
+시청자는 10분짜리 하이라이트를 원하지, 40분짜리 약간 다듬은 버전을 원하지 않습니다.
+**"이거 꼭 남겨야 해?"** 라고 자문하세요. 확신이 없으면 자르세요.
 
 ## 자막 세그먼트들:
 {segments}
 
-## CUT 기준 (제거할 구간)
-1. **지루함 (boring)**: 에너지 낮은 단답 연속, 흥미 없는 긴 설명
-2. **탈선 (tangent)**: 지루한 옆길로 새는 대화 (재미있는 탈선은 유지!)
-3. **반복 (repetitive)**: 같은 이야기나 설명 반복
+## 분석 방법 — 반드시 2단계로 수행하세요:
+
+### 1단계: 먼저 자를 것을 찾기
+아래 기준에 해당하면 CUT입니다:
+1. **지루함 (boring)**: 에너지 낮은 구간, 흥미 없는 설명, 단답 연속, 그냥 평범한 대화
+2. **탈선 (tangent)**: 본 주제에서 벗어난 대화 (웃기지 않은 잡담)
+3. **반복 (repetitive)**: 같은 이야기를 다시 하거나, 이미 한 설명을 반복
 4. **긴 침묵 (long_pause)**: 3초 이상의 불필요한 침묵
 5. **겹침 (crosstalk)**: 동시에 말해서 알아듣기 어려운 구간
-6. **무관함 (irrelevant)**: 시청자에게 무관한 내용 (TMI, inside joke)
-7. **필러 (filler)**: 의미 없는 필러워드
+6. **무관함 (irrelevant)**: 시청자에게 무관한 내용 (TMI, 사적인 이야기, inside joke)
+7. **필러 (filler)**: "어...", "음...", "그래서...", 의미 없는 추임새
+8. **늘어짐 (dragging)**: 핵심 없이 질질 끄는 구간. 같은 포인트를 돌려 말하기.
 
-## KEEP 기준 (유지할 구간)
-1. **유머 (funny)**: 농담, 출연자가 웃는 순간
+### 2단계: 남길 것 확인
+아래 기준에 해당하는 것만 KEEP합니다:
+1. **유머 (funny)**: 웃긴 순간. 농담의 setup + punchline은 함께 유지.
 2. **재치 (witty)**: 재치 있는 답변, 말장난
-3. **케미 (chemistry)**: 출연자 간 티키타카, 말 받아치기
-4. **반응 (reaction)**: 놀람, 웃음, 공감 리액션
+3. **케미 (chemistry)**: 출연자 간 찰떡 호흡, 말 받아치기
+4. **반응 (reaction)**: 놀람, 웃음, 공감 — 짧고 강렬한 것만
 5. **콜백 (callback)**: 앞서 나온 이야기 재참조, 반복 유머
-6. **클라이맥스 (climax)**: 이야기의 핵심 포인트
-7. **몰입 (engaging)**: 흥미로운 스토리
-8. **감정 (emotional)**: 감정적인 순간
+6. **클라이맥스 (climax)**: 이야기의 핵심 포인트, 반전
+7. **몰입 (engaging)**: 듣는 사람이 궁금해지는 흥미로운 스토리
+8. **감정 (emotional)**: 진심이 담긴 감정적 순간
 
-## 중요 주의사항
-- **보수적으로 자르기**: 확실히 지루한 것만 제거하세요. 애매하면 유지!
-- **대화 흐름 유지**: 질문-답변은 함께 처리하세요
-- **재미있는 탈선은 유지**: 탈선이라도 웃기거나 흥미로우면 유지하세요
-- **entertainment_score**: 1-10점으로 재미 정도를 평가하세요 (1=매우 지루, 10=매우 재미있음)
+## 판단 기준
+- **entertainment_score 5 이하는 과감하게 CUT하세요.**
+- 평범한 대화는 keep이 아닙니다. "그냥 괜찮은" 정도는 CUT입니다.
+- 진짜 재미있거나, 핵심 정보이거나, 감정적인 순간만 남기세요.
+- 질문-답변은 함께 처리하되, 답변이 지루하면 질문도 함께 자르세요.
+- 농담의 setup은 punchline을 위해 유지하되, punchline이 없는 setup은 자르세요.
 
 ## 출력 형식 (JSON):
 ```json
@@ -64,7 +71,7 @@ PODCAST_ANALYSIS_PROMPT = '''당신은 인기 팟캐스트 편집자입니다. �
       "segment_index": 1,
       "action": "cut",
       "reason": "boring",
-      "entertainment_score": 2,
+      "entertainment_score": 3,
       "note": "에너지 낮은 단답 연속. 시청자 이탈 위험."
     }},
     {{
@@ -81,7 +88,8 @@ PODCAST_ANALYSIS_PROMPT = '''당신은 인기 팟캐스트 편집자입니다. �
 **중요**:
 - 각 결정에 대해 반드시 구체적인 `note`를 작성하세요.
 - `entertainment_score`는 반드시 1-10 사이의 정수로 작성하세요.
-- CUT 이유: "boring", "tangent", "repetitive", "long_pause", "crosstalk", "irrelevant", "filler"
+- 전체의 30-50% 정도만 남긴다는 마음으로 편집하세요. 많이 남기면 지루해집니다.
+- CUT 이유: "boring", "tangent", "repetitive", "long_pause", "crosstalk", "irrelevant", "filler", "dragging"
 - KEEP 이유: "funny", "witty", "chemistry", "reaction", "callback", "climax", "engaging", "emotional"
 
 JSON만 출력하세요.'''
@@ -93,14 +101,12 @@ def _apply_podcast_principles(context_text: str) -> str:
     if generic_marker in context_text:
         idx = context_text.index(generic_marker)
         context_text = context_text[:idx]
-        context_text += "### 편집 원칙 (팟캐스트)\n"
-        context_text += "- 의존성이 있는 세그먼트는 함께 유지하세요 (setup을 자르면 payoff가 의미 없음)\n"
-        context_text += "- 핵심 순간은 반드시 유지하세요\n"
-        context_text += "- 지루해 보여도 이후 payoff가 있는 setup은 유지\n"
-        context_text += "- 콜백 유머의 원본을 자르면 안 됨\n"
-        context_text += "- Q&A 쌍은 함께 유지\n"
-        context_text += "- 고에너지 구간 사이의 쉼(breathing room)은 자르지 마세요\n"
-        context_text += "- 중요도 ≥ 7인 챕터는 보수적으로 편집하세요"
+        context_text += "### 편집 원칙 (팟캐스트 하이라이트)\n"
+        context_text += "- 스토리라인의 핵심 순간(key_moments)과 클라이맥스는 반드시 유지\n"
+        context_text += "- setup → payoff 쌍은 함께 유지 (setup만 있고 payoff가 없으면 둘 다 자르기)\n"
+        context_text += "- 콜백 유머의 원본은 유지\n"
+        context_text += "- 중요도 낮은 챕터는 과감하게 자르기\n"
+        context_text += "- 핵심 챕터라도 지루한 구간은 자르기 — 챕터 전체를 살릴 필요 없음"
     return context_text
 
 
