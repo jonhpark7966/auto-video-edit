@@ -176,22 +176,17 @@ class FCPXMLExporter(ProjectExporter):
 
         primary_track = video_tracks[0]
 
-        # Get CUT decisions (only actual cuts, not disabled)
-        # In disabled mode, nothing is actually cut from timeline
-        if show_disabled_cuts:
-            # Disabled mode: no timestamp adjustment needed
-            cuts_to_apply: list[tuple[int, int]] = []
-        else:
-            # CUT mode: get all cut ranges
-            cut_decisions = [
-                d
-                for d in project.edit_decisions
-                if d.edit_type == EditType.CUT
-                and d.active_video_track_id == primary_track.id
-            ]
-            cuts_to_apply = self._merge_overlapping_ranges(
-                [(d.range.start_ms, d.range.end_ms) for d in cut_decisions]
-            )
+        # CUT segments are always removed from the timeline,
+        # so SRT timestamps always need adjustment for cuts.
+        cut_decisions = [
+            d
+            for d in project.edit_decisions
+            if d.edit_type == EditType.CUT
+            and d.active_video_track_id == primary_track.id
+        ]
+        cuts_to_apply = self._merge_overlapping_ranges(
+            [(d.range.start_ms, d.range.end_ms) for d in cut_decisions]
+        )
 
         def adjust_time(original_ms: int) -> int:
             """Adjust timestamp by subtracting all cuts that come before it."""
@@ -335,13 +330,9 @@ class FCPXMLExporter(ProjectExporter):
         # Project
         fcp_project = ET.SubElement(event, "project", name=project.name)
 
-        # Sequence - duration depends on mode
-        if show_disabled_cuts:
-            # Full duration (all segments)
-            duration_ms = project.duration_ms
-        else:
-            # Calculate duration without cuts
-            duration_ms = self._calculate_kept_duration(project)
+        # Sequence duration: always exclude CUT segments (silence).
+        # MUTE segments (content edits shown as disabled) are still part of the timeline.
+        duration_ms = self._calculate_kept_duration(project)
 
         sequence = ET.SubElement(
             fcp_project,
@@ -503,11 +494,12 @@ class FCPXMLExporter(ProjectExporter):
             )
 
             # Determine state
+            # CUT segments are always removed from the timeline.
+            # MUTE segments are always shown as disabled (for review).
+            # show_disabled_cuts is kept for backward compat but no longer
+            # changes behavior — silence→CUT (removed), content→MUTE (disabled).
             if is_cut:
-                if show_disabled_cuts:
-                    state = 'disabled'
-                else:
-                    state = 'removed'
+                state = 'removed'
             elif is_mute:
                 state = 'disabled'
             else:

@@ -225,10 +225,12 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     output_dir = Path(args.output_dir) if args.output_dir else video_path.parent
+    export_mode = "final" if args.final else "review"
 
     print(f"자막 분석 시작: {srt_path.name}")
     print(f"  비디오: {video_path.name}")
     print(f"  프로바이더: {args.provider}")
+    print(f"  모드: {export_mode} ({'모든 편집 적용' if export_mode == 'final' else '검토용 disabled'})")
     if context_path:
         print(f"  컨텍스트: {context_path.name}")
 
@@ -240,15 +242,31 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> None:
         provider=args.provider,
     )
 
-    # Export to FCPXML
+    # Export to FCPXML + adjusted SRT
     fcpxml_path = Path(args.output) if args.output else output_dir / f"{srt_path.stem}_subtitle_cut.fcpxml"
     exporter = FCPXMLExporter()
-    await exporter.export(project, fcpxml_path)
+
+    if export_mode == "final":
+        show_disabled = False
+        content_mode = "cut"
+    else:
+        show_disabled = True
+        content_mode = "disabled"
+
+    fcpxml_result, srt_result = await exporter.export(
+        project,
+        fcpxml_path,
+        show_disabled_cuts=show_disabled,
+        silence_mode="cut",
+        content_mode=content_mode,
+    )
 
     print(f"\n결과:")
-    print(f"  편집 결정: {len(project.edit_decisions)}개 컷")
+    print(f"  편집 결정: {len(project.edit_decisions)}개")
     print(f"  프로젝트: {project_path}")
-    print(f"  FCPXML: {fcpxml_path}")
+    print(f"  FCPXML: {fcpxml_result}")
+    if srt_result:
+        print(f"  SRT: {srt_result}")
 
 
 # --- Podcast cut subcommand ---
@@ -406,6 +424,7 @@ def main() -> None:
     p_subcut.add_argument("--provider", choices=["claude", "codex"], default="codex", help="AI 프로바이더 (기본: codex)")
     p_subcut.add_argument("-o", "--output", type=str, help="출력 FCPXML 경로")
     p_subcut.add_argument("-d", "--output-dir", type=str, help="출력 디렉토리")
+    p_subcut.add_argument("--final", action="store_true", help="최종 편집본 (모든 편집 적용, 기본: 검토용 disabled)")
 
     # --- podcast-cut ---
     p_podcast = subparsers.add_parser("podcast-cut", help="팟캐스트 편집 (재미 기준)")
