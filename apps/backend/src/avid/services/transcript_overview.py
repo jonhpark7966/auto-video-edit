@@ -7,6 +7,7 @@ that describes the narrative arc, chapters, key moments, and dependencies.
 import asyncio
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -42,6 +43,7 @@ class TranscriptOverviewService:
         srt_path: Path,
         output_path: Path | None = None,
         content_type: str = "auto",
+        provider: str = "codex",
     ) -> Path:
         """Analyze SRT and produce storyline JSON.
 
@@ -70,8 +72,9 @@ class TranscriptOverviewService:
 
         # Build command
         cmd = [
-            "python", str(script),
+            sys.executable, str(script),
             str(srt_path),
+            "--provider", provider,
             "--output", str(output_path),
             "--content-type", content_type,
         ]
@@ -87,8 +90,9 @@ class TranscriptOverviewService:
         )
 
         if result.returncode != 0:
+            detail = result.stderr or result.stdout or "(no output)"
             raise RuntimeError(
-                f"transcript-overview failed (exit {result.returncode}):\n{result.stderr}"
+                f"transcript-overview failed (exit {result.returncode}):\n{detail[-2000:]}"
             )
 
         if not output_path.exists():

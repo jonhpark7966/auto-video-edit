@@ -8,7 +8,7 @@ Usage:
     python main.py <srt_file> <video_file> [options]
 
 Options:
-    --provider {claude,codex}   AI provider to use (default: claude)
+    --provider {claude,codex}   AI provider to use (default: codex)
     --edit-type {disabled,cut}  Default edit type for content edits (default: disabled)
     --keep-alternatives         Keep good alternative takes for user to choose
     --output <path>             Output path for project JSON
@@ -202,8 +202,8 @@ def main():
     parser.add_argument(
         "--provider",
         choices=["claude", "codex"],
-        default="claude",
-        help="AI provider to use (default: claude)",
+        default="codex",
+        help="AI provider to use (default: codex)",
     )
     parser.add_argument(
         "--edit-type",

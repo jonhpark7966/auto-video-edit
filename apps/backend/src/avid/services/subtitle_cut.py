@@ -1,25 +1,26 @@
-"""Subtitle cut analysis service using skillthon subtitle-cut skill."""
+"""Subtitle cut analysis service using subtitle-cut skill."""
 
 import asyncio
 import subprocess
+import sys
 from pathlib import Path
 
 from avid.models.project import Project
 
 
 def _find_project_root() -> Path:
-    """Find the project root (where skillthon/ lives)."""
+    """Find the project root (where skills/ lives)."""
     current = Path(__file__).resolve()
     for parent in current.parents:
-        if (parent / "skillthon").is_dir():
+        if (parent / "skills").is_dir():
             return parent
-    raise RuntimeError("Cannot find project root (skillthon/ directory not found)")
+    raise RuntimeError("Cannot find project root (skills/ directory not found)")
 
 
 def _get_subtitle_cut_script() -> Path:
     """Get path to subtitle-cut main.py script."""
     root = _find_project_root()
-    script = root / "skillthon" / "subtitle-cut-detector" / "skills" / "subtitle-cut" / "main.py"
+    script = root / "skills" / "subtitle-cut" / "main.py"
     if not script.exists():
         raise RuntimeError(f"subtitle-cut script not found: {script}")
     return script
@@ -35,6 +36,7 @@ class SubtitleCutService:
         output_dir: Path | None = None,
         source_id: str | None = None,
         storyline_path: Path | None = None,
+        provider: str = "codex",
     ) -> tuple[Project, Path]:
         """Analyze subtitles and return Project with edit decisions.
 
@@ -65,16 +67,17 @@ class SubtitleCutService:
 
         if output_dir is None:
             output_dir = srt_path.parent
-        output_dir = Path(output_dir)
+        output_dir = Path(output_dir).resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
 
         project_output = output_dir / f"{srt_path.stem}_subtitle_cut.avid.json"
 
         # Build command
         cmd = [
-            "python", str(script),
+            sys.executable, str(script),
             str(srt_path),
             str(video_path),
+            "--provider", provider,
             "--output", str(project_output),
         ]
 
@@ -97,8 +100,9 @@ class SubtitleCutService:
         )
 
         if result.returncode != 0:
+            detail = result.stderr or result.stdout or "(no output)"
             raise RuntimeError(
-                f"subtitle-cut failed (exit {result.returncode}):\n{result.stderr}"
+                f"subtitle-cut failed (exit {result.returncode}):\n{detail[-2000:]}"
             )
 
         # Load project

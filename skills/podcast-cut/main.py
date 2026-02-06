@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Main entry point for podcast cut skill.
 
-Uses Claude CLI to analyze podcast transcripts for entertainment value
+Uses Claude or Codex CLI to analyze podcast transcripts for entertainment value
 and decide what to cut based on engagement, not information efficiency.
 
 Usage:
     python main.py <srt_file> <video_file> [options]
 
 Options:
+    --provider {claude,codex}   AI provider to use (default: claude)
     --edit-type {disabled,cut}  Default edit type for content edits (default: disabled)
     --output <path>             Output path for project JSON
     --source-id <id>            Use existing source file ID
@@ -30,6 +31,7 @@ if str(skills_dir) not in sys.path:
 
 from _common import parse_srt_file, get_video_info, load_storyline
 from claude_analyzer import analyze_with_claude
+from codex_analyzer import analyze_with_codex
 
 
 def generate_deterministic_uuid(file_path: str) -> str:
@@ -234,6 +236,12 @@ def main():
     parser.add_argument("srt_file", help="Path to SRT subtitle file")
     parser.add_argument("video_file", help="Path to source video file")
     parser.add_argument(
+        "--provider",
+        choices=["claude", "codex"],
+        default="codex",
+        help="AI provider to use (default: codex)",
+    )
+    parser.add_argument(
         "--edit-type",
         choices=["disabled", "cut"],
         default="disabled",
@@ -284,9 +292,12 @@ def main():
         else:
             print(f"Warning: Context file not found: {context_path}", file=sys.stderr)
 
-    # Analyze with Claude
-    print("\nAnalyzing podcast with Claude for entertainment value...")
-    result = analyze_with_claude(segments, storyline_context=storyline_context)
+    # Analyze with chosen provider
+    print(f"\nAnalyzing podcast with {args.provider.upper()} for entertainment value...")
+    if args.provider == "claude":
+        result = analyze_with_claude(segments, storyline_context=storyline_context)
+    else:
+        result = analyze_with_codex(segments, storyline_context=storyline_context)
 
     # Print report
     print_analysis_report(result.cuts, result.keeps, segments)

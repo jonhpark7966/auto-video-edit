@@ -11,6 +11,7 @@ Usage:
     python main.py <srt_file> [options]
 
 Options:
+    --provider {claude,codex}   AI provider to use (default: codex)
     --output <path>             Output path for storyline JSON
     --content-type {lecture,podcast,auto}  Content type hint (default: auto)
 """
@@ -27,6 +28,7 @@ if str(skills_dir) not in sys.path:
 
 from _common import parse_srt_file
 from claude_analyzer import analyze_with_claude
+from codex_analyzer import analyze_with_codex
 
 
 def print_overview_report(overview) -> None:
@@ -102,6 +104,12 @@ def main():
     )
     parser.add_argument("srt_file", help="Path to SRT subtitle file")
     parser.add_argument(
+        "--provider",
+        choices=["claude", "codex"],
+        default="codex",
+        help="AI provider to use (default: codex)",
+    )
+    parser.add_argument(
         "--output", "-o",
         help="Output path for storyline JSON (default: <srt_stem>.storyline.json)",
     )
@@ -125,8 +133,11 @@ def main():
     print(f"Found {len(segments)} subtitle segments")
 
     # Analyze
-    print("\nAnalyzing transcript structure with Claude...")
-    overview = analyze_with_claude(segments, content_type=args.content_type)
+    print(f"\nAnalyzing transcript structure with {args.provider.upper()}...")
+    if args.provider == "claude":
+        overview = analyze_with_claude(segments, content_type=args.content_type)
+    else:
+        overview = analyze_with_codex(segments, content_type=args.content_type)
     overview.source_srt = str(srt_path)
 
     # Print report
