@@ -1,6 +1,6 @@
 # AVID — Auto Video Edit
 
-영상의 무음 구간과 불필요한 발화를 자동 감지하여 Final Cut Pro용 편집 타임라인(FCPXML)을 생성하는 CLI 도구.
+영상의 불필요한 발화와 SRT 자막 갭(무음)을 자동 감지하여 Final Cut Pro용 편집 타임라인(FCPXML)을 생성하는 CLI 도구.
 
 ## 두 가지 편집 모드
 
@@ -34,9 +34,6 @@ avid-cli podcast-cut podcast.m4a --context podcast.storyline.json --final
 # 단독 실행 (Pass 1 생략)
 avid-cli subtitle-cut lecture.mp4 --srt lecture.srt
 avid-cli podcast-cut podcast.m4a --srt podcast.srt
-
-# 무음 감지
-avid-cli silence video.mp4 --srt sub.srt
 
 # 음성 인식
 avid-cli transcribe video.mp4
@@ -75,7 +72,7 @@ skills/
 |--------|------|------|
 | `claude` CLI 또는 `codex` CLI | AI 분석 | 둘 중 하나 |
 | Chalna API | 음성 인식 | podcast-cut 자동 전사 시 |
-| FFmpeg | 미디어 분석 | 필수 |
+| FFmpeg / FFprobe | 오디오 추출, 미디어 분석 | 필수 |
 
 ## 문서
 

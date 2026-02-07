@@ -5,14 +5,14 @@
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                        CLI (avid-cli)                         │
-│  transcribe │ transcript-overview │ subtitle-cut │ podcast-cut │ silence │ eval  │
+│  transcribe │ transcript-overview │ subtitle-cut │ podcast-cut │ eval  │
 └──────┬───────────────┬──────────────────┬────────────────┬───┘
        │               │                  │                │
        ▼               ▼                  ▼                ▼
 ┌──────────────────────────────────────────────────────────────┐
 │                     Service Layer                             │
 │  ChalnaTranscription │ TranscriptOverview │ SubtitleCut      │
-│  PodcastCut │ SilenceDetection │ Media │ FCPXMLEvaluator     │
+│  PodcastCut │ Media │ FCPXMLEvaluator                        │
 └──────┬───────────────┬──────────────────┬────────────────┬───┘
        │               │                  │                │
        ▼               ▼                  ▼                ▼
@@ -21,7 +21,6 @@
 │  (HTTP)     │ │  transcript-overview                 │ │ FFprobe  │
 │             │ │  subtitle-cut                        │ │          │
 │             │ │  podcast-cut                         │ │          │
-│             │ │  detect-silence                      │ │          │
 └─────────────┘ └──────┬──────────────────────────────┘ └──────────┘
                        │
                        ▼
@@ -37,7 +36,7 @@
 
 ```
 apps/backend/src/avid/
-├── cli.py                  # CLI 진입점 (6개 명령어)
+├── cli.py                  # CLI 진입점 (5개 명령어)
 ├── main.py                 # FastAPI 앱 (현재 /health만)
 ├── config.py               # 설정 (host, port, dirs)
 ├── services/               # 비즈니스 로직
@@ -45,7 +44,6 @@ apps/backend/src/avid/
 │   ├── transcript_overview.py  # TranscriptOverviewService
 │   ├── subtitle_cut.py     # SubtitleCutService
 │   ├── podcast_cut.py      # PodcastCutService
-│   ├── silence.py          # SilenceDetectionService
 │   ├── media.py            # MediaService (ffprobe)
 │   └── evaluation.py       # FCPXMLEvaluator
 ├── models/                 # Pydantic 데이터 모델
@@ -104,17 +102,13 @@ SRT → `storyline.json` (narrative_arc, chapters, dependencies, key_moments).
 
 `skills/subtitle-cut/main.py`를 subprocess로 실행.
 SRT + 영상 → 편집 결정 (duplicate, incomplete, filler, fumble 감지).
-무음 갭도 함께 감지하여 Project에 병합.
+SRT 갭(≥500ms)에서 무음 구간도 감지하여 Project에 병합.
 
 ### PodcastCutService (Pass 2 — 팟캐스트)
 
 `skills/podcast-cut/main.py`를 subprocess로 실행.
 SRT 없으면 Chalna로 자동 전사. entertainment_score 기반 편집.
-
-### SilenceDetectionService
-
-`skills/detect-silence/scripts/detect_silence.py`를 subprocess로 실행.
-FFmpeg silencedetect + SRT 갭 분석 결합.
+SRT 갭(≥500ms)에서 무음 구간도 감지하여 Project에 병합.
 
 ### MediaService
 

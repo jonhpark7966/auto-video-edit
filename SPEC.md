@@ -2,7 +2,7 @@
 
 ## 한 줄 요약
 
-영상의 무음 구간과 불필요한 발화를 자동 감지하여 Final Cut Pro용 편집 타임라인(FCPXML)을 생성하는 CLI 도구.
+영상의 불필요한 발화와 SRT 자막 갭(무음)을 자동 감지하여 Final Cut Pro용 편집 타임라인(FCPXML)을 생성하는 CLI 도구.
 
 ---
 
@@ -129,30 +129,6 @@ avid-cli podcast-cut <audio|video> [--srt <srt>] [--context <storyline.json>] [-
 
 ---
 
-### silence — 무음 구간 감지
-
-FFmpeg 오디오 분석 + SRT 갭 분석으로 무음 구간을 찾는다.
-
-```
-avid-cli silence <video|audio> [--srt <srt>] [--mode MODE] [--tempo TEMPO] [--min-duration MS] [--threshold DB] [--padding MS] [-o OUTPUT] [-d OUTPUT_DIR]
-```
-
-| 파라미터 | 기본값 | 설명 |
-|----------|--------|------|
-| `input` | (필수) | 영상/오디오 파일 |
-| `--srt` | (선택) | SRT 자막 파일 |
-| `--mode` | `or` | `or` / `and` / `ffmpeg` / `srt` / `diff` |
-| `--tempo` | `tight` | `relaxed` / `normal` / `tight` |
-| `--min-duration` | `500` | 최소 무음 길이 (ms) |
-| `--threshold` | (자동) | 무음 임계값 (dB) |
-| `--padding` | `100` | 발화 전후 패딩 (ms) |
-
-**출력**:
-- `{stem}_silence.fcpxml`
-- `{stem}_silence.avid.json`
-
----
-
 ### eval — 편집 결과 평가
 
 자동 생성된 FCPXML을 사람이 편집한 정답과 비교한다.
@@ -235,7 +211,7 @@ SRT ──→ [Pass 1: transcript-overview] ──storyline.json──→ [Pass 
 
 | 카테고리 | 값 | 설명 |
 |----------|-----|------|
-| 공통 | `silence` | 무음 구간 |
+| 공통 | `silence` | SRT 갭 기반 무음 구간 |
 | 강의 (subtitle-cut) | `duplicate` | 이전 테이크 반복 |
 | | `incomplete` | 미완성 문장 |
 | | `filler` | 필러/잡담 |
@@ -266,8 +242,8 @@ Final Cut Pro 호환 XML. 편집 모드에 따라 구간을 cut 또는 disabled 
 
 | 파라미터 | 설명 |
 |----------|------|
-| `silence_mode` | `cut` (제거) / `disabled` (비활성화) |
-| `content_mode` | `cut` (제거) / `disabled` (비활성화) |
+| `silence_mode` | `cut` (제거) / `disabled` (비활성화) — SRT 갭 기반 무음 |
+| `content_mode` | `cut` (제거) / `disabled` (비활성화) — AI 분석 기반 |
 | `merge_short_gaps_ms` | 짧은 간격 병합 (기본 500ms) |
 
 `--final` 플래그: content_mode를 `cut`으로 설정. 없으면 `disabled`(리뷰용).
@@ -286,6 +262,7 @@ Markdown 형식. reason별 개수, 총 시간, 상세 목록을 포함한다.
 | 인증 | CLI 도구가 자체 처리 |
 | AI 실패 시 | 에러 반환 (규칙 기반 fallback 없음) |
 | 품질 원칙 | 정확도 > 속도 |
+| 무음 감지 | SRT 자막 갭 분석 (FFmpeg 미사용) |
 | 음성 인식 | Chalna API (비동기 폴링) |
 | 내보내기 | FCPXML (Final Cut Pro) |
 | 스킬 실행 | subprocess.run (package import 아님) |
@@ -300,13 +277,13 @@ Markdown 형식. reason별 개수, 총 시간, 상세 목록을 포함한다.
 | `claude` CLI | AI 분석 (기본 provider) | 둘 중 하나 |
 | `codex` CLI | AI 분석 (대체 provider) | 둘 중 하나 |
 | Chalna API | 음성 인식 | podcast-cut 자동 전사 시 |
-| FFmpeg / FFprobe | 미디어 분석 | 필수 |
+| FFmpeg / FFprobe | 오디오 추출, 미디어 메타데이터 | 필수 |
 
 ---
 
 ## 제약 사항
 
 - `claude` CLI 또는 `codex` CLI가 환경에 설치되어 있어야 함
-- FFmpeg 필수
+- FFmpeg / FFprobe 필수 (오디오 추출, 미디어 메타데이터)
 - 한국어 우선 (다국어 확장 가능)
 - AI 실패 시 자동 대체 없음

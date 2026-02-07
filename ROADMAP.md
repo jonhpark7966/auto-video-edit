@@ -2,7 +2,7 @@
 
 ## 완료
 
-- CLI 6개 명령어: transcribe, transcript-overview, subtitle-cut, podcast-cut, silence, eval
+- CLI 5개 명령어: transcribe, transcript-overview, subtitle-cut, podcast-cut, eval
 - Two-Pass 편집 워크플로우 (transcript-overview → subtitle-cut / podcast-cut)
 - 병렬 chunk 처리 (ThreadPoolExecutor, max_workers=5)
 - FCPXML 내보내기 (review / final 모드)

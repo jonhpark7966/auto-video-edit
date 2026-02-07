@@ -2,7 +2,6 @@
 
 Usage:
     avid-cli transcribe <video> [-l ko] [--chalna-url URL]
-    avid-cli silence <video> [--srt sub.srt] [-o output.fcpxml]
     avid-cli transcript-overview <srt> [-o storyline.json] [--provider codex] [--content-type auto]
     avid-cli subtitle-cut <video> --srt sub.srt [--provider codex] [--context storyline.json] [-o output.fcpxml]
     avid-cli podcast-cut <audio> [--srt sub.srt] [--provider codex] [--context storyline.json] [-d output_dir]
@@ -117,50 +116,6 @@ def _ms_to_srt_time(ms: int) -> str:
     seconds = ms // 1000
     millis = ms % 1000
     return f"{hours:02d}:{minutes:02d}:{seconds:02d},{millis:03d}"
-
-
-# --- Silence detection subcommand ---
-
-async def cmd_silence(args: argparse.Namespace) -> None:
-    """Run silence detection."""
-    from avid.services.silence import SilenceDetectionService
-
-    service = SilenceDetectionService()
-    video_path = Path(args.input).resolve()
-
-    if not video_path.exists():
-        print(f"오류: 파일을 찾을 수 없습니다: {video_path}", file=sys.stderr)
-        sys.exit(1)
-
-    srt_path = Path(args.srt).resolve() if args.srt else None
-    output_dir = Path(args.output_dir) if args.output_dir else video_path.parent
-
-    print(f"무음 감지 시작: {video_path.name}")
-    if srt_path:
-        print(f"  SRT: {srt_path.name}")
-    print(f"  모드: {args.mode}")
-    print(f"  템포: {args.tempo}")
-
-    project, project_path = await service.detect(
-        video_path=video_path,
-        srt_path=srt_path,
-        output_dir=output_dir,
-        mode=args.mode,
-        tempo=args.tempo,
-        min_duration_ms=args.min_duration,
-        threshold_db=args.threshold,
-        padding_ms=args.padding,
-    )
-
-    # Export to FCPXML
-    fcpxml_path = Path(args.output) if args.output else output_dir / f"{video_path.stem}_silence.fcpxml"
-    exporter = FCPXMLExporter()
-    await exporter.export(project, fcpxml_path)
-
-    print(f"\n결과:")
-    print(f"  편집 결정: {len(project.edit_decisions)}개 컷")
-    print(f"  프로젝트: {project_path}")
-    print(f"  FCPXML: {fcpxml_path}")
 
 
 # --- Transcript overview subcommand ---
@@ -397,18 +352,6 @@ def main() -> None:
     p_transcribe.add_argument("--chalna-url", type=str, help="Chalna API URL (기본: CHALNA_API_URL 환경변수 또는 http://localhost:7861)")
     p_transcribe.add_argument("-d", "--output-dir", type=str, help="출력 디렉토리")
 
-    # --- silence ---
-    p_silence = subparsers.add_parser("silence", help="무음 감지")
-    p_silence.add_argument("input", type=str, help="입력 영상/오디오 파일")
-    p_silence.add_argument("--srt", type=str, help="SRT 자막 파일 (선택)")
-    p_silence.add_argument("--mode", default="or", choices=["or", "and", "ffmpeg", "srt", "diff"], help="감지 모드 (기본: or)")
-    p_silence.add_argument("--tempo", type=str, default="tight", choices=["relaxed", "normal", "tight"], help="템포 프리셋")
-    p_silence.add_argument("--min-duration", type=int, default=500, help="최소 무음 길이 ms (기본: 500)")
-    p_silence.add_argument("--threshold", type=float, default=None, help="무음 임계값 dB")
-    p_silence.add_argument("--padding", type=int, default=100, help="패딩 ms (기본: 100)")
-    p_silence.add_argument("-o", "--output", type=str, help="출력 FCPXML 경로")
-    p_silence.add_argument("-d", "--output-dir", type=str, help="출력 디렉토리")
-
     # --- transcript-overview ---
     p_overview = subparsers.add_parser("transcript-overview", help="스토리 구조 분석 (Pass 1)")
     p_overview.add_argument("input", type=str, help="입력 SRT 자막 파일")
@@ -451,8 +394,6 @@ def main() -> None:
     # Dispatch
     if args.command == "transcribe":
         asyncio.run(cmd_transcribe(args))
-    elif args.command == "silence":
-        asyncio.run(cmd_silence(args))
     elif args.command == "transcript-overview":
         asyncio.run(cmd_transcript_overview(args))
     elif args.command == "subtitle-cut":
