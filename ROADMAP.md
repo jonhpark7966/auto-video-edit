@@ -24,10 +24,6 @@
 
 - [ ] podcast-cut/SKILL.md 작성
 
-### 평가
-
-- [ ] FCPXML 평가 CLI/API 노출 (`services/evaluation.py` 구현 완료, 공개 인터페이스 미노출)
-
 ### 내보내기
 
 - [ ] Premiere Pro XML 내보내기 연결 (`export/premiere.py` 구현 완료, CLI 미노출)
