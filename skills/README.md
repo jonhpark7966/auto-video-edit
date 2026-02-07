@@ -158,8 +158,7 @@ skills/
 │   ├── SKILL.md
 │   ├── main.py                # Entry point
 │   ├── claude_analyzer.py
-│   ├── models.py
-│   └── __init__.py
+│   └── models.py
 ├── subtitle-cut/              # Pass 2: 강의/설명 영상 편집
 │   ├── SKILL.md
 │   ├── main.py                # Entry point (--context 지원)
@@ -169,6 +168,7 @@ skills/
 └── podcast-cut/               # Pass 2: 팟캐스트/인터뷰 편집
     ├── main.py                # Entry point (--context 지원)
     ├── claude_analyzer.py
+    ├── codex_analyzer.py
     └── models.py
 ```
 

@@ -1,82 +1,87 @@
-# Auto Video Edit (AVID)
+# AVID — Auto Video Edit
 
-자동 영상 편집 파이프라인 - PoC
+영상의 무음 구간과 불필요한 발화를 자동 감지하여 Final Cut Pro용 편집 타임라인(FCPXML)을 생성하는 CLI 도구.
 
-## 기능
+## 두 가지 편집 모드
 
-- **무음 구간 자동 감지 및 제거**
-- **음성 인식 (Whisper)**
-- **자막 기반 자동 편집 (2가지 모드)**
-  - **subtitle-cut**: 강의/설명 영상 — 중복 발화, 필러, 말실수 감지
-  - **podcast-cut**: 팟캐스트/인터뷰 — 재미 기준 편집 (지루한 구간 제거, 하이라이트 보존)
-- **Final Cut Pro XML (FCPXML) 내보내기**
+| 모드 | 대상 | 목표 |
+|------|------|------|
+| **subtitle-cut** | 강의, 설명, 튜토리얼 | 정보 효율성 — 중복/필러/말실수 제거 |
+| **podcast-cut** | 팟캐스트, 인터뷰 | 재미 유지 — 지루한 구간 제거, 하이라이트 보존 |
 
-## 기술 스택
-
-- **Backend**: Python 3.11+ / FastAPI
-- **UI**: Gradio (PoC)
-- **배포**: Docker Compose
-
-## 시작하기
-
-### 로컬 개발
-
-```bash
-cd apps/backend
-pip install -e ".[dev]"
-python -m avid.main
-```
-
-- Gradio UI: http://localhost:8000
-- Health Check: http://localhost:8000/health
-
-### Docker Compose
-
-```bash
-cd docker
-docker-compose up --build
-```
-
-## 프로젝트 구조
+## Two-Pass 워크플로우
 
 ```
-auto-video-edit/
-├── apps/
-│   └── backend/           # FastAPI + Gradio 백엔드
-│       └── src/avid/      # 메인 패키지
-│           ├── api/       # REST API
-│           ├── ui/        # Gradio UI
-│           ├── models/    # Pydantic 데이터 모델
-│           ├── pipeline/  # 워크플로우 파이프라인
-│           ├── services/  # 서비스 (subtitle_cut, podcast_cut 등)
-│           └── export/    # FCPXML/리포트 내보내기
-├── skills/
-│   ├── _common/           # 스킬 간 공통 모듈 (SRT 파서, CLI 유틸 등)
-│   ├── subtitle-cut/      # 강의/설명 영상 편집 스킬
-│   └── podcast-cut/       # 팟캐스트/인터뷰 편집 스킬
-├── docker/                # Docker 설정
-└── README.md
+SRT ──→ [Pass 1: transcript-overview] ──storyline.json──→ [Pass 2: subtitle-cut / podcast-cut] ──→ FCPXML
 ```
+
+Pass 1이 스토리 구조를 먼저 파악하여, Pass 2에서 setup-payoff 쌍이나 Q&A가 분리되는 것을 방지한다.
 
 ## CLI 사용법
 
 ```bash
+# 설치
+cd apps/backend
+pip install -e .
+
+# Two-Pass 워크플로우
+avid-cli transcript-overview lecture.srt -o lecture.storyline.json
+avid-cli subtitle-cut lecture.mp4 --srt lecture.srt --context lecture.storyline.json
+
+# 팟캐스트 (SRT 없으면 자동 전사)
+avid-cli podcast-cut podcast.m4a --context podcast.storyline.json --final
+
+# 단독 실행 (Pass 1 생략)
+avid-cli subtitle-cut lecture.mp4 --srt lecture.srt
+avid-cli podcast-cut podcast.m4a --srt podcast.srt
+
 # 무음 감지
-avid-cli silence <video> [--srt sub.srt] [-o output.fcpxml]
-
-# 강의/설명 영상 편집 (중복, 필러, 말실수 제거)
-avid-cli subtitle-cut <video> --srt sub.srt [-o output.fcpxml]
-
-# 팟캐스트/인터뷰 편집 (재미 기준 — 지루한 구간 제거)
-avid-cli podcast-cut <audio> [--srt sub.srt] [-d output_dir] [--final]
+avid-cli silence video.mp4 --srt sub.srt
 
 # 음성 인식
-avid-cli transcribe <video> [-l ko] [-m base] [-o output.srt]
+avid-cli transcribe video.mp4
 
 # 편집 결과 평가
-avid-cli eval <predicted.fcpxml> <ground-truth.fcpxml>
+avid-cli eval predicted.fcpxml ground_truth.fcpxml
 ```
+
+## 기술 스택
+
+- **Backend**: Python 3.11+ / FastAPI
+- **AI 분석**: `claude` CLI / `codex` CLI (subprocess)
+- **음성 인식**: Chalna API
+- **미디어 처리**: FFmpeg / FFprobe
+- **내보내기**: FCPXML (Final Cut Pro)
+
+## 프로젝트 구조
+
+```
+apps/backend/src/avid/
+├── cli.py              # CLI 진입점 (6개 명령어)
+├── services/           # 비즈니스 로직 (7개 서비스)
+├── models/             # Pydantic 데이터 모델
+└── export/             # FCPXML, 보고서 내보내기
+
+skills/
+├── _common/            # 공통 모듈 (SRT 파서, CLI 유틸, 병렬 처리)
+├── transcript-overview/ # Pass 1: 스토리 구조 분석
+├── subtitle-cut/       # Pass 2: 강의 편집
+└── podcast-cut/        # Pass 2: 팟캐스트 편집
+```
+
+## 외부 의존성
+
+| 서비스 | 용도 | 필수 |
+|--------|------|------|
+| `claude` CLI 또는 `codex` CLI | AI 분석 | 둘 중 하나 |
+| Chalna API | 음성 인식 | podcast-cut 자동 전사 시 |
+| FFmpeg | 미디어 분석 | 필수 |
+
+## 문서
+
+- [SPEC.md](SPEC.md) — CLI API 스펙, 데이터 모델, 내보내기 형식
+- [ARCHITECTURE.md](ARCHITECTURE.md) — 시스템 아키텍처, 서비스 계층, 데이터 흐름
 
 ## 라이선스
 
-CC BY-NC-SA 4.0 (비상업적 용도로만 사용 가능)
+CC BY-NC-SA 4.0
