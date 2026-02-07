@@ -2,12 +2,11 @@
 
 ## 완료
 
-- CLI 5개 명령어: transcribe, transcript-overview, subtitle-cut, podcast-cut, eval
+- CLI 4개 명령어: transcribe, transcript-overview, subtitle-cut, podcast-cut
 - Two-Pass 편집 워크플로우 (transcript-overview → subtitle-cut / podcast-cut)
 - 병렬 chunk 처리 (ThreadPoolExecutor, max_workers=5)
 - FCPXML 내보내기 (review / final 모드)
 - Markdown 편집 보고서
-- FCPXML 기반 평가 (precision, recall, F1)
 - Chalna API 비동기 음성 인식
 - 데이터 모델 (Project, EditDecision, EditReason — 강의+팟캐스트 통합)
 - 프로젝트 문서 정리 (SPEC, ARCHITECTURE, README)
@@ -24,6 +23,10 @@
 ### 문서
 
 - [ ] podcast-cut/SKILL.md 작성
+
+### 평가
+
+- [ ] FCPXML 평가 CLI/API 노출 (`services/evaluation.py` 구현 완료, 공개 인터페이스 미노출)
 
 ### 내보내기
 

@@ -7,7 +7,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from avid.api.deps import init_job_manager
-from avid.api.routes import eval, health, jobs, media
+from avid.api.routes import health, jobs, media
 from avid.config import settings
 
 
@@ -30,7 +30,6 @@ def create_app() -> FastAPI:
     # Include API routes
     app.include_router(health.router)
     app.include_router(jobs.router)
-    app.include_router(eval.router)
     app.include_router(media.router)
 
     return app

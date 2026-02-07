@@ -41,17 +41,6 @@ class PodcastCutRequest(BaseModel):
 
 
 # ------------------------------------------------------------------
-# Eval request
-# ------------------------------------------------------------------
-
-
-class EvalRequest(BaseModel):
-    predicted_path: str = Field(..., description="Path to predicted FCPXML")
-    ground_truth_path: str = Field(..., description="Path to ground truth FCPXML")
-    threshold_ms: int = Field(200, description="Overlap threshold in ms")
-
-
-# ------------------------------------------------------------------
 # Job responses
 # ------------------------------------------------------------------
 
@@ -84,26 +73,6 @@ class JobListItem(BaseModel):
     type: str
     status: str
     created_at: datetime
-
-
-# ------------------------------------------------------------------
-# Eval response
-# ------------------------------------------------------------------
-
-
-class EvalResponse(BaseModel):
-    total_gt_cuts: int
-    total_pred_cuts: int
-    matched_cuts: int
-    missed_cuts: int
-    extra_cuts: int
-    precision: float
-    recall: float
-    f1: float
-    gt_cut_duration_ms: int
-    pred_cut_duration_ms: int
-    overlap_duration_ms: int
-    timeline_overlap_ratio: float
 
 
 # ------------------------------------------------------------------

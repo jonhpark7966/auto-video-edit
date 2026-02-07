@@ -37,9 +37,6 @@ avid-cli podcast-cut podcast.m4a --srt podcast.srt
 
 # 음성 인식
 avid-cli transcribe video.mp4
-
-# 편집 결과 평가
-avid-cli eval predicted.fcpxml ground_truth.fcpxml
 ```
 
 ## 기술 스택
@@ -54,8 +51,8 @@ avid-cli eval predicted.fcpxml ground_truth.fcpxml
 
 ```
 apps/backend/src/avid/
-├── cli.py              # CLI 진입점 (6개 명령어)
-├── services/           # 비즈니스 로직 (7개 서비스)
+├── cli.py              # CLI 진입점 (4개 명령어)
+├── services/           # 비즈니스 로직
 ├── models/             # Pydantic 데이터 모델
 └── export/             # FCPXML, 보고서 내보내기
 

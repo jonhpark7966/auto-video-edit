@@ -5,19 +5,15 @@ Usage:
     avid-cli transcript-overview <srt> [-o storyline.json] [--provider codex] [--content-type auto]
     avid-cli subtitle-cut <video> --srt sub.srt [--provider codex] [--context storyline.json] [-o output.fcpxml]
     avid-cli podcast-cut <audio> [--srt sub.srt] [--provider codex] [--context storyline.json] [-d output_dir]
-    avid-cli eval <predicted.fcpxml> <ground-truth.fcpxml>
 """
 
 import argparse
 import asyncio
-import json
 import subprocess
 import sys
 from pathlib import Path
 
 from avid.export.fcpxml import FCPXMLExporter
-from avid.models.project import Project
-from avid.services.evaluation import FCPXMLEvaluator
 
 
 # --- Transcribe subcommand ---
@@ -285,56 +281,6 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> None:
     print(f"    - report: {report_path}")
 
 
-# --- Eval subcommand ---
-
-async def cmd_eval(args: argparse.Namespace) -> None:
-    """Run FCPXML evaluation."""
-    evaluator = FCPXMLEvaluator()
-
-    predicted = Path(args.predicted).resolve()
-    ground_truth = Path(args.ground_truth).resolve()
-
-    if not predicted.exists():
-        print(f"오류: 예측 FCPXML을 찾을 수 없습니다: {predicted}", file=sys.stderr)
-        sys.exit(1)
-    if not ground_truth.exists():
-        print(f"오류: 정답 FCPXML을 찾을 수 없습니다: {ground_truth}", file=sys.stderr)
-        sys.exit(1)
-
-    result = evaluator.evaluate(
-        predicted_fcpxml=predicted,
-        ground_truth_fcpxml=ground_truth,
-        overlap_threshold_ms=args.threshold,
-    )
-
-    # Print report
-    report = evaluator.format_report(result)
-    print(report)
-
-    # Optionally save JSON
-    if args.output:
-        output_path = Path(args.output)
-        data = {
-            "predicted": str(predicted),
-            "ground_truth": str(ground_truth),
-            "total_gt_cuts": result.total_gt_cuts,
-            "total_pred_cuts": result.total_pred_cuts,
-            "matched_cuts": result.matched_cuts,
-            "missed_cuts": result.missed_cuts,
-            "extra_cuts": result.extra_cuts,
-            "precision": result.precision,
-            "recall": result.recall,
-            "f1": result.f1,
-            "gt_cut_duration_ms": result.gt_cut_duration_ms,
-            "pred_cut_duration_ms": result.pred_cut_duration_ms,
-            "overlap_duration_ms": result.overlap_duration_ms,
-            "timeline_overlap_ratio": result.timeline_overlap_ratio,
-        }
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        print(f"\n결과 저장: {output_path}")
-
-
 # --- Main CLI ---
 
 def main() -> None:
@@ -378,13 +324,6 @@ def main() -> None:
     p_podcast.add_argument("-d", "--output-dir", type=str, help="출력 디렉토리")
     p_podcast.add_argument("--final", action="store_true", help="최종 편집본 (모든 편집 적용, 기본: 검토용 disabled)")
 
-    # --- eval ---
-    p_eval = subparsers.add_parser("eval", help="FCPXML 평가 (편집 결과 비교)")
-    p_eval.add_argument("predicted", type=str, help="예측 FCPXML (자동 생성)")
-    p_eval.add_argument("ground_truth", type=str, help="정답 FCPXML (사람 편집)")
-    p_eval.add_argument("--threshold", type=int, default=200, help="매칭 임계값 ms (기본: 200)")
-    p_eval.add_argument("-o", "--output", type=str, help="결과 JSON 저장 경로")
-
     args = parser.parse_args()
 
     if not args.command:
@@ -400,8 +339,6 @@ def main() -> None:
         asyncio.run(cmd_subtitle_cut(args))
     elif args.command == "podcast-cut":
         asyncio.run(cmd_podcast_cut(args))
-    elif args.command == "eval":
-        asyncio.run(cmd_eval(args))
 
 
 if __name__ == "__main__":

@@ -5,14 +5,14 @@
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                        CLI (avid-cli)                         │
-│  transcribe │ transcript-overview │ subtitle-cut │ podcast-cut │ eval  │
+│  transcribe │ transcript-overview │ subtitle-cut │ podcast-cut │
 └──────┬───────────────┬──────────────────┬────────────────┬───┘
        │               │                  │                │
        ▼               ▼                  ▼                ▼
 ┌──────────────────────────────────────────────────────────────┐
 │                     Service Layer                             │
 │  ChalnaTranscription │ TranscriptOverview │ SubtitleCut      │
-│  PodcastCut │ Media │ FCPXMLEvaluator                        │
+│  PodcastCut │ Media                                          │
 └──────┬───────────────┬──────────────────┬────────────────┬───┘
        │               │                  │                │
        ▼               ▼                  ▼                ▼
@@ -36,7 +36,7 @@
 
 ```
 apps/backend/src/avid/
-├── cli.py                  # CLI 진입점 (5개 명령어)
+├── cli.py                  # CLI 진입점 (4개 명령어)
 ├── main.py                 # FastAPI 앱 (현재 /health만)
 ├── config.py               # 설정 (host, port, dirs)
 ├── services/               # 비즈니스 로직
@@ -44,8 +44,7 @@ apps/backend/src/avid/
 │   ├── transcript_overview.py  # TranscriptOverviewService
 │   ├── subtitle_cut.py     # SubtitleCutService
 │   ├── podcast_cut.py      # PodcastCutService
-│   ├── media.py            # MediaService (ffprobe)
-│   └── evaluation.py       # FCPXMLEvaluator
+│   └── media.py            # MediaService (ffprobe)
 ├── models/                 # Pydantic 데이터 모델
 │   ├── timeline.py         # EditType, EditReason, TimeRange, EditDecision
 │   ├── project.py          # Project, Transcription, TranscriptSegment
@@ -112,10 +111,6 @@ SRT 갭(≥500ms)에서 무음 구간도 감지하여 Project에 병합.
 ### MediaService
 
 FFprobe wrapper. duration, resolution, fps, sample_rate 추출.
-
-### FCPXMLEvaluator
-
-두 FCPXML의 kept clip 구간을 비교. precision, recall, F1, timeline_overlap_ratio 산출.
 
 ---
 

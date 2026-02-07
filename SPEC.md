@@ -129,33 +129,6 @@ avid-cli podcast-cut <audio|video> [--srt <srt>] [--context <storyline.json>] [-
 
 ---
 
-### eval — 편집 결과 평가
-
-자동 생성된 FCPXML을 사람이 편집한 정답과 비교한다.
-
-```
-avid-cli eval <predicted.fcpxml> <ground_truth.fcpxml> [--threshold MS] [-o OUTPUT]
-```
-
-| 파라미터 | 기본값 | 설명 |
-|----------|--------|------|
-| `predicted` | (필수) | 자동 생성 FCPXML |
-| `ground_truth` | (필수) | 정답 FCPXML |
-| `--threshold` | `200` | 매칭 허용 오차 (ms) |
-| `-o, --output` | (선택) | 결과 JSON 저장 경로 |
-
-**출력**:
-```json
-{
-  "precision": 0.89,
-  "recall": 0.80,
-  "f1": 0.84,
-  "timeline_overlap_ratio": 0.75
-}
-```
-
----
-
 ## Two-Pass 편집 워크플로우
 
 프로 편집자의 "Paper Edit" 워크플로우를 자동화한 구조.
