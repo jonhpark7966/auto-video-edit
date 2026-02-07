@@ -1,62 +1,280 @@
-# AVID — 자동 영상 편집 스펙 문서
+# AVID — 자동 영상 편집 스펙
 
 ## 한 줄 요약
 
-영상의 무음 구간과 불필요한 발화를 자동으로 감지하여 Final Cut Pro용 편집 결정을 생성하는 도구. 강의 영상(정보 효율)과 팟캐스트(재미 기준) 두 가지 편집 모드를 지원한다.
+영상의 무음 구간과 불필요한 발화를 자동 감지하여 Final Cut Pro용 편집 타임라인(FCPXML)을 생성하는 CLI 도구.
 
 ---
 
-## 무엇을 하는가
+## CLI 명령어 (API)
 
-1. **무음 구간 감지**: FFmpeg 오디오 분석 + SRT 자막 갭 분석을 결합하여 무음 구간을 찾는다.
-2. **자막 기반 편집 결정 (2가지 모드)**:
-   - **subtitle-cut** (강의/설명): AI가 중복 발화, 필러, 말실수, 미완성 문장을 감지하여 제거한다.
-   - **podcast-cut** (팟캐스트/인터뷰): AI가 재미 기준으로 판단 — 지루한 구간을 제거하고 유머/케미/클라이맥스를 보존한다.
-3. **타임라인 생성**: 감지 결과를 FCPXML로 내보내 Final Cut Pro에서 바로 열 수 있다.
+모든 기능은 `avid-cli` 명령어로 접근한다.
 
-자막이 없으면 Whisper 또는 chalna로 자동 생성한 뒤 분석한다.
+### transcribe — 음성 인식
+
+Chalna API로 오디오를 전사하여 SRT 자막을 생성한다.
+
+```
+avid-cli transcribe <video|audio> [-l LANG] [--chalna-url URL] [-d OUTPUT_DIR]
+```
+
+| 파라미터 | 기본값 | 설명 |
+|----------|--------|------|
+| `input` | (필수) | 영상/오디오 파일 |
+| `-l, --language` | `ko` | 언어 코드 |
+| `--chalna-url` | `http://localhost:7861` | Chalna API URL (env: `CHALNA_API_URL`) |
+| `-d, --output-dir` | 입력 파일 위치 | 출력 디렉토리 |
+
+**출력**: `{stem}.srt`
 
 ---
 
-## 대상 콘텐츠
+### transcript-overview — 스토리 구조 분석 (Pass 1)
 
-- 인터뷰 영상
-- 강의 영상
-- 팟캐스트
+전체 자막을 분석하여 내러티브 구조, 챕터, 의존성, 핵심 순간을 파악한다.
+Pass 2 스킬의 컨텍스트(`--context`)로 사용할 `storyline.json`을 생성한다.
 
-언어는 한국어 우선, 이후 다국어 확장 예정.
+```
+avid-cli transcript-overview <srt> [-o OUTPUT] [--content-type TYPE] [--provider PROVIDER]
+```
+
+| 파라미터 | 기본값 | 설명 |
+|----------|--------|------|
+| `input` | (필수) | SRT 자막 파일 |
+| `-o, --output` | `{stem}.storyline.json` | 출력 경로 |
+| `--content-type` | `auto` | `lecture` / `podcast` / `auto` |
+| `--provider` | `codex` | `claude` / `codex` |
+
+**출력**: `storyline.json`
+```json
+{
+  "narrative_arc": "string",
+  "chapters": [{ "title": "...", "segment_range": [1, 50], "summary": "..." }],
+  "dependencies": [{ "setup": 10, "payoff": 45, "type": "..." }],
+  "key_moments": [{ "segment_index": 30, "type": "climax", "description": "..." }],
+  "pacing_notes": "string"
+}
+```
+
+세그먼트 수에 따라 적응적 처리:
+- ≤150: 전체 전송 단일 호출
+- 151-400: 압축 형태
+- 400+: 2단계 (챕터 경계 → 상세 분석)
 
 ---
 
-## 핵심 동작 흐름
+### subtitle-cut — 강의/설명 영상 편집 (Pass 2)
 
-### subtitle-cut (강의/설명 영상)
+단일 화자 강의/설명 영상에서 중복 발화, 필러, 말실수, 미완성 문장을 감지한다.
+
 ```
-영상 파일 입력
-    ↓
-[자막 없으면] Whisper로 자동 생성
-    ↓
-FFmpeg 무음 감지 + SRT 갭 분석 → 무음 구간 목록
-    ↓
-Claude CLI / Codex CLI → 자막 분석 (중복/필러/미완성 판단)
-    ↓
-편집 결정 생성 → FCPXML 내보내기
+avid-cli subtitle-cut <video> --srt <srt> [--context <storyline.json>] [--provider PROVIDER] [-o OUTPUT] [-d OUTPUT_DIR] [--final]
 ```
 
-### podcast-cut (팟캐스트/인터뷰)
+| 파라미터 | 기본값 | 설명 |
+|----------|--------|------|
+| `input` | (필수) | 영상 파일 |
+| `--srt` | (필수) | SRT 자막 파일 |
+| `--context` | (선택) | Pass 1의 storyline.json |
+| `--provider` | `codex` | `claude` / `codex` |
+| `-o, --output` | `{stem}_subtitle_cut.fcpxml` | FCPXML 출력 경로 |
+| `-d, --output-dir` | 입력 파일 위치 | 출력 디렉토리 |
+| `--final` | `false` | true면 content edit을 cut으로, false면 disabled로 |
+
+**출력**:
+- `{stem}_subtitle_cut.fcpxml` — 편집 타임라인
+- `{stem}_subtitle_cut.srt` — 조정된 자막
+- `{stem}_subtitle_cut.avid.json` — 프로젝트 JSON
+
+**CUT 이유**: `duplicate`, `incomplete`, `filler`, `fumble`
+**KEEP 이유**: `best_take`, `unique`
+
+세그먼트 수에 따라 적응적 처리:
+- ≤150: 단일 호출, 3단계 프롬프트 (테이크 구분 → 판단 → 흐름 검토)
+- &gt;150: 병렬 chunk 처리, 2단계 프롬프트 (흐름 검토 생략)
+
+---
+
+### podcast-cut — 팟캐스트/인터뷰 편집 (Pass 2)
+
+멀티 화자 팟캐스트에서 재미없는 구간을 감지하고 하이라이트를 보존한다.
+
 ```
-오디오/영상 파일 입력
-    ↓
-[자막 없으면] chalna로 SRT 생성
-    ↓
-챕터/토픽 구조 분석
-    ↓
-Claude CLI → 재미 기준 분석 (entertainment_score 1-10)
-    ↓
-SRT 갭에서 무음 구간 추출
-    ↓
-편집 결정 생성 → FCPXML 내보내기 (review / final 모드)
+avid-cli podcast-cut <audio|video> [--srt <srt>] [--context <storyline.json>] [--provider PROVIDER] [-d OUTPUT_DIR] [--final]
 ```
+
+| 파라미터 | 기본값 | 설명 |
+|----------|--------|------|
+| `input` | (필수) | 오디오/영상 파일 |
+| `--srt` | (선택) | SRT 자막 (없으면 Chalna로 자동 생성) |
+| `--context` | (선택) | Pass 1의 storyline.json |
+| `--provider` | `codex` | `claude` / `codex` |
+| `-d, --output-dir` | 입력 파일 위치 | 출력 디렉토리 |
+| `--final` | `false` | true면 content edit을 cut으로, false면 disabled로 |
+
+**출력**:
+- `{stem}_podcast_cut.fcpxml` — 편집 타임라인
+- `{stem}_podcast_cut.srt` — 조정된 자막
+- `{stem}.report.md` — 편집 보고서
+- `{stem}_podcast_cut.avid.json` — 프로젝트 JSON
+
+**CUT 이유**: `boring`, `tangent`, `repetitive`, `long_pause`, `crosstalk`, `irrelevant`, `filler`, `dragging`
+**KEEP 이유**: `funny`, `witty`, `chemistry`, `reaction`, `callback`, `climax`, `engaging`, `emotional`
+
+각 세그먼트에 `entertainment_score` (1-10)를 부여한다.
+
+세그먼트 수에 따라 적응적 처리:
+- ≤80: 단일 호출
+- &gt;80: 병렬 chunk 처리 (chunk_size=80, overlap=5)
+
+---
+
+### silence — 무음 구간 감지
+
+FFmpeg 오디오 분석 + SRT 갭 분석으로 무음 구간을 찾는다.
+
+```
+avid-cli silence <video|audio> [--srt <srt>] [--mode MODE] [--tempo TEMPO] [--min-duration MS] [--threshold DB] [--padding MS] [-o OUTPUT] [-d OUTPUT_DIR]
+```
+
+| 파라미터 | 기본값 | 설명 |
+|----------|--------|------|
+| `input` | (필수) | 영상/오디오 파일 |
+| `--srt` | (선택) | SRT 자막 파일 |
+| `--mode` | `or` | `or` / `and` / `ffmpeg` / `srt` / `diff` |
+| `--tempo` | `tight` | `relaxed` / `normal` / `tight` |
+| `--min-duration` | `500` | 최소 무음 길이 (ms) |
+| `--threshold` | (자동) | 무음 임계값 (dB) |
+| `--padding` | `100` | 발화 전후 패딩 (ms) |
+
+**출력**:
+- `{stem}_silence.fcpxml`
+- `{stem}_silence.avid.json`
+
+---
+
+### eval — 편집 결과 평가
+
+자동 생성된 FCPXML을 사람이 편집한 정답과 비교한다.
+
+```
+avid-cli eval <predicted.fcpxml> <ground_truth.fcpxml> [--threshold MS] [-o OUTPUT]
+```
+
+| 파라미터 | 기본값 | 설명 |
+|----------|--------|------|
+| `predicted` | (필수) | 자동 생성 FCPXML |
+| `ground_truth` | (필수) | 정답 FCPXML |
+| `--threshold` | `200` | 매칭 허용 오차 (ms) |
+| `-o, --output` | (선택) | 결과 JSON 저장 경로 |
+
+**출력**:
+```json
+{
+  "precision": 0.89,
+  "recall": 0.80,
+  "f1": 0.84,
+  "timeline_overlap_ratio": 0.75
+}
+```
+
+---
+
+## Two-Pass 편집 워크플로우
+
+프로 편집자의 "Paper Edit" 워크플로우를 자동화한 구조.
+
+```
+SRT ──→ [Pass 1: transcript-overview] ──storyline.json──→ [Pass 2: subtitle-cut 또는 podcast-cut] ──→ FCPXML
+```
+
+**Pass 1**: 전체 자막을 읽고 스토리 구조, 챕터, 의존성, 핵심 순간을 분석
+**Pass 2**: Pass 1 결과를 context로 받아 맥락을 알고 편집 결정
+
+이를 통해 방지하는 문제:
+- setup을 자르면 payoff가 의미 없어지는 문제
+- callback anchor 소실
+- Q&A 쌍 분리
+
+> Pass 2 스킬은 `--context` 없이도 독립 동작한다 (하위 호환).
+
+---
+
+## 데이터 모델
+
+### Project (프로젝트 JSON)
+
+모든 편집 결과는 `.avid.json` 형식으로 저장된다.
+
+```json
+{
+  "name": "project name",
+  "created_at": "2026-02-07T12:00:00",
+  "source_files": [{ "id": "uuid", "path": "/path/to/video.mp4", "info": { "duration_ms": 60000 } }],
+  "tracks": [{ "id": "uuid_video", "source_file_id": "uuid", "track_type": "video" }],
+  "transcription": {
+    "source_track_id": "uuid_audio",
+    "language": "ko",
+    "segments": [{ "start_ms": 0, "end_ms": 3000, "text": "안녕하세요" }]
+  },
+  "edit_decisions": [
+    { "range": { "start_ms": 5000, "end_ms": 8000 }, "edit_type": "cut", "reason": "duplicate", "confidence": 0.95 }
+  ]
+}
+```
+
+### EditType
+
+| 값 | 설명 |
+|----|------|
+| `cut` | 구간 제거 |
+| `speedup` | 구간 배속 |
+| `mute` | 구간 음소거 |
+
+### EditReason
+
+| 카테고리 | 값 | 설명 |
+|----------|-----|------|
+| 공통 | `silence` | 무음 구간 |
+| 강의 (subtitle-cut) | `duplicate` | 이전 테이크 반복 |
+| | `incomplete` | 미완성 문장 |
+| | `filler` | 필러/잡담 |
+| | `fumble` | 말실수 |
+| 팟캐스트 CUT | `boring` | 지루한 구간 |
+| | `tangent` | 주제 이탈 |
+| | `repetitive` | 반복 |
+| | `long_pause` | 긴 침묵 |
+| | `crosstalk` | 동시 발화 |
+| | `irrelevant` | 무관한 내용 |
+| | `dragging` | 늘어짐 |
+| 팟캐스트 KEEP | `funny` | 유머 |
+| | `witty` | 재치 |
+| | `chemistry` | 케미 |
+| | `reaction` | 리액션 |
+| | `callback` | 콜백 유머 |
+| | `climax` | 클라이맥스 |
+| | `engaging` | 몰입 |
+| | `emotional` | 감정 |
+
+---
+
+## 내보내기 형식
+
+### FCPXML (기본)
+
+Final Cut Pro 호환 XML. 편집 모드에 따라 구간을 cut 또는 disabled 처리.
+
+| 파라미터 | 설명 |
+|----------|------|
+| `silence_mode` | `cut` (제거) / `disabled` (비활성화) |
+| `content_mode` | `cut` (제거) / `disabled` (비활성화) |
+| `merge_short_gaps_ms` | 짧은 간격 병합 (기본 500ms) |
+
+`--final` 플래그: content_mode를 `cut`으로 설정. 없으면 `disabled`(리뷰용).
+
+### 편집 보고서
+
+Markdown 형식. reason별 개수, 총 시간, 상세 목록을 포함한다.
 
 ---
 
@@ -64,94 +282,31 @@ SRT 갭에서 무음 구간 추출
 
 | 항목 | 결정 |
 |------|------|
-| AI 호출 방식 | `claude` CLI, `codex` CLI (subprocess) — API SDK 아님 |
-| 인증 | CLI 도구가 자체 처리 (API 키 직접 관리 안 함) |
-| 무음 결합 모드 | `or` + `tight`만 사용 |
-| AI 실패 시 | 사용자에게 에러 알림 (규칙 기반 fallback 없음) |
+| AI 호출 방식 | `claude` CLI / `codex` CLI (subprocess) — API SDK 아님 |
+| 인증 | CLI 도구가 자체 처리 |
+| AI 실패 시 | 에러 반환 (규칙 기반 fallback 없음) |
 | 품질 원칙 | 정확도 > 속도 |
-| 음성 인식 | Whisper 기본, 플러그인 구조로 엔진 교체 가능 |
-| AI 의사결정자 | Claude 기본 (변경 가능) |
-| 내보내기 형식 | FCPXML (Final Cut Pro) |
+| 음성 인식 | Chalna API (비동기 폴링) |
+| 내보내기 | FCPXML (Final Cut Pro) |
+| 스킬 실행 | subprocess.run (package import 아님) |
+| 대규모 처리 | ThreadPoolExecutor 병렬 chunk (max_workers=5) |
 
 ---
 
-## 주요 컴포넌트
+## 외부 의존성
 
-### 무음 감지 (AudioAnalyzer)
-- FFmpeg `silencedetect` 필터로 오디오 무음 구간 추출
-- SRT 파일에서 자막 사이 갭(빈 구간) 추출
-- 두 결과를 `or` 모드로 결합 (둘 중 하나라도 무음이면 컷 대상)
-- `tight` 옵션으로 겹치는 부분만 취할 수도 있음
-
-### 자막 분석 — subtitle-cut (AIAnalysisService)
-- Claude CLI와 Codex CLI를 병렬 호출
-- 각 AI가 자막 세그먼트를 분석하여 cut/keep 판단
-- 결과를 집계 (기본: Claude 우선, voting 등 전략 선택 가능)
-- 감지 대상: 중복 발화(duplicate), 불완전 문장(incomplete), 필러(filler), 말실수(fumble)
-
-### 팟캐스트 분석 — podcast-cut (PodcastCutService)
-- chalna로 SRT 생성 후 Claude CLI로 분석
-- 챕터 구조 분석 → 청크별 엔터테인먼트 분석 → 무음 감지
-- CUT 대상: 지루함(boring), 탈선(tangent), 반복(repetitive), 긴 침묵(long_pause), 동시 발화(crosstalk), 무관한 내용(irrelevant)
-- KEEP 대상: 유머(funny), 재치(witty), 케미(chemistry), 리액션(reaction), 콜백 유머(callback), 클라이맥스(climax), 몰입(engaging), 감정(emotional)
-- entertainment_score (1-10)로 각 세그먼트 평가
-
-### 음성 인식 (TranscriptionService)
-- Whisper 기반 자동 자막 생성
-- 플러그인 구조 — 다른 엔진으로 교체 가능
-
-### 내보내기 (FCPXMLExporter)
-- 편집 결정을 FCPXML 형식으로 출력
-- NTSC 프레임 레이트 지원
-- 프로젝트 병합 기능
-
----
-
-## 평가 방법
-
-FCPXML 기반 자동 평가. 각 편집 행위의 결과를 정답과 비교한다.
-
-**방식**:
-1. 사람이 직접 편집한 정답 FCPXML을 준비 (무음 컷, 의미단위 컷 각각)
-2. 스킬 실행 → 결과 FCPXML 생성
-3. 정답 FCPXML vs 결과 FCPXML 자동 비교
-4. 스킬을 바꿔가며 반복 → 품질 개선 루프
-
-**평가 단위**: 무음 감지와 의미단위 컷편집을 각각 별도로 평가한다.
-
----
-
-## 개발 단계
-
-| 단계 | 내용 | 예상 기간 |
-|------|------|----------|
-| Phase 1 | Streamlit UI 구축 | 1일 |
-| Phase 2 | 기존 스킬 검증 및 개선 | 1주 |
-| Phase 3 | Whisper 자동 음성 인식 | 4일 |
-| Phase 4 | 멀티 AI 자막 분석 | 5일 |
-| Phase 5 | 파이프라인 통합 | 5.5일 |
-| Phase 6 | FCPXML 기반 평가 프레임워크 | 5.5일 |
-| Phase 7 | 미래 확장 (장면 감지, 화자 분리 등) | 선택 |
-
-Phase 1~6까지 약 4주 소요 예상.
-
----
-
-## 기존 자산
-
-- **skills/subtitle-cut**: 강의/설명 영상용 자막 분석 스킬 (Claude/Codex CLI)
-- **skills/podcast-cut**: 팟캐스트/인터뷰용 재미 기준 분석 스킬 (Claude CLI)
-- **skills/_common**: 스킬 간 공통 모듈 (SRT 파서, CLI 유틸, 비디오 정보)
-- **PodcastCutService**: 팟캐스트 전체 워크플로우 서비스 (chalna 전사 → 분석 → FCPXML)
-- **FCPXML Exporter**: 구현 완료 (강의/팟캐스트 EditReason 모두 지원)
-- **데이터 모델**: Project, Track, EditDecision 등 Pydantic 모델
+| 서비스 | 용도 | 필수 여부 |
+|--------|------|----------|
+| `claude` CLI | AI 분석 (기본 provider) | 둘 중 하나 |
+| `codex` CLI | AI 분석 (대체 provider) | 둘 중 하나 |
+| Chalna API | 음성 인식 | podcast-cut 자동 전사 시 |
+| FFmpeg / FFprobe | 미디어 분석 | 필수 |
 
 ---
 
 ## 제약 사항
 
-- `claude` CLI와 `codex` CLI가 환경에 설치되어 있어야 함
-- skillthon 스킬이 로컬 CLI에 설치되어 있어야 함
+- `claude` CLI 또는 `codex` CLI가 환경에 설치되어 있어야 함
 - FFmpeg 필수
-- AI 실패 시 자동 대체 로직 없음 — 사용자가 직접 판단
-- 비상업적 용도만 허용 (CC BY-NC-SA 4.0)
+- 한국어 우선 (다국어 확장 가능)
+- AI 실패 시 자동 대체 없음
