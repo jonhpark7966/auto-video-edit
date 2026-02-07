@@ -1,5 +1,5 @@
 """API routes for AVID."""
 
-from avid.api.routes import health
+from avid.api.routes import eval, health, jobs, media
 
-__all__ = ["health"]
+__all__ = ["eval", "health", "jobs", "media"]
