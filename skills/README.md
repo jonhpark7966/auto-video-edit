@@ -55,6 +55,10 @@ See `transcript-overview/SKILL.md` for detailed documentation.
 단일 화자 강의/설명 영상에서 불필요한 구간(중복 발화, 필러, 말실수, 미완성 문장)을 감지하여 편집 결정을 생성한다.
 **목표**: 정보 효율성 — 같은 내용의 반복을 제거하고 베스트 테이크만 남긴다.
 
+세그먼트 수에 따라 적응적 처리:
+- ≤150: 단일 API 호출 (3단계 프롬프트: 테이크 구분 → 테이크 판단 → 흐름 검토)
+- \>150: 병렬 chunk 처리 (2단계 프롬프트: 테이크 구분 → 테이크 판단, 흐름 검토 생략)
+
 **Usage:**
 ```bash
 cd skills/subtitle-cut
@@ -95,6 +99,10 @@ python main.py <srt_file> <video_file> [options]
 
 각 세그먼트에 `entertainment_score` (1-10)를 부여하여 재미 정도를 정량화한다.
 
+세그먼트 수에 따라 적응적 처리:
+- ≤80: 단일 API 호출
+- \>80: 병렬 chunk 처리 (chunk_size=80, overlap=5, max_workers=5)
+
 ### _common (공통 모듈)
 
 모든 스킬이 공유하는 유틸리티 모듈:
@@ -104,6 +112,7 @@ python main.py <srt_file> <video_file> [options]
 - **cli_utils.py** — `call_claude()`, `call_codex()`, `parse_json_response()`
 - **base_models.py** — `AnalysisResult` 공통 데이터 모델
 - **context_utils.py** — Two-Pass 컨텍스트 유틸 (`load_storyline`, `format_context_for_prompt`, `filter_context_for_range`)
+- **parallel.py** — 공통 병렬 chunk 처리기 (`process_chunks_parallel`)
 
 ## 어떤 스킬을 사용해야 하나?
 
@@ -143,7 +152,8 @@ skills/
 │   ├── video_info.py
 │   ├── cli_utils.py
 │   ├── base_models.py
-│   └── context_utils.py       # Two-Pass 컨텍스트 유틸
+│   ├── context_utils.py       # Two-Pass 컨텍스트 유틸
+│   └── parallel.py            # 공통 병렬 chunk 처리기
 ├── transcript-overview/       # Pass 1: 스토리 구조 분석
 │   ├── SKILL.md
 │   ├── main.py                # Entry point

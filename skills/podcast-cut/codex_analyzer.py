@@ -13,7 +13,7 @@ skills_dir = Path(__file__).parent.parent
 if str(skills_dir) not in sys.path:
     sys.path.insert(0, str(skills_dir))
 
-from _common import SubtitleSegment, call_codex, parse_json_response, format_filtered_context_for_prompt, format_podcast_context_for_prompt
+from _common import SubtitleSegment, call_codex, parse_json_response, format_filtered_context_for_prompt, format_podcast_context_for_prompt, process_chunks_parallel
 from models import PodcastAnalysisResult
 
 
@@ -195,10 +195,6 @@ def analyze_with_codex(
     Returns:
         PodcastAnalysisResult with cuts, keeps, and entertainment scores
     """
-    all_cuts = []
-    all_keeps = []
-    all_responses = []
-
     # Process in chunks if too many segments
     if len(segments) <= CHUNK_SIZE:
         # Small enough to process at once
@@ -211,7 +207,6 @@ def analyze_with_codex(
             prompt = context_text + "\n\n" + prompt
 
         response = call_codex(prompt, timeout=300)
-        all_responses.append(response)
 
         try:
             data = parse_json_response(response)
@@ -219,6 +214,9 @@ def analyze_with_codex(
             print(f"Failed to parse Codex response: {e}")
             print(f"Response: {response[:500]}")
             raise
+
+        all_cuts = []
+        all_keeps = []
 
         for item in data.get("analysis", []):
             seg_idx = item.get("segment_index")
@@ -238,39 +236,14 @@ def analyze_with_codex(
                 all_cuts.append(entry)
             else:
                 all_keeps.append(entry)
+
+        return PodcastAnalysisResult(cuts=all_cuts, keeps=all_keeps, raw_response=response)
     else:
-        # Process in chunks
-        total_chunks = (len(segments) + CHUNK_SIZE - 1) // CHUNK_SIZE
-        print(f"  Large transcript detected. Processing in {total_chunks} chunks...")
+        # Parallel chunk processing
+        all_cuts, all_keeps = process_chunks_parallel(
+            segments, CHUNK_SIZE, CHUNK_OVERLAP,
+            analyze_fn=lambda chunk, num, total: analyze_chunk(chunk, num, total, storyline_context),
+            max_workers=5,
+        )
 
-        processed_indices = set()
-
-        for i in range(0, len(segments), CHUNK_SIZE - CHUNK_OVERLAP):
-            chunk = segments[i:i + CHUNK_SIZE]
-            chunk_num = (i // (CHUNK_SIZE - CHUNK_OVERLAP)) + 1
-
-            try:
-                cuts, keeps = analyze_chunk(chunk, chunk_num, total_chunks, storyline_context=storyline_context)
-
-                # Add results, avoiding duplicates from overlap
-                for cut in cuts:
-                    idx = cut["segment_index"]
-                    if idx not in processed_indices:
-                        all_cuts.append(cut)
-                        processed_indices.add(idx)
-
-                for keep in keeps:
-                    idx = keep["segment_index"]
-                    if idx not in processed_indices:
-                        all_keeps.append(keep)
-                        processed_indices.add(idx)
-
-            except Exception as e:
-                print(f"  Warning: Chunk {chunk_num} failed: {e}")
-                # Continue with other chunks
-
-    return PodcastAnalysisResult(
-        cuts=all_cuts,
-        keeps=all_keeps,
-        raw_response="\n---\n".join(all_responses) if all_responses else ""
-    )
+        return PodcastAnalysisResult(cuts=all_cuts, keeps=all_keeps)

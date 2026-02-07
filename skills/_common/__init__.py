@@ -17,6 +17,7 @@ from .context_utils import (
     format_filtered_context_for_prompt,
     format_podcast_context_for_prompt,
 )
+from .parallel import process_chunks_parallel
 
 __all__ = [
     # SRT parsing
@@ -39,4 +40,6 @@ __all__ = [
     "filter_context_for_range",
     "format_filtered_context_for_prompt",
     "format_podcast_context_for_prompt",
+    # Parallel processing
+    "process_chunks_parallel",
 ]
