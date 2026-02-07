@@ -100,3 +100,7 @@ temp/
 
 # Sample media files
 samples/
+
+# Test/working directories
+output/
+srcs/
