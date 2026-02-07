@@ -253,7 +253,7 @@ class PodcastCutService:
             cmd,
             capture_output=True,
             text=True,
-            timeout=600,  # 10 min timeout
+            timeout=1800,  # 30 min timeout
             cwd=str(script_dir),
         )
 
