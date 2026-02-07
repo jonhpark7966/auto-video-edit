@@ -25,6 +25,6 @@
 
 - [ ] podcast-cut/SKILL.md 작성
 
-### 코드 정리
+### 내보내기
 
-- [ ] 미사용 모듈 정리 여부 결정: pipeline/, ui/, services/interfaces.py, export/premiere.py
+- [ ] Premiere Pro XML 내보내기 연결 (`export/premiere.py` 구현 완료, CLI 미노출)

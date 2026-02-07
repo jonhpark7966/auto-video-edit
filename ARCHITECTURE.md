@@ -50,11 +50,10 @@ apps/backend/src/avid/
 │   ├── timeline.py         # EditType, EditReason, TimeRange, EditDecision
 │   ├── project.py          # Project, Transcription, TranscriptSegment
 │   ├── media.py            # MediaFile, MediaInfo
-│   ├── track.py            # Track, TrackType
-│   └── pipeline.py         # StageResult, PipelineConfig
+│   └── track.py            # Track, TrackType
 └── export/                 # 내보내기
     ├── fcpxml.py           # FCPXMLExporter
-    ├── premiere.py         # PremiereXMLExporter
+    ├── premiere.py         # PremiereXMLExporter (TODO: Premiere Pro 지원)
     └── report.py           # Markdown/JSON 보고서
 
 skills/
@@ -245,13 +244,8 @@ CONTENT_REASONS (content_mode 적용 대상):
 
 ---
 
-## 미사용 모듈
-
-현재 코드에 존재하지만 CLI 워크플로우에서 사용되지 않는 모듈:
+## TODO 모듈
 
 | 모듈 | 위치 | 상태 |
 |------|------|------|
-| Pipeline (executor, stages, context) | `pipeline/` | 스캐폴딩. CLI는 서비스를 직접 호출. |
-| Gradio UI | `ui/app.py` | 독립 실행 가능하나 CLI와 통합되지 않음. |
-| PremiereXMLExporter | `export/premiere.py` | 구현 완료, CLI에서 미노출. |
-| Service interfaces | `services/interfaces.py` | Protocol 정의. 실제 서비스와 시그니처 불일치. |
+| PremiereXMLExporter | `export/premiere.py` | 구현 완료, CLI 미노출. Premiere Pro 지원 시 연결 예정. |
