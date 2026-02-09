@@ -16,6 +16,8 @@ from pydantic import BaseModel, Field
 class TranscribeRequest(BaseModel):
     input_path: str = Field(..., description="Path to video/audio file")
     language: str = Field("ko", description="Language code")
+    use_alignment: bool = Field(True, description="Use Qwen2-based timestamp alignment")
+    use_llm_refinement: bool = Field(True, description="Use LLM text refinement")
 
 
 class OverviewRequest(BaseModel):

@@ -104,3 +104,6 @@ samples/
 # Test/working directories
 output/
 srcs/
+
+# E2E test data (downloaded videos, run artifacts)
+tests/e2e/data/

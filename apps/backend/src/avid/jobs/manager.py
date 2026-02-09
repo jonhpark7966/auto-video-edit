@@ -112,6 +112,8 @@ class JobManager:
         result = await service.transcribe_async(
             audio_path=audio_path,
             language=language,
+            use_alignment=p.get("use_alignment", True),
+            use_llm_refinement=p.get("use_llm_refinement", True),
             progress_callback=_progress,
         )
 
