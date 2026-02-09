@@ -186,6 +186,9 @@ class JobManager:
         output_dir = video_path.parent / f"{video_path.stem}_subtitle_cut_output"
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        extra_sources = [Path(s) for s in p.get("extra_sources", [])] or None
+        extra_offsets = p.get("extra_offsets") or None
+
         service = SubtitleCutService()
         job.message = "Analyzing subtitles..."
         job.progress = 10
@@ -196,6 +199,8 @@ class JobManager:
             output_dir=output_dir,
             storyline_path=context_path,
             provider=provider,
+            extra_sources=extra_sources,
+            extra_offsets=extra_offsets,
         )
 
         job.progress = 70
@@ -246,6 +251,9 @@ class JobManager:
         output_dir = audio_path.parent / f"{audio_path.stem}_podcast_cut_output"
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        extra_sources = [Path(s) for s in p.get("extra_sources", [])] or None
+        extra_offsets = p.get("extra_offsets") or None
+
         service = PodcastCutService()
         job.message = "Processing podcast..."
         job.progress = 10
@@ -258,6 +266,8 @@ class JobManager:
             export_mode=export_mode,
             storyline_path=context_path,
             provider=provider,
+            extra_sources=extra_sources,
+            extra_offsets=extra_offsets,
         )
 
         output_files = {k: str(v) for k, v in outputs.items()}

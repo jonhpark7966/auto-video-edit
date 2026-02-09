@@ -6,7 +6,8 @@ from pathlib import Path
 from avid.export.base import ProjectExporter
 from avid.models.project import Project, TranscriptSegment
 from avid.models.timeline import EditDecision, EditReason, EditType
-from avid.models.track import TrackType
+from avid.models.media import MediaFile
+from avid.models.track import Track, TrackType
 
 
 class FCPXMLExporter(ProjectExporter):
@@ -421,9 +422,12 @@ class FCPXMLExporter(ProjectExporter):
 
         total_duration_ms = source.info.duration_ms
 
+        # Resolve extra sources once for use in connected clips
+        extra_tracks = self._get_extra_source_tracks(project, primary_track)
+
         # If no edit decisions, simple timeline with single clip
         if not project.edit_decisions:
-            ET.SubElement(
+            clip_elem = ET.SubElement(
                 spine,
                 "asset-clip",
                 ref=asset_id,
@@ -432,6 +436,10 @@ class FCPXMLExporter(ProjectExporter):
                 format=format_id,
                 tcFormat="NDF",
                 name=source.original_name,
+            )
+            self._add_connected_clips(
+                clip_elem, 0, total_duration_ms, extra_tracks,
+                asset_map, format_id, fps,
             )
             return
 
@@ -555,7 +563,113 @@ class FCPXMLExporter(ProjectExporter):
             if not enabled:
                 clip_attrs["enabled"] = "0"
 
-            ET.SubElement(spine, "asset-clip", **clip_attrs)
+            clip_elem = ET.SubElement(spine, "asset-clip", **clip_attrs)
+            self._add_connected_clips(
+                clip_elem, source_start_ms, source_end_ms, extra_tracks,
+                asset_map, format_id, fps,
+            )
+
+    def _get_extra_source_tracks(
+        self,
+        project: Project,
+        primary_track: Track,
+    ) -> list[tuple[Track, MediaFile, int]]:
+        """Return non-primary source tracks with lane assignments.
+
+        Each entry is ``(track, media_file, lane_number)`` where lane numbers
+        start at -1 and decrement (-1, -2, …).  Only one track per
+        *source_file_id* is returned (video preferred over audio-only).
+
+        Args:
+            project: The project containing all tracks.
+            primary_track: The primary video track to exclude.
+
+        Returns:
+            List of (Track, MediaFile, lane) tuples.
+        """
+        primary_source_id = primary_track.source_file_id
+        seen_source_ids: set[str] = {primary_source_id}
+        extras: list[tuple[Track, MediaFile, int]] = []
+        lane = -1
+
+        # Prefer video tracks first, then audio-only
+        for track in project.get_video_tracks() + project.get_audio_tracks():
+            if track.source_file_id in seen_source_ids:
+                continue
+            source = project.get_source_file(track.source_file_id)
+            if not source:
+                continue
+            seen_source_ids.add(track.source_file_id)
+            extras.append((track, source, lane))
+            lane -= 1
+
+        return extras
+
+    def _add_connected_clips(
+        self,
+        parent_clip: ET.Element,
+        main_start_ms: int,
+        main_end_ms: int,
+        extra_tracks: list[tuple[Track, MediaFile, int]],
+        asset_map: dict[str, str],
+        format_id: str,
+        fps: float,
+    ) -> None:
+        """Attach connected clips for extra sources as children of *parent_clip*.
+
+        Each connected clip lives in its own lane (negative lane numbers).
+        The ``offset`` attribute is always ``"0s"`` (aligned to parent clip start).
+        The ``start`` attribute accounts for the extra track's sync offset.
+
+        Args:
+            parent_clip: The parent ``<asset-clip>`` element.
+            main_start_ms: Start of the main clip in main-source time.
+            main_end_ms: End of the main clip in main-source time.
+            extra_tracks: Output of ``_get_extra_source_tracks()``.
+            asset_map: source_file_id → FCPXML asset ID.
+            format_id: Format resource ID.
+            fps: Frame rate.
+        """
+        if not extra_tracks:
+            return
+
+        clip_duration_ms = main_end_ms - main_start_ms
+        if clip_duration_ms <= 0:
+            return
+
+        for track, source, lane in extra_tracks:
+            extra_asset_id = asset_map.get(source.id)
+            if not extra_asset_id:
+                continue
+
+            extra_duration_ms = source.info.duration_ms
+
+            # Calculate where this clip range falls in the extra source,
+            # accounting for the sync offset.
+            # extra_start = main_start + track.offset_ms  (offset is relative to main)
+            extra_start_ms = main_start_ms + track.offset_ms
+            extra_end_ms = main_end_ms + track.offset_ms
+
+            # Clamp to the extra source's bounds
+            extra_start_ms = max(0, min(extra_start_ms, extra_duration_ms))
+            extra_end_ms = max(0, min(extra_end_ms, extra_duration_ms))
+
+            if extra_end_ms <= extra_start_ms:
+                continue
+
+            actual_duration_ms = extra_end_ms - extra_start_ms
+
+            attrs = {
+                "ref": extra_asset_id,
+                "lane": str(lane),
+                "offset": self._ms_to_time(main_start_ms, fps),
+                "duration": self._ms_to_time(actual_duration_ms, fps),
+                "start": self._ms_to_time(extra_start_ms, fps),
+                "format": format_id,
+                "tcFormat": "NDF",
+                "name": source.original_name,
+            }
+            ET.SubElement(parent_clip, "asset-clip", **attrs)
 
     def _build_timeline(
         self,

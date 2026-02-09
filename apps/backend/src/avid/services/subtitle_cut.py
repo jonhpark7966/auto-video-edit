@@ -55,6 +55,8 @@ class SubtitleCutService:
         source_id: str | None = None,
         storyline_path: Path | None = None,
         provider: str = "codex",
+        extra_sources: list[Path] | None = None,
+        extra_offsets: dict[str, int] | None = None,
     ) -> tuple[Project, Path]:
         """Analyze subtitles and return Project with content + silence decisions.
 
@@ -65,6 +67,8 @@ class SubtitleCutService:
             source_id: Optional source file ID
             storyline_path: Optional path to storyline.json from Pass 1
             provider: AI provider ("codex" or "claude")
+            extra_sources: Additional media files to sync and include.
+            extra_offsets: Manual offset overrides ``{filename: ms}``.
 
         Returns:
             Tuple of (Project with edit_decisions, path to .avid.json)
@@ -126,6 +130,16 @@ class SubtitleCutService:
         project = Project.load(project_output)
         content_count = len(project.edit_decisions)
         print(f"  Content decisions: {content_count}")
+
+        # Step 1b: Sync extra sources (if any)
+        if extra_sources:
+            from avid.services.audio_sync import AudioSyncService
+
+            print("  Step 1b: Syncing extra sources...")
+            sync_service = AudioSyncService()
+            await sync_service.add_extra_sources(
+                project, video_path, extra_sources, extra_offsets or {},
+            )
 
         # Step 2: Parse SRT and find silence gaps
         print("  Step 2: Finding silence gaps from SRT...")

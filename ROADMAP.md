@@ -10,6 +10,11 @@
 - Chalna API 비동기 음성 인식
 - 데이터 모델 (Project, EditDecision, EditReason — 강의+팟캐스트 통합)
 - 프로젝트 문서 정리 (SPEC, ARCHITECTURE, README)
+- 멀티소스 Phase 1: 오디오 싱크(`audio-offset-finder`) + connected clip FCPXML 출력
+  - `AudioSyncService` (MFCC 교차상관, ~10ms 정확도)
+  - `--extra-source` / `--offset` CLI 옵션
+  - API 스키마 확장 (`extra_sources`, `extra_offsets`)
+  - 유닛 테스트 26개 (audio_sync + fcpxml_multisource)
 
 ## TODO
 
@@ -19,6 +24,8 @@
 - [x] podcast-cut 실제 영상 테스트 (≤80 단일 / >80 병렬)
 - [x] Two-Pass 워크플로우 end-to-end 테스트
 - [ ] FCPXML 출력을 Final Cut Pro에서 검증
+- [x] 멀티소스 유닛 테스트 (AudioSyncService, FCPXML connected clips) — 26개 pass
+- [ ] 멀티소스 E2E 테스트: 실제 2개 소스 영상 → FCPXML → FCP에서 lane 확인
 
 ### podcast-cut 품질 개선
 
@@ -41,6 +48,11 @@
 ### 문서
 
 - [ ] podcast-cut/SKILL.md 작성
+
+### 멀티소스 Phase 2
+
+- [ ] mc-clip 멀티캠 앵글 전환 (현재 Phase 1은 connected clip만)
+- [ ] 앵글별 오디오 선택 (`active_audio_track_ids` 활용)
 
 ### 내보내기
 

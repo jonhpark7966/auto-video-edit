@@ -32,6 +32,8 @@ class SubtitleCutRequest(BaseModel):
     context_path: str | None = Field(None, description="Path to storyline.json")
     provider: str = Field("codex", description="AI provider")
     export_mode: str = Field("review", description="Export mode (review/final)")
+    extra_sources: list[str] = Field(default_factory=list, description="Additional source file paths")
+    extra_offsets: dict[str, int] = Field(default_factory=dict, description="Manual offsets {filename: ms}")
 
 
 class PodcastCutRequest(BaseModel):
@@ -40,6 +42,8 @@ class PodcastCutRequest(BaseModel):
     context_path: str | None = Field(None, description="Path to storyline.json")
     provider: str = Field("codex", description="AI provider")
     export_mode: str = Field("review", description="Export mode (review/final)")
+    extra_sources: list[str] = Field(default_factory=list, description="Additional source file paths")
+    extra_offsets: dict[str, int] = Field(default_factory=dict, description="Manual offsets {filename: ms}")
 
 
 # ------------------------------------------------------------------

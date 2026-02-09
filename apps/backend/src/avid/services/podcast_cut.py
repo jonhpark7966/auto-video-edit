@@ -102,6 +102,8 @@ class PodcastCutService:
         export_mode: str = "review",
         storyline_path: Path | None = None,
         provider: str = "codex",
+        extra_sources: list[Path] | None = None,
+        extra_offsets: dict[str, int] | None = None,
     ) -> tuple[Project, dict[str, Path]]:
         """Process a podcast audio file through the full workflow.
 
@@ -113,6 +115,8 @@ class PodcastCutService:
             export_mode: "review" (disabled for review) or "final" (all cuts applied)
             storyline_path: Optional path to storyline.json from Pass 1.
             provider: AI provider to use ("codex" or "claude")
+            extra_sources: Additional media files to sync and include.
+            extra_offsets: Manual offset overrides ``{filename: ms}``.
 
         Returns:
             Tuple of (Project, dict of output paths)
@@ -172,6 +176,16 @@ class PodcastCutService:
             content_decisions=content_decisions,
             silence_regions=silence_regions,
         )
+
+        # Step 5b: Sync extra sources (if any)
+        if extra_sources:
+            from avid.services.audio_sync import AudioSyncService
+
+            print("Step 5b: Syncing extra sources...")
+            sync_service = AudioSyncService()
+            await sync_service.add_extra_sources(
+                project, audio_path, extra_sources, extra_offsets or {},
+            )
 
         # Save project
         project_path = output_dir / f"{audio_path.stem}.podcast.avid.json"

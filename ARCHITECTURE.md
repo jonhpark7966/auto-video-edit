@@ -44,7 +44,8 @@ apps/backend/src/avid/
 │   ├── transcript_overview.py  # TranscriptOverviewService
 │   ├── subtitle_cut.py     # SubtitleCutService
 │   ├── podcast_cut.py      # PodcastCutService
-│   └── media.py            # MediaService (ffprobe)
+│   ├── media.py            # MediaService (ffprobe)
+│   └── audio_sync.py       # AudioSyncService (멀티소스 오디오 싱크)
 ├── models/                 # Pydantic 데이터 모델
 │   ├── timeline.py         # EditType, EditReason, TimeRange, EditDecision
 │   ├── project.py          # Project, Transcription, TranscriptSegment
@@ -111,6 +112,16 @@ SRT 갭(≥500ms)에서 무음 구간도 감지하여 Project에 병합.
 ### MediaService
 
 FFprobe wrapper. duration, resolution, fps, sample_rate 추출.
+
+### AudioSyncService (멀티소스)
+
+`audio-offset-finder`(BBC, MFCC 교차상관)를 사용하여 추가 소스의 시간 오프셋을 자동 검출.
+
+- `find_offset(main, extra)` → `SyncResult(offset_ms, confidence, method)`
+- `add_extra_sources(project, main, extras, manual_offsets)` → 프로젝트에 소스 추가 + offset 설정
+- 영상 입력 시 자동으로 오디오 추출 (temp WAV)
+- 수동 오프셋 지원 (`manual_offsets` dict)
+- 선택 의존성: `pip install 'avid[sync]'`
 
 ---
 
@@ -221,6 +232,30 @@ audio [+ srt] ──→ PodcastCutService
                     └─ Project + FCPXML + SRT + Report 출력
 ```
 
+### 멀티소스 데이터 흐름
+
+```
+main.mp4 + cam2.mp4 + mic.wav ──→ PodcastCutService / SubtitleCutService
+                                      ├─ 단일 소스 분석 (기존 흐름)
+                                      ├─ AudioSyncService.add_extra_sources()
+                                      │    ├─ find_offset(main, cam2) → offset_ms=1500
+                                      │    ├─ find_offset(main, mic) → offset_ms=800
+                                      │    └─ project.add_source_file() + set_track_offset()
+                                      └─ FCPXMLExporter
+                                           ├─ _get_extra_source_tracks() → (track, media, lane) 목록
+                                           └─ _add_connected_clips() → 각 asset-clip에 자식 추가
+```
+
+FCPXML 구조:
+```xml
+<spine>
+  <asset-clip ref="main" duration="..." start="...">
+    <asset-clip ref="cam2" lane="-1" offset="..." start="..." />
+    <asset-clip ref="mic"  lane="-2" offset="..." start="..." />
+  </asset-clip>
+</spine>
+```
+
 ---
 
 ## FCPXML 내보내기
@@ -244,3 +279,4 @@ CONTENT_REASONS (content_mode 적용 대상):
 | 모듈 | 위치 | 상태 |
 |------|------|------|
 | PremiereXMLExporter | `export/premiere.py` | 구현 완료, CLI 미노출. Premiere Pro 지원 시 연결 예정. |
+| mc-clip 멀티캠 | `export/fcpxml.py` | Phase 2 예정. 현재는 connected clip(lane 기반), 앵글 전환은 미구현. |

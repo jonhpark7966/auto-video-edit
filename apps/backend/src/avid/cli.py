@@ -153,6 +153,36 @@ async def cmd_transcript_overview(args: argparse.Namespace) -> None:
     print(f"  출력: {storyline_path}")
 
 
+# --- Multi-source helpers ---
+
+def _parse_extra_sources(args: argparse.Namespace) -> tuple[list[Path] | None, dict[str, int] | None]:
+    """Parse --extra-source and --offset args into service-ready parameters."""
+    extra_sources_raw: list[str] = getattr(args, "extra_source", [])
+    offsets_raw: list[str] = getattr(args, "offset", [])
+
+    if not extra_sources_raw:
+        return None, None
+
+    extra_sources = [Path(p).resolve() for p in extra_sources_raw]
+
+    # Validate extra sources exist
+    for p in extra_sources:
+        if not p.exists():
+            print(f"오류: 추가 소스 파일을 찾을 수 없습니다: {p}", file=sys.stderr)
+            sys.exit(1)
+
+    # Build manual offsets dict (keyed by filename)
+    extra_offsets: dict[str, int] | None = None
+    if offsets_raw:
+        extra_offsets = {}
+        for i, offset_str in enumerate(offsets_raw):
+            if i >= len(extra_sources):
+                break
+            extra_offsets[extra_sources[i].name] = int(offset_str)
+
+    return extra_sources, extra_offsets
+
+
 # --- Subtitle cut subcommand ---
 
 async def cmd_subtitle_cut(args: argparse.Namespace) -> None:
@@ -177,6 +207,7 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> None:
 
     output_dir = Path(args.output_dir) if args.output_dir else video_path.parent
     export_mode = "final" if args.final else "review"
+    extra_sources, extra_offsets = _parse_extra_sources(args)
 
     print(f"자막 분석 시작: {srt_path.name}")
     print(f"  비디오: {video_path.name}")
@@ -184,6 +215,8 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> None:
     print(f"  모드: {export_mode} ({'모든 편집 적용' if export_mode == 'final' else '검토용 disabled'})")
     if context_path:
         print(f"  컨텍스트: {context_path.name}")
+    if extra_sources:
+        print(f"  추가 소스: {len(extra_sources)}개")
 
     project, project_path = await service.analyze(
         srt_path=srt_path,
@@ -191,6 +224,8 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> None:
         output_dir=output_dir,
         storyline_path=context_path,
         provider=args.provider,
+        extra_sources=extra_sources,
+        extra_offsets=extra_offsets,
     )
 
     # Export to FCPXML + adjusted SRT
@@ -247,6 +282,7 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> None:
 
     # Determine export mode
     export_mode = "final" if args.final else "review"
+    extra_sources, extra_offsets = _parse_extra_sources(args)
 
     print(f"팟캐스트 편집 시작: {audio_path.name}")
     if srt_path:
@@ -256,6 +292,8 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> None:
         print(f"  chalna로 자막 생성 예정")
     if context_path:
         print(f"  컨텍스트: {context_path.name}")
+    if extra_sources:
+        print(f"  추가 소스: {len(extra_sources)}개")
     print(f"  출력 디렉토리: {output_dir}")
     print(f"  모드: {export_mode} ({'모든 편집 적용' if export_mode == 'final' else '검토용 disabled'})")
 
@@ -267,6 +305,8 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> None:
         export_mode=export_mode,
         storyline_path=context_path,
         provider=args.provider,
+        extra_sources=extra_sources,
+        extra_offsets=extra_offsets,
     )
 
     # Generate report
@@ -314,6 +354,8 @@ def main() -> None:
     p_subcut.add_argument("-o", "--output", type=str, help="출력 FCPXML 경로")
     p_subcut.add_argument("-d", "--output-dir", type=str, help="출력 디렉토리")
     p_subcut.add_argument("--final", action="store_true", help="최종 편집본 (모든 편집 적용, 기본: 검토용 disabled)")
+    p_subcut.add_argument("--extra-source", action="append", default=[], help="추가 소스 파일 (반복 가능)")
+    p_subcut.add_argument("--offset", action="append", default=[], help="수동 오프셋 ms (--extra-source 순서 대응)")
 
     # --- podcast-cut ---
     p_podcast = subparsers.add_parser("podcast-cut", help="팟캐스트 편집 (재미 기준)")
@@ -323,6 +365,8 @@ def main() -> None:
     p_podcast.add_argument("--provider", choices=["claude", "codex"], default="codex", help="AI 프로바이더 (기본: codex)")
     p_podcast.add_argument("-d", "--output-dir", type=str, help="출력 디렉토리")
     p_podcast.add_argument("--final", action="store_true", help="최종 편집본 (모든 편집 적용, 기본: 검토용 disabled)")
+    p_podcast.add_argument("--extra-source", action="append", default=[], help="추가 소스 파일 (반복 가능)")
+    p_podcast.add_argument("--offset", action="append", default=[], help="수동 오프셋 ms (--extra-source 순서 대응)")
 
     args = parser.parse_args()
 

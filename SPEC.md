@@ -68,7 +68,7 @@ avid-cli transcript-overview <srt> [-o OUTPUT] [--content-type TYPE] [--provider
 단일 화자 강의/설명 영상에서 중복 발화, 필러, 말실수, 미완성 문장을 감지한다.
 
 ```
-avid-cli subtitle-cut <video> --srt <srt> [--context <storyline.json>] [--provider PROVIDER] [-o OUTPUT] [-d OUTPUT_DIR] [--final]
+avid-cli subtitle-cut <video> --srt <srt> [--context <storyline.json>] [--provider PROVIDER] [-o OUTPUT] [-d OUTPUT_DIR] [--final] [--extra-source FILE] [--offset MS]
 ```
 
 | 파라미터 | 기본값 | 설명 |
@@ -80,6 +80,8 @@ avid-cli subtitle-cut <video> --srt <srt> [--context <storyline.json>] [--provid
 | `-o, --output` | `{stem}_subtitle_cut.fcpxml` | FCPXML 출력 경로 |
 | `-d, --output-dir` | 입력 파일 위치 | 출력 디렉토리 |
 | `--final` | `false` | true면 content edit을 cut으로, false면 disabled로 |
+| `--extra-source` | (선택, 반복) | 추가 소스 파일 (카메라, 마이크 등) |
+| `--offset` | 자동 감지 | 수동 오프셋 ms (`--extra-source` 순서 대응) |
 
 **출력**:
 - `{stem}_subtitle_cut.fcpxml` — 편집 타임라인
@@ -100,7 +102,7 @@ avid-cli subtitle-cut <video> --srt <srt> [--context <storyline.json>] [--provid
 멀티 화자 팟캐스트에서 재미없는 구간을 감지하고 하이라이트를 보존한다.
 
 ```
-avid-cli podcast-cut <audio|video> [--srt <srt>] [--context <storyline.json>] [--provider PROVIDER] [-d OUTPUT_DIR] [--final]
+avid-cli podcast-cut <audio|video> [--srt <srt>] [--context <storyline.json>] [--provider PROVIDER] [-d OUTPUT_DIR] [--final] [--extra-source FILE] [--offset MS]
 ```
 
 | 파라미터 | 기본값 | 설명 |
@@ -111,6 +113,8 @@ avid-cli podcast-cut <audio|video> [--srt <srt>] [--context <storyline.json>] [-
 | `--provider` | `codex` | `claude` / `codex` |
 | `-d, --output-dir` | 입력 파일 위치 | 출력 디렉토리 |
 | `--final` | `false` | true면 content edit을 cut으로, false면 disabled로 |
+| `--extra-source` | (선택, 반복) | 추가 소스 파일 (카메라, 마이크 등) |
+| `--offset` | 자동 감지 | 수동 오프셋 ms (`--extra-source` 순서 대응) |
 
 **출력**:
 - `{stem}_podcast_cut.fcpxml` — 편집 타임라인
@@ -227,6 +231,40 @@ Markdown 형식. reason별 개수, 총 시간, 상세 목록을 포함한다.
 
 ---
 
+## 멀티소스 지원
+
+### Phase 1: 오디오 싱크 + Connected Clips
+
+카메라 여러 대 + 별도 마이크를 `--extra-source`로 지정하면:
+
+1. **오디오 싱크**: `audio-offset-finder`(MFCC 교차상관)로 메인 대비 오프셋 자동 검출 (~10ms 정확도)
+2. **FCPXML 출력**: 추가 소스를 connected clip(lane 기반)으로 메인 타임라인에 연결
+
+```xml
+<spine>
+  <asset-clip ref="r2" duration="50/1s" start="0s" name="main.mp4">
+    <asset-clip ref="r3" lane="-1" offset="0s" duration="50/1s" start="1500/1000s"/>
+    <asset-clip ref="r4" lane="-2" offset="0s" duration="50/1s" start="800/1000s"/>
+  </asset-clip>
+</spine>
+```
+
+- 수동 오프셋: `--offset` 플래그로 ms 단위 지정 (자동 감지 대체)
+- `audio-offset-finder`는 선택 의존성: `pip install 'avid[sync]'`
+- Phase 2 (미래): mc-clip 멀티캠 앵글 전환
+
+### API 스키마 (멀티소스)
+
+`SubtitleCutRequest`, `PodcastCutRequest`에 추가된 필드:
+```json
+{
+  "extra_sources": ["/path/to/cam2.mp4", "/path/to/mic.wav"],
+  "extra_offsets": {"cam2.mp4": 1500, "mic.wav": 800}
+}
+```
+
+---
+
 ## 기술 결정 사항
 
 | 항목 | 결정 |
@@ -251,6 +289,7 @@ Markdown 형식. reason별 개수, 총 시간, 상세 목록을 포함한다.
 | `codex` CLI | AI 분석 (대체 provider) | 둘 중 하나 |
 | Chalna API | 음성 인식 | podcast-cut 자동 전사 시 |
 | FFmpeg / FFprobe | 오디오 추출, 미디어 메타데이터 | 필수 |
+| `audio-offset-finder` | 멀티소스 오디오 싱크 (MFCC) | `--extra-source` 사용 시 |
 
 ---
 

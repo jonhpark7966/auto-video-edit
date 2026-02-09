@@ -66,6 +66,29 @@ avid-cli transcript-overview lecture.srt --content-type lecture
 avid-cli subtitle-cut lecture.mp4 --srt lecture.srt --context lecture.storyline.json
 ```
 
+### 멀티소스 편집 (카메라 여러 대 + 별도 마이크)
+
+메인 소스 외에 추가 카메라/마이크를 `--extra-source`로 지정하면, 오디오 교차상관으로 자동 싱크 맞춰서 FCPXML에 connected clip으로 함께 내보낸다.
+
+```bash
+# 자동 싱크 — 오디오 교차상관으로 오프셋 자동 검출
+avid-cli podcast-cut main.mp4 --srt main.srt \
+  --extra-source cam2.mp4 \
+  --extra-source mic.wav
+
+# 수동 오프셋 — 오프셋을 직접 지정 (ms 단위, --extra-source 순서 대응)
+avid-cli podcast-cut main.mp4 --srt main.srt \
+  --extra-source cam2.mp4 --offset 1500 \
+  --extra-source mic.wav --offset 800
+```
+
+자동 싱크를 사용하려면 추가 설치:
+```bash
+pip install 'avid[sync]'  # audio-offset-finder
+```
+
+> 멀티소스는 Phase 1 (connected clip). Phase 2에서 mc-clip 멀티캠 앵글 전환 지원 예정.
+
 ### 빠른 실행 (Pass 1 생략)
 
 스토리 분석 없이 바로 편집할 수도 있다. 짧은 영상이거나 맥락 보존이 덜 중요할 때:
@@ -126,7 +149,7 @@ avid-cli transcript-overview <srt> [-o 출력경로] [--content-type auto] [--pr
 강의/튜토리얼 편집. 중복 테이크, 필러, 말실수, 미완성 문장을 감지.
 
 ```
-avid-cli subtitle-cut <영상> --srt <srt> [--context storyline.json] [--provider codex] [-o 출력.fcpxml] [--final]
+avid-cli subtitle-cut <영상> --srt <srt> [--context storyline.json] [--provider codex] [-o 출력.fcpxml] [--final] [--extra-source 추가소스] [--offset ms]
 ```
 
 | 옵션 | 기본값 | 설명 |
@@ -137,13 +160,15 @@ avid-cli subtitle-cut <영상> --srt <srt> [--context storyline.json] [--provide
 | `-o, --output` | `{stem}_subtitle_cut.fcpxml` | 출력 FCPXML 경로 |
 | `-d, --output-dir` | 영상과 같은 디렉토리 | 출력 디렉토리 |
 | `--final` | review 모드 | 모든 편집 바로 적용 |
+| `--extra-source` | 없음 | 추가 소스 파일 (반복 가능) |
+| `--offset` | 자동 감지 | 수동 오프셋 ms (`--extra-source` 순서 대응) |
 
 ### `avid-cli podcast-cut`
 
 팟캐스트/인터뷰 편집. 지루한/탈선/반복 구간을 감지하고, 재미있는 순간을 보존.
 
 ```
-avid-cli podcast-cut <파일> [--srt <srt>] [--context storyline.json] [--provider codex] [-d 출력디렉토리] [--final]
+avid-cli podcast-cut <파일> [--srt <srt>] [--context storyline.json] [--provider codex] [-d 출력디렉토리] [--final] [--extra-source 추가소스] [--offset ms]
 ```
 
 | 옵션 | 기본값 | 설명 |
@@ -153,6 +178,8 @@ avid-cli podcast-cut <파일> [--srt <srt>] [--context storyline.json] [--provid
 | `--provider` | `codex` | AI 프로바이더 |
 | `-d, --output-dir` | 입력 파일과 같은 디렉토리 | 출력 디렉토리 |
 | `--final` | review 모드 | 모든 편집 바로 적용 |
+| `--extra-source` | 없음 | 추가 소스 파일 (반복 가능) |
+| `--offset` | 자동 감지 | 수동 오프셋 ms (`--extra-source` 순서 대응) |
 
 ## 기술 스택
 
@@ -167,9 +194,9 @@ avid-cli podcast-cut <파일> [--srt <srt>] [--context storyline.json] [--provid
 ```
 apps/backend/src/avid/
 ├── cli.py              # CLI 진입점 (4개 명령어)
-├── services/           # 비즈니스 로직
+├── services/           # 비즈니스 로직 (AudioSyncService 포함)
 ├── models/             # Pydantic 데이터 모델
-└── export/             # FCPXML, 보고서 내보내기
+└── export/             # FCPXML (connected clips), 보고서 내보내기
 
 skills/
 ├── _common/            # 공통 모듈 (SRT 파서, CLI 유틸, 병렬 처리)
@@ -185,6 +212,44 @@ skills/
 | `claude` CLI 또는 `codex` CLI | AI 분석 | 둘 중 하나 |
 | Chalna API | 음성 인식 | podcast-cut 자동 전사 시 |
 | FFmpeg / FFprobe | 오디오 추출, 미디어 분석 | 필수 |
+| `audio-offset-finder` | 멀티소스 오디오 싱크 | `--extra-source` 사용 시 (`pip install 'avid[sync]'`) |
+
+## 테스트
+
+### 유닛 테스트
+
+```bash
+cd apps/backend
+pip install -e '.[dev]'
+PYTHONPATH=src pytest tests/unit/ -v
+```
+
+또는 프로젝트 루트에서:
+```bash
+PYTHONPATH=apps/backend/src python3 -m pytest tests/unit/ -v
+```
+
+### 멀티소스 테스트 (실제 소스 2개)
+
+```bash
+# 1. audio-offset-finder 설치
+pip install 'avid[sync]'
+
+# 2. 자동 싱크로 멀티소스 편집
+avid-cli podcast-cut main.mp4 --srt main.srt \
+  --extra-source cam2.mp4
+
+# 3. FCPXML을 Final Cut Pro에서 열어서 lane 확인
+#    - 메인 타임라인 위에 cam2가 connected clip으로 표시되는지 확인
+#    - 오디오 파형이 정렬되어 있는지 확인
+```
+
+### E2E 테스트
+
+```bash
+# AVID API 서버 + Chalna API 필요
+python tests/e2e/test_podcast_e2e.py
+```
 
 ## 문서
 
