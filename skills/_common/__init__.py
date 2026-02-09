@@ -2,6 +2,7 @@
 
 from .srt_parser import (
     SubtitleSegment,
+    extract_speaker,
     parse_srt,
     parse_srt_file,
     parse_timestamp,
@@ -22,6 +23,7 @@ from .parallel import process_chunks_parallel
 __all__ = [
     # SRT parsing
     "SubtitleSegment",
+    "extract_speaker",
     "parse_srt",
     "parse_srt_file",
     "parse_timestamp",

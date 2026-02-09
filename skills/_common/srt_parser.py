@@ -3,6 +3,13 @@
 import re
 from dataclasses import dataclass
 
+# Speaker label patterns in SRT text:
+#   [Speaker 1] text  or  [화자1] text
+#   Speaker 1: text   or  화자1: text
+#   SPEAKER_01: text
+_SPEAKER_BRACKET_RE = re.compile(r"^\[([^\]]+)\]\s*")
+_SPEAKER_COLON_RE = re.compile(r"^([\w\s]+?):\s+")
+
 
 @dataclass
 class SubtitleSegment:
@@ -12,10 +19,35 @@ class SubtitleSegment:
     start_ms: int
     end_ms: int
     text: str
+    speaker: str | None = None
 
     @property
     def duration_ms(self) -> int:
         return self.end_ms - self.start_ms
+
+
+def extract_speaker(text: str) -> tuple[str | None, str]:
+    """Extract speaker label from subtitle text if present.
+
+    Supports formats:
+        [Speaker 1] text
+        Speaker 1: text
+
+    Returns:
+        (speaker, clean_text) — speaker is None if not found.
+    """
+    m = _SPEAKER_BRACKET_RE.match(text)
+    if m:
+        return m.group(1).strip(), text[m.end():].strip()
+
+    m = _SPEAKER_COLON_RE.match(text)
+    if m:
+        candidate = m.group(1).strip()
+        # Avoid false positives: only accept short labels (≤20 chars)
+        if len(candidate) <= 20:
+            return candidate, text[m.end():].strip()
+
+    return None, text
 
 
 def parse_timestamp(timestamp: str) -> int:
@@ -74,8 +106,14 @@ def parse_srt(content: str) -> list[SubtitleSegment]:
         # Remaining lines: text
         text = " ".join(line.strip() for line in lines[2:] if line.strip())
 
+        # Extract speaker label if present
+        speaker, clean_text = extract_speaker(text)
+
         segments.append(
-            SubtitleSegment(index=index, start_ms=start_ms, end_ms=end_ms, text=text)
+            SubtitleSegment(
+                index=index, start_ms=start_ms, end_ms=end_ms,
+                text=clean_text, speaker=speaker,
+            )
         )
 
     return segments
@@ -114,7 +152,8 @@ def segments_to_srt(segments: list[SubtitleSegment]) -> str:
     for i, seg in enumerate(segments, 1):
         lines.append(str(i))
         lines.append(f"{ms_to_srt_time(seg.start_ms)} --> {ms_to_srt_time(seg.end_ms)}")
-        lines.append(seg.text)
+        text = f"[{seg.speaker}] {seg.text}" if seg.speaker else seg.text
+        lines.append(text)
         lines.append("")
 
     return "\n".join(lines)

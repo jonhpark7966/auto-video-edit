@@ -38,6 +38,7 @@ class SubtitleSegment:
     start_ms: int
     end_ms: int
     text: str
+    speaker: str | None = None
 
 
 def _find_project_root() -> Path:
@@ -413,7 +414,8 @@ class PodcastCutService:
             end_ms = int(seg.end * 1000)
             start_str = self._ms_to_srt_time(start_ms)
             end_str = self._ms_to_srt_time(end_ms)
-            lines.append(f"{i}\n{start_str} --> {end_str}\n{seg.text}\n")
+            text = f"[{seg.speaker}] {seg.text}" if seg.speaker else seg.text
+            lines.append(f"{i}\n{start_str} --> {end_str}\n{text}\n")
 
         with open(output_srt, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
@@ -463,14 +465,31 @@ class PodcastCutService:
             end_ms = self._parse_timestamp(time_match.group(2))
             text = " ".join(line.strip() for line in lines[2:] if line.strip())
 
+            # Extract speaker label if present
+            speaker, clean_text = self._extract_speaker(text)
+
             segments.append(SubtitleSegment(
                 index=index,
                 start_ms=start_ms,
                 end_ms=end_ms,
-                text=text,
+                text=clean_text,
+                speaker=speaker,
             ))
 
         return segments
+
+    @staticmethod
+    def _extract_speaker(text: str) -> tuple[str | None, str]:
+        """Extract speaker label from subtitle text if present."""
+        m = re.match(r"^\[([^\]]+)\]\s*", text)
+        if m:
+            return m.group(1).strip(), text[m.end():].strip()
+        m = re.match(r"^([\w\s]+?):\s+", text)
+        if m:
+            candidate = m.group(1).strip()
+            if len(candidate) <= 20:
+                return candidate, text[m.end():].strip()
+        return None, text
 
     def _parse_timestamp(self, timestamp: str) -> int:
         """Parse SRT timestamp to milliseconds."""

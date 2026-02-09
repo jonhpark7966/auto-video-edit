@@ -20,6 +20,9 @@ class TranscriptSegment(BaseModel):
     confidence: float = Field(
         default=1.0, ge=0.0, le=1.0, description="Transcription confidence"
     )
+    speaker: str | None = Field(
+        default=None, description="Speaker label from diarization"
+    )
 
 
 class Transcription(BaseModel):

@@ -39,6 +39,7 @@ class ChalnaSegment:
     start: float  # seconds
     end: float  # seconds
     text: str
+    speaker: str | None = None
 
 
 @dataclass
@@ -331,6 +332,7 @@ class ChalnaTranscriptionService:
                 start=seg.get("start_time", seg.get("start", 0.0)),
                 end=seg.get("end_time", seg.get("end", 0.0)),
                 text=seg.get("text", "").strip(),
+                speaker=seg.get("speaker"),
             )
             for seg in raw_segments
         ]
