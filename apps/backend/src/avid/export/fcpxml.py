@@ -270,27 +270,58 @@ class FCPXMLExporter(ProjectExporter):
                 width = source.info.width or 1920
                 height = source.info.height or 1080
 
-        # Format resource
-        format_id = "r1"
-        format_name = self._get_format_name(width, height, fps)
-        frame_duration = self._fps_to_frame_duration(fps)
-        format_attrs = {
-            "id": format_id,
-            "name": format_name,
-            "frameDuration": frame_duration,
-            "width": str(width),
-            "height": str(height),
-            "colorSpace": "1-1-1 (Rec. 709)",
+        # Build per-source format resources.
+        # Each unique (width, height, fps) gets one <format> element.
+        # source_format_map: source_file_id → (format_id, fps)
+        primary_format_id = "r1"
+        primary_spec = (width, height, fps)
+        spec_to_format: dict[tuple[int, int, float], str] = {
+            primary_spec: primary_format_id,
         }
-        ET.SubElement(resources, "format", **format_attrs)
+        source_format_map: dict[str, tuple[str, float]] = {}
+        next_resource_id = 2
+
+        # Assign formats to each source file
+        for source_file in project.source_files:
+            src_fps = 30.0
+            src_w = width  # fallback to primary dimensions
+            src_h = height
+            if source_file.info:
+                src_fps = source_file.info.fps or fps
+                src_w = source_file.info.width or width
+                src_h = source_file.info.height or height
+
+            spec = (src_w, src_h, src_fps)
+            if spec not in spec_to_format:
+                fmt_id = f"r{next_resource_id}"
+                next_resource_id += 1
+                spec_to_format[spec] = fmt_id
+            source_format_map[source_file.id] = (
+                spec_to_format[spec],
+                src_fps,
+            )
+
+        # Create <format> elements for each unique spec
+        for (fmt_w, fmt_h, fmt_fps), fmt_id in spec_to_format.items():
+            ET.SubElement(
+                resources,
+                "format",
+                id=fmt_id,
+                name=self._get_format_name(fmt_w, fmt_h, fmt_fps),
+                frameDuration=self._fps_to_frame_duration(fmt_fps),
+                width=str(fmt_w),
+                height=str(fmt_h),
+                colorSpace="1-1-1 (Rec. 709)",
+            )
 
         # Asset resources for each source file
         asset_map: dict[str, str] = {}  # source_file_id -> asset_id
-        next_resource_id = 2
-        for i, source_file in enumerate(project.source_files):
+        for source_file in project.source_files:
             asset_id = f"r{next_resource_id}"
             next_resource_id += 1
             asset_map[source_file.id] = asset_id
+
+            src_format_id, _ = source_format_map[source_file.id]
 
             # Build asset attributes matching FCP's export format
             # Note: uid is omitted - FCP uses file hash for uid, using arbitrary values causes crashes
@@ -300,7 +331,7 @@ class FCPXMLExporter(ProjectExporter):
                 "name": source_file.original_name.rsplit(".", 1)[0],  # Name without extension
                 "start": "0s",
                 "hasVideo": "1" if source_file.is_video else "0",
-                "format": format_id,
+                "format": src_format_id,
                 "hasAudio": "1" if has_audio else "0",
             }
 
@@ -339,7 +370,7 @@ class FCPXMLExporter(ProjectExporter):
         sequence = ET.SubElement(
             fcp_project,
             "sequence",
-            format=format_id,
+            format=primary_format_id,
             duration=self._ms_to_time(duration_ms, fps),
         )
 
@@ -348,8 +379,8 @@ class FCPXMLExporter(ProjectExporter):
 
         # Build timeline (video clips only, no embedded captions)
         self._build_video_timeline(
-            spine, project, asset_map, format_id, fps, show_disabled_cuts,
-            merge_short_gaps_ms
+            spine, project, asset_map, primary_format_id, fps,
+            show_disabled_cuts, merge_short_gaps_ms, source_format_map,
         )
 
         return fcpxml
@@ -393,6 +424,7 @@ class FCPXMLExporter(ProjectExporter):
         fps: float,
         show_disabled_cuts: bool = False,
         merge_short_gaps_ms: int = 500,
+        source_format_map: dict[str, tuple[str, float]] | None = None,
     ) -> None:
         """Build the video timeline with clips (no embedded captions).
 
@@ -400,12 +432,13 @@ class FCPXMLExporter(ProjectExporter):
             spine: Parent spine element
             project: Project with edit decisions
             asset_map: Source file ID to asset ID mapping
-            format_id: Format resource ID
-            fps: Frame rate
+            format_id: Primary format resource ID
+            fps: Primary frame rate
             show_disabled_cuts: If True, include disabled CUT clips; if False, remove them
                                MUTE clips are always shown as disabled.
             merge_short_gaps_ms: Short enabled segments (< this duration) between
                                 disabled segments will also be disabled.
+            source_format_map: source_file_id → (format_id, fps) per source.
         """
         video_tracks = project.get_video_tracks()
         if not video_tracks:
@@ -439,7 +472,7 @@ class FCPXMLExporter(ProjectExporter):
             )
             self._add_connected_clips(
                 clip_elem, 0, total_duration_ms, extra_tracks,
-                asset_map, format_id, fps,
+                asset_map, source_format_map, fps,
             )
             return
 
@@ -566,7 +599,7 @@ class FCPXMLExporter(ProjectExporter):
             clip_elem = ET.SubElement(spine, "asset-clip", **clip_attrs)
             self._add_connected_clips(
                 clip_elem, source_start_ms, source_end_ms, extra_tracks,
-                asset_map, format_id, fps,
+                asset_map, source_format_map, fps, enabled=enabled,
             )
 
     def _get_extra_source_tracks(
@@ -612,14 +645,17 @@ class FCPXMLExporter(ProjectExporter):
         main_end_ms: int,
         extra_tracks: list[tuple[Track, MediaFile, int]],
         asset_map: dict[str, str],
-        format_id: str,
-        fps: float,
+        source_format_map: dict[str, tuple[str, float]] | None,
+        primary_fps: float,
+        enabled: bool = True,
     ) -> None:
         """Attach connected clips for extra sources as children of *parent_clip*.
 
         Each connected clip lives in its own lane (negative lane numbers).
-        The ``offset`` attribute is always ``"0s"`` (aligned to parent clip start).
-        The ``start`` attribute accounts for the extra track's sync offset.
+        All timing attributes (offset, start, duration) use the **sequence
+        format** (primary_fps) so they align to the timeline's frame grid.
+        The ``<asset>`` element separately declares each source's native
+        format; FCP handles frame-rate conversion internally.
 
         Args:
             parent_clip: The parent ``<asset-clip>`` element.
@@ -627,8 +663,10 @@ class FCPXMLExporter(ProjectExporter):
             main_end_ms: End of the main clip in main-source time.
             extra_tracks: Output of ``_get_extra_source_tracks()``.
             asset_map: source_file_id → FCPXML asset ID.
-            format_id: Format resource ID.
-            fps: Frame rate.
+            source_format_map: Reserved for future use (currently unused;
+                asset-clips always use the sequence format).
+            primary_fps: Frame rate of the sequence timeline.
+            enabled: If False, connected clips get ``enabled="0"``.
         """
         if not extra_tracks:
             return
@@ -637,6 +675,10 @@ class FCPXMLExporter(ProjectExporter):
         if clip_duration_ms <= 0:
             return
 
+        # Connected clips use the sequence format so all timing values
+        # land on the timeline's frame grid.
+        primary_format_id = parent_clip.get("format", "r1")
+
         for track, source, lane in extra_tracks:
             extra_asset_id = asset_map.get(source.id)
             if not extra_asset_id:
@@ -644,11 +686,11 @@ class FCPXMLExporter(ProjectExporter):
 
             extra_duration_ms = source.info.duration_ms
 
-            # Calculate where this clip range falls in the extra source,
-            # accounting for the sync offset.
-            # extra_start = main_start + track.offset_ms  (offset is relative to main)
-            extra_start_ms = main_start_ms + track.offset_ms
-            extra_end_ms = main_end_ms + track.offset_ms
+            # track.offset_ms = when the extra track starts on the unified timeline.
+            # So extra_source_time = unified_time - track.offset_ms.
+            # Since main has offset 0, unified_time == main_time.
+            extra_start_ms = main_start_ms - track.offset_ms
+            extra_end_ms = main_end_ms - track.offset_ms
 
             # Clamp to the extra source's bounds
             extra_start_ms = max(0, min(extra_start_ms, extra_duration_ms))
@@ -662,13 +704,15 @@ class FCPXMLExporter(ProjectExporter):
             attrs = {
                 "ref": extra_asset_id,
                 "lane": str(lane),
-                "offset": self._ms_to_time(main_start_ms, fps),
-                "duration": self._ms_to_time(actual_duration_ms, fps),
-                "start": self._ms_to_time(extra_start_ms, fps),
-                "format": format_id,
+                "offset": self._ms_to_time(main_start_ms, primary_fps),
+                "duration": self._ms_to_time(actual_duration_ms, primary_fps),
+                "start": self._ms_to_time(extra_start_ms, primary_fps),
+                "format": primary_format_id,
                 "tcFormat": "NDF",
                 "name": source.original_name,
             }
+            if not enabled:
+                attrs["enabled"] = "0"
             ET.SubElement(parent_clip, "asset-clip", **attrs)
 
     def _build_timeline(

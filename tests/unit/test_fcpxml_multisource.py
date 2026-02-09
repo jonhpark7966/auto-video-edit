@@ -255,6 +255,35 @@ class TestMultiSourceWithEdits:
             connected = clip.findall("asset-clip")
             assert len(connected) >= 1
 
+    def test_disabled_propagated_to_connected_clips(self):
+        """Connected clips on disabled parent should also be disabled."""
+        edits = [
+            EditDecision(
+                range=TimeRange(start_ms=10_000, end_ms=20_000),
+                edit_type=EditType.MUTE,
+                reason=EditReason.BORING,
+                confidence=0.8,
+            ),
+        ]
+        project = _build_project(
+            extra_sources=[("cam2-id", "cam2.mp4", 0, True)],
+            edit_decisions=edits,
+        )
+        root = _export_and_parse(project)
+
+        spine = root.find(".//spine")
+        for clip in spine.findall("asset-clip"):
+            parent_disabled = clip.get("enabled") == "0"
+            for connected in clip.findall("asset-clip"):
+                if parent_disabled:
+                    assert connected.get("enabled") == "0", (
+                        "Connected clip should be disabled when parent is disabled"
+                    )
+                else:
+                    assert connected.get("enabled") is None, (
+                        "Connected clip should not be disabled when parent is enabled"
+                    )
+
 
 # ---------------------------------------------------------------------------
 # Tests: Asset resources
@@ -278,6 +307,64 @@ class TestAssetResources:
         # 3 source files → 3 assets
         assert len(assets) == 3
 
+    def test_different_fps_gets_separate_format(self):
+        """Sources with different fps should get separate format resources."""
+        # main is 30fps via _make_media_file defaults
+        # Create an extra source with different fps
+        main = _make_media_file("main-id", "main.mp4", duration_ms=60_000)
+        cam2 = MediaFile(
+            id="cam2-id",
+            path=Path("/media/cam2.mp4"),
+            original_name="cam2.mp4",
+            info=MediaInfo(
+                duration_ms=60_000,
+                width=1280,
+                height=720,
+                fps=23.976,
+                sample_rate=48000,
+            ),
+        )
+
+        project = Project(name="Multi-Format Test")
+        project.add_source_file(main)
+        project.add_source_file(cam2)
+
+        root = _export_and_parse(project)
+
+        resources = root.find("resources")
+        formats = resources.findall("format")
+        assets = resources.findall("asset")
+
+        # Should have 2 format resources (30fps + 23.976fps)
+        assert len(formats) == 2
+        format_ids = {f.get("id") for f in formats}
+
+        # Each asset should reference its own format
+        asset_formats = {a.get("name"): a.get("format") for a in assets}
+        assert asset_formats["main"] != asset_formats["cam2"]
+        assert asset_formats["main"] in format_ids
+        assert asset_formats["cam2"] in format_ids
+
+        # Verify format properties
+        format_map = {f.get("id"): f for f in formats}
+        main_fmt = format_map[asset_formats["main"]]
+        cam2_fmt = format_map[asset_formats["cam2"]]
+        assert main_fmt.get("frameDuration") == "1/30s"
+        assert cam2_fmt.get("frameDuration") == "1001/24000s"
+
+    def test_same_fps_shares_format(self):
+        """Sources with same specs should share one format resource."""
+        project = _build_project(
+            extra_sources=[("cam2-id", "cam2.mp4", 0, True)],
+        )
+        root = _export_and_parse(project)
+
+        resources = root.find("resources")
+        formats = resources.findall("format")
+
+        # Both are 30fps 1920x1080 → should share 1 format
+        assert len(formats) == 1
+
     def test_assets_have_media_rep(self):
         """Each asset should have a media-rep with file path."""
         project = _build_project(
@@ -299,8 +386,11 @@ class TestAssetResources:
 
 
 class TestOffsetHandling:
-    def test_positive_offset_shifts_start(self):
-        """Positive offset means extra starts later → start should increase."""
+    def test_positive_offset_clamps_start(self):
+        """Positive offset means extra starts later on timeline.
+
+        extra_start = main_start - offset = 0 - 2000 = -2000 → clamped to 0.
+        """
         project = _build_project(
             extra_sources=[("cam2-id", "cam2.mp4", 2000, True)],
         )
@@ -310,13 +400,27 @@ class TestOffsetHandling:
         primary_clip = spine.findall("asset-clip")[0]
         connected = primary_clip.findall("asset-clip")[0]
 
-        # With offset 2000ms, the connected clip's start should be 2000ms
-        # in the extra source's timeline (0ms main + 2000ms offset)
+        # extra_start = 0 - 2000 = -2000, clamped to 0
         start = connected.get("start")
-        assert start is not None
-        # start should represent ~2000ms (2 seconds at 30fps = 60 frames)
-        # Format: "60/30s" or similar
-        assert start != "0/30s"  # Should not be 0
+        assert start == "0/30s"
+
+    def test_negative_offset_shifts_start(self):
+        """Negative offset means extra started earlier on timeline.
+
+        extra_start = main_start - (-2000) = 2000ms → 60 frames at 30fps.
+        """
+        project = _build_project(
+            extra_sources=[("cam2-id", "cam2.mp4", -2000, True)],
+        )
+        root = _export_and_parse(project)
+
+        spine = root.find(".//spine")
+        primary_clip = spine.findall("asset-clip")[0]
+        connected = primary_clip.findall("asset-clip")[0]
+
+        # extra_start = 0 - (-2000) = 2000ms = 60 frames at 30fps
+        start = connected.get("start")
+        assert start == "60/30s"
 
     def test_zero_offset(self):
         """Zero offset → connected clip start should match main clip start."""

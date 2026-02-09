@@ -541,13 +541,8 @@ class PodcastCutService:
         silence_regions: list[SilenceRegion],
     ) -> Project:
         """Build final Project with all edit decisions."""
-        duration_ms = self._get_duration(audio_path)
-
         file_id = str(uuid.uuid5(uuid.NAMESPACE_URL, str(audio_path)))
-        media_info = MediaInfo(
-            duration_ms=duration_ms,
-            sample_rate=44100,
-        )
+        media_info = self._get_media_info(audio_path)
         media_file = MediaFile(
             id=file_id,
             path=audio_path,
@@ -633,3 +628,43 @@ class PodcastCutService:
             return int(duration * 1000)
         except (KeyError, ValueError, json.JSONDecodeError):
             return 600000
+
+    def _get_media_info(self, path: Path) -> MediaInfo:
+        """Get full media info using ffprobe (video dimensions, fps, sample rate)."""
+        cmd = [
+            "ffprobe", "-v", "quiet", "-print_format", "json",
+            "-show_format", "-show_streams", str(path),
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode != 0:
+            return MediaInfo(duration_ms=self._get_duration(path), sample_rate=44100)
+
+        try:
+            data = json.loads(result.stdout)
+        except (json.JSONDecodeError, ValueError):
+            return MediaInfo(duration_ms=self._get_duration(path), sample_rate=44100)
+
+        duration_sec = float(data.get("format", {}).get("duration", 0))
+        width = None
+        height = None
+        fps = None
+        sample_rate = None
+
+        for stream in data.get("streams", []):
+            if stream.get("codec_type") == "video":
+                width = stream.get("width")
+                height = stream.get("height")
+                fps_str = stream.get("r_frame_rate", "0/1")
+                if "/" in fps_str:
+                    num, den = fps_str.split("/")
+                    fps = float(num) / float(den) if float(den) != 0 else None
+            elif stream.get("codec_type") == "audio":
+                sample_rate = int(stream.get("sample_rate", 0)) or None
+
+        return MediaInfo(
+            duration_ms=int(duration_sec * 1000),
+            width=width,
+            height=height,
+            fps=fps,
+            sample_rate=sample_rate,
+        )
