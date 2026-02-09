@@ -23,12 +23,8 @@ class ChalnaTranscriptionError(Exception):
 class ChalnaStatus(str, Enum):
     """Status of a Chalna transcription job."""
 
-    PENDING = "pending"
-    VALIDATING = "validating"
-    LOADING = "loading"
-    TRANSCRIBING = "transcribing"
-    ALIGNING = "aligning"
-    REFINING = "refining"
+    QUEUED = "queued"
+    PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
 
@@ -61,22 +57,19 @@ class ChalnaResult:
 ProgressCallback = Callable[[float, str], None]
 
 
-# Progress weights for each stage (sum to 1.0)
-STAGE_PROGRESS: dict[str, tuple[float, float]] = {
-    # stage: (start_progress, end_progress)
-    "validating": (0.0, 0.05),
-    "loading": (0.05, 0.15),
-    "transcribing": (0.15, 0.70),
-    "aligning": (0.70, 0.90),
-    "refining": (0.90, 1.0),
-}
-
+# Display names for Chalna's progress_history stages
 STAGE_DISPLAY_NAMES: dict[str, str] = {
-    "validating": "파일 검증 중",
-    "loading": "모델 로딩 중",
+    "loading_models": "모델 로딩 중",
     "transcribing": "음성 전사 중",
     "aligning": "타임스탬프 정렬 중",
     "refining": "텍스트 정제 중",
+}
+
+STATUS_DISPLAY_NAMES: dict[str, str] = {
+    "queued": "대기 중",
+    "processing": "처리 중",
+    "completed": "완료",
+    "failed": "실패",
 }
 
 
@@ -241,7 +234,8 @@ class ChalnaTranscriptionService:
             ChalnaTranscriptionError: If polling fails or times out.
         """
         start_time = asyncio.get_event_loop().time()
-        last_status: str | None = None
+        last_progress: float = -1.0
+        last_stage: str | None = None
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             while True:
@@ -268,13 +262,16 @@ class ChalnaTranscriptionService:
 
                 data = response.json()
                 status = data.get("status", "unknown")
-                progress_history = data.get("progress_history", [])
+                progress = data.get("progress", 0.0)
 
-                # Report progress if status changed
-                if progress_callback and status != last_status:
-                    progress, display_name = self._get_progress_for_status(status)
+                # Get display name from latest progress_history stage
+                display_name = self._get_display_name(status, data.get("progress_history", []))
+
+                # Report progress when it changes
+                if progress_callback and (progress != last_progress or display_name != last_stage):
                     progress_callback(progress, display_name)
-                    last_status = status
+                    last_progress = progress
+                    last_stage = display_name
 
                 if status == "completed":
                     return self._parse_completed_result(task_id, data)
@@ -288,27 +285,23 @@ class ChalnaTranscriptionService:
 
                 await asyncio.sleep(self.poll_interval)
 
-    def _get_progress_for_status(self, status: str) -> tuple[float, str]:
-        """Get progress value and display name for a status.
+    def _get_display_name(self, status: str, progress_history: list[dict]) -> str:
+        """Get display name from the latest progress_history stage or status.
 
         Args:
-            status: The current status string.
+            status: The top-level job status (queued/processing/completed/failed).
+            progress_history: List of progress history entries with stage info.
 
         Returns:
-            Tuple of (progress 0-1, display_name).
+            Korean display name for the current stage.
         """
-        if status in STAGE_PROGRESS:
-            _, end_progress = STAGE_PROGRESS[status]
-            display_name = STAGE_DISPLAY_NAMES.get(status, status)
-            return end_progress, display_name
+        # Use the latest stage from progress_history if available
+        if progress_history:
+            latest_stage = progress_history[-1].get("stage", "")
+            if latest_stage in STAGE_DISPLAY_NAMES:
+                return STAGE_DISPLAY_NAMES[latest_stage]
 
-        if status == "completed":
-            return 1.0, "완료"
-
-        if status == "pending":
-            return 0.0, "대기 중"
-
-        return 0.0, status
+        return STATUS_DISPLAY_NAMES.get(status, status)
 
     def _parse_completed_result(self, task_id: str, data: dict[str, Any]) -> ChalnaResult:
         """Parse the completed transcription result.
@@ -342,11 +335,13 @@ class ChalnaTranscriptionService:
             for seg in raw_segments
         ]
 
+        metadata = result_data.get("metadata", {})
+
         return ChalnaResult(
             task_id=task_id,
             status=ChalnaStatus.COMPLETED,
             segments=segments,
-            language=result_data.get("language", "ko"),
+            language=metadata.get("language", result_data.get("language", "ko")),
             full_text=result_data.get("text", ""),
             progress_history=data.get("progress_history", []),
         )
