@@ -46,7 +46,9 @@ def reason_to_edit_reason(reason: str) -> str:
         "duplicate": "duplicate",
         "incomplete": "filler",
         "filler": "filler",
-        "fumble": "filler",
+        "fumble": "fumble",
+        "meta_comment": "meta_comment",
+        "retake_signal": "retake_signal",
     }
     return mapping.get(reason, "manual")
 

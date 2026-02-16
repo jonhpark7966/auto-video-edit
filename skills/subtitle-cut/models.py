@@ -8,13 +8,16 @@ from enum import Enum
 
 class CutReason(str, Enum):
     """Reason for cutting a segment in lecture/explanation videos."""
-    DUPLICATE = "duplicate"   # Same content repeated, keeping best take
-    INCOMPLETE = "incomplete" # Sentence cut off or incomplete
-    FILLER = "filler"         # Meaningless filler words, hesitation
-    FUMBLE = "fumble"         # Stumbling, mispronunciation
+    DUPLICATE = "duplicate"           # Same content repeated, keeping best take
+    INCOMPLETE = "incomplete"         # Sentence cut off or incomplete
+    FILLER = "filler"                 # Meaningless filler words, hesitation
+    FUMBLE = "fumble"                 # Stumbling, mispronunciation, factual error
+    META_COMMENT = "meta_comment"     # Production meta-talk: slate, mic check, wrap-up
+    RETAKE_SIGNAL = "retake_signal"   # Explicit retake declaration
 
 
 class KeepReason(str, Enum):
     """Reason for keeping a segment in lecture/explanation videos."""
     BEST_TAKE = "best_take"   # Best version among duplicates
     UNIQUE = "unique"         # Unique content, no alternatives
+    ESSENTIAL = "essential"   # Core content that must be preserved

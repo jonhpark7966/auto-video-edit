@@ -28,8 +28,10 @@ class EditReason(str, Enum):
     MANUAL = "manual"
 
     # Lecture/explanation video reasons (subtitle-cut)
-    INCOMPLETE = "incomplete"  # Sentence cut off or incomplete
-    FUMBLE = "fumble"          # Stumbling, mispronunciation
+    INCOMPLETE = "incomplete"      # Sentence cut off or incomplete
+    FUMBLE = "fumble"              # Stumbling, mispronunciation
+    META_COMMENT = "meta_comment"  # Production meta-talk: slate, mic check, wrap-up
+    RETAKE_SIGNAL = "retake_signal"  # Explicit retake declaration
 
     # Podcast cut reasons (segments to remove)
     BORING = "boring"          # Low energy, consecutive short answers
