@@ -274,6 +274,33 @@ def analyze_chunk(
     return cuts, keeps
 
 
+DEDUP_VERIFICATION_PROMPT = '''아래는 영상 편집에서 "유지(keep)"로 판정된 자막 세그먼트들입니다.
+이 중에서 **인접한 세그먼트끼리 거의 같은 내용을 말하고 있는 쌍**을 찾아주세요.
+
+## 유지된 세그먼트들:
+{segments}
+
+## 판단 기준:
+- 두 세그먼트가 1~5 간격 이내에 있고, 같은 개념/정의/설명을 다른 표현으로 반복하면 → **앞(번호가 작은)의 것**이 duplicate
+- 앞 세그먼트가 접속사(~는데, ~고, ~서, ~그렇게)로 끝나며 끊기고, 뒤 세그먼트가 같은 내용을 더 완전하게 표현하면 → **앞의 것**이 duplicate
+- 단, 보충 설명이나 새로운 정보를 추가하는 경우는 중복이 아닙니다
+
+## ⚠️ 핵심 규칙: 항상 나중(번호가 큰) 세그먼트를 살리고, 앞(번호가 작은) 세그먼트를 자르세요.
+화자가 같은 말을 다시 한 것은 이전 버전에 불만족했기 때문입니다. 나중 버전이 채택본입니다.
+
+## 출력 형식 (JSON):
+```json
+{{{{
+  "additional_cuts": [
+    {{{{"segment_index": 72, "reason": "duplicate", "note": "73번과 거의 같은 문장의 이전 시도"}}}}
+  ]
+}}}}
+```
+
+중복 쌍이 없으면 빈 배열을 반환하세요: {{{{"additional_cuts": []}}}}
+JSON만 출력하세요.'''
+
+
 def analyze_with_codex(
     segments: list[SubtitleSegment],
     keep_alternatives: bool = False,
@@ -335,4 +362,56 @@ def analyze_with_codex(
             max_workers=5,
         )
 
+        # Second pass: dedup verification on keep segments
+        all_cuts, all_keeps = _dedup_verification(segments, all_cuts, all_keeps)
+
         return AnalysisResult(cuts=all_cuts, keeps=all_keeps)
+
+
+def _dedup_verification(
+    segments: list[SubtitleSegment],
+    cuts: list[dict],
+    keeps: list[dict],
+) -> tuple[list[dict], list[dict]]:
+    """Run a focused dedup check on keep segments to catch missed near-duplicates."""
+    cut_indices = {c["segment_index"] for c in cuts}
+    keep_segments = [s for s in segments if s.index not in cut_indices]
+
+    if len(keep_segments) < 2:
+        return cuts, keeps
+
+    # Format only keep segments for the dedup prompt
+    lines = []
+    for seg in keep_segments:
+        time_str = f"{seg.start_ms // 1000}s - {seg.end_ms // 1000}s"
+        lines.append(f"[{seg.index}] ({time_str}): \"{seg.text}\"")
+    segments_text = "\n".join(lines)
+
+    prompt = DEDUP_VERIFICATION_PROMPT.format(segments=segments_text)
+    print(f"  Running dedup verification on {len(keep_segments)} keep segments...")
+
+    try:
+        response = call_codex(prompt, timeout=300)
+        data = parse_json_response(response)
+    except Exception as e:
+        print(f"  Dedup verification failed (skipping): {e}")
+        return cuts, keeps
+
+    additional_cuts = data.get("additional_cuts", [])
+    if additional_cuts:
+        new_cut_indices = set()
+        for item in additional_cuts:
+            seg_idx = item.get("segment_index")
+            if seg_idx is not None and seg_idx not in cut_indices:
+                cuts.append({
+                    "segment_index": seg_idx,
+                    "reason": item.get("reason", "duplicate"),
+                    "note": item.get("note", "dedup verification"),
+                })
+                new_cut_indices.add(seg_idx)
+        keeps = [k for k in keeps if k.get("segment_index") not in new_cut_indices]
+        print(f"  Dedup verification found {len(new_cut_indices)} additional cuts: {sorted(new_cut_indices)}")
+    else:
+        print(f"  Dedup verification: no additional cuts found.")
+
+    return cuts, keeps
