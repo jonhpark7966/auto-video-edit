@@ -1,6 +1,7 @@
 """CLI utilities for calling AI providers (Claude, Codex)."""
 
 import json
+import os
 import subprocess
 
 
@@ -36,7 +37,8 @@ def call_claude(prompt: str, timeout: int = 120) -> str:
 def call_codex(prompt: str, timeout: int = 300) -> str:
     """Call Codex CLI (exec mode) and get response.
 
-    Uses `codex exec` with gpt-5.2 model and medium reasoning effort.
+    Uses `codex exec` with gpt-5.2 model.
+    Reasoning effort is configurable via CODEX_REASONING_EFFORT env var (default: medium).
 
     Args:
         prompt: The prompt to send to Codex
@@ -48,12 +50,13 @@ def call_codex(prompt: str, timeout: int = 300) -> str:
     Raises:
         RuntimeError: If Codex CLI is not found or times out
     """
+    effort = os.environ.get("CODEX_REASONING_EFFORT", "medium")
     try:
         result = subprocess.run(
             [
                 "codex", "exec",
                 "-m", "gpt-5.2",
-                "-c", "model_reasoning_effort=medium",
+                "-c", f"model_reasoning_effort={effort}",
                 "--full-auto",
                 "-",
             ],

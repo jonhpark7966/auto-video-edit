@@ -163,8 +163,8 @@ def main():
     if result["fn_reasons"]:
         print(f"FN reasons: {result['fn_reasons']}", file=sys.stderr)
 
-    # Exit code: 0 if F1 >= 0.95, 1 otherwise
-    sys.exit(0 if m["f1"] >= 0.95 else 1)
+    # Exit code: 0 if F1 >= 0.99, 1 otherwise
+    sys.exit(0 if m["f1"] >= 0.99 else 1)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,10 @@
 #!/bin/bash
 # Run subtitle-cut and evaluate against ground truth.
-# Usage: ./run_and_eval.sh [output_label]
+# Usage: ./run_and_eval.sh [output_label] [reasoning_effort]
+#
+# Arguments:
+#   output_label       - Label for this run (default: timestamp)
+#   reasoning_effort   - Codex reasoning effort: low/medium/high (default: medium)
 #
 # Prerequisites:
 #   - Source files at /tmp/eogum/22200e46/
@@ -10,6 +14,7 @@
 set -euo pipefail
 
 LABEL="${1:-$(date +%Y%m%d_%H%M%S)}"
+EFFORT="${2:-medium}"
 AVID_DIR="/home/jonhpark/workspace/auto-video-edit"
 SCRIPTS_DIR="$AVID_DIR/scripts"
 SOURCE_DIR="/tmp/eogum/22200e46"
@@ -17,9 +22,11 @@ OUTPUT_DIR="$SOURCE_DIR/output_ralph_${LABEL}"
 GROUND_TRUTH="/tmp/eogum/eval_segments.json"
 TRACKING_FILE="$SCRIPTS_DIR/eval_tracking.jsonl"
 
+export CODEX_REASONING_EFFORT="$EFFORT"
+
 mkdir -p "$OUTPUT_DIR"
 
-echo "=== Run subtitle-cut (label: $LABEL) ==="
+echo "=== Run subtitle-cut (label: $LABEL, effort: $EFFORT) ==="
 START_TIME=$(date +%s.%N)
 
 cd "$AVID_DIR"
@@ -41,7 +48,7 @@ if [ ! -f "$AVID_JSON" ]; then
 fi
 
 echo ""
-echo "=== Evaluate (elapsed: ${ELAPSED}s) ==="
+echo "=== Evaluate (elapsed: ${ELAPSED}s, effort: $EFFORT) ==="
 
 GIT_HASH=$(cd "$AVID_DIR" && git rev-parse --short HEAD)
 
@@ -50,7 +57,7 @@ python3 "$SCRIPTS_DIR/eval_subtitle_cut.py" \
     --ground-truth "$GROUND_TRUTH" \
     --output "$OUTPUT_DIR/eval_result.json" \
     --append-tracking "$TRACKING_FILE" \
-    --run-label "${LABEL}_${GIT_HASH}" \
+    --run-label "${LABEL}_${GIT_HASH}_effort-${EFFORT}" \
     --elapsed-seconds "$ELAPSED" \
     2>&1
 
@@ -60,3 +67,4 @@ echo "Output: $OUTPUT_DIR"
 echo "Eval: $OUTPUT_DIR/eval_result.json"
 echo "Tracking: $TRACKING_FILE"
 echo "Elapsed: ${ELAPSED}s"
+echo "Effort: $EFFORT"
