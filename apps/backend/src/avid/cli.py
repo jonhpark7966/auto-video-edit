@@ -33,7 +33,7 @@ def _extract_audio(video_path: Path, output_dir: Path) -> Path:
         "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1",
         str(wav_path),
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
     if result.returncode != 0:
         raise RuntimeError(f"ffmpeg 오디오 추출 실패:\n{result.stderr[-1000:]}")
     return wav_path
@@ -81,6 +81,7 @@ async def cmd_transcribe(args: argparse.Namespace) -> None:
         result = await service.transcribe_async(
             audio_path=audio_path,
             language=args.language,
+            use_llm_refinement=args.llm_refine,
             progress_callback=progress_cb,
         )
     finally:
@@ -336,6 +337,7 @@ def main() -> None:
     p_transcribe.add_argument("input", type=str, help="입력 영상/오디오 파일")
     p_transcribe.add_argument("-l", "--language", default="ko", help="언어 (기본: ko)")
     p_transcribe.add_argument("--chalna-url", type=str, help="Chalna API URL (기본: CHALNA_API_URL 환경변수 또는 http://localhost:7861)")
+    p_transcribe.add_argument("--llm-refine", action="store_true", default=False, help="LLM 텍스트 정제 활성화")
     p_transcribe.add_argument("-d", "--output-dir", type=str, help="출력 디렉토리")
 
     # --- transcript-overview ---
