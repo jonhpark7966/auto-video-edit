@@ -50,6 +50,7 @@ def reason_to_edit_reason(reason: str) -> str:
         # Cut reasons
         "boring", "tangent", "repetitive", "long_pause",
         "crosstalk", "irrelevant", "filler", "dragging", "meta_comment",
+        "fumble", "retake_signal",
         # Keep reasons
         "funny", "witty", "chemistry", "reaction",
         "callback", "climax", "engaging", "emotional",

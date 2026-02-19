@@ -106,10 +106,10 @@ def _apply_podcast_principles(context_text: str) -> str:
         idx = context_text.index(generic_marker)
         context_text = context_text[:idx]
         context_text += "### 편집 원칙 (팟캐스트 하이라이트)\n"
-        context_text += "- 스토리라인의 핵심 순간(key_moments)과 클라이맥스는 반드시 유지\n"
         context_text += "- setup → payoff 쌍은 함께 유지 (setup만 있고 payoff가 없으면 둘 다 자르기)\n"
         context_text += "- 콜백 유머의 원본은 유지\n"
-        context_text += "- 중요도 낮은 챕터는 과감하게 자르기\n"
+        context_text += "- 챕터 importance와 핵심 순간은 참고용. 세그먼트 자체의 entertainment value가 최종 기준\n"
+        context_text += "- intro/outro/근황 토크/세팅 챕터의 세그먼트는 대부분 CUT 대상\n"
         context_text += "- 핵심 챕터라도 지루한 구간은 자르기 — 챕터 전체를 살릴 필요 없음"
     return context_text
 

@@ -22,6 +22,8 @@ class PodcastCutReason(str, Enum):
     FILLER = "filler"          # Filler words, "um", "uh", etc.
     DRAGGING = "dragging"      # Dragging on without a point, beating around the bush
     META_COMMENT = "meta_comment"  # Talk about the show itself, camera/mic setup, recording logistics
+    FUMBLE = "fumble"              # Stumbling, mispronunciation, self-correction
+    RETAKE_SIGNAL = "retake_signal"  # Explicit retake declaration ("다시", "잠깐만")
 
 
 class PodcastKeepReason(str, Enum):

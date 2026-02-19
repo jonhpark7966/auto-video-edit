@@ -88,7 +88,7 @@ def format_context_for_prompt(storyline: dict) -> str:
     # Key moments
     key_moments = storyline.get("key_moments", [])
     if key_moments:
-        lines.append("### 핵심 순간 (반드시 유지)")
+        lines.append("### 핵심 순간 (참고용)")
         for km in key_moments:
             seg_idx = km.get("segment_index", 0)
             km_type = km.get("type", "")
@@ -211,13 +211,11 @@ def format_podcast_context_for_prompt(storyline: dict) -> str:
         base = base[:idx]
 
     lines = [base.rstrip()]
-    lines.append("### 편집 원칙 (팟캐스트)")
-    lines.append("- 의존성이 있는 세그먼트는 함께 유지하세요 (setup을 자르면 payoff가 의미 없음)")
-    lines.append("- 핵심 순간은 반드시 유지하세요")
-    lines.append("- 지루해 보여도 이후 payoff가 있는 setup은 유지")
-    lines.append("- 콜백 유머의 원본을 자르면 안 됨")
-    lines.append("- Q&A 쌍은 함께 유지")
-    lines.append("- 고에너지 구간 사이의 쉼(breathing room)은 자르지 마세요")
-    lines.append("- 중요도 ≥ 7인 챕터는 보수적으로 편집하세요")
+    lines.append("### 편집 원칙 (팟캐스트 하이라이트)")
+    lines.append("- setup → payoff 쌍은 함께 유지 (setup만 있고 payoff가 없으면 둘 다 자르기)")
+    lines.append("- 콜백 유머의 원본은 유지")
+    lines.append("- 챕터 importance와 핵심 순간은 참고용. 세그먼트 자체의 entertainment value가 최종 기준")
+    lines.append("- intro/outro/근황 토크/세팅 챕터의 세그먼트는 대부분 CUT 대상")
+    lines.append("- 핵심 챕터라도 지루한 구간은 자르기 — 챕터 전체를 살릴 필요 없음")
 
     return "\n".join(lines)
