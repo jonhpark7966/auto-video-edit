@@ -20,6 +20,8 @@ class PodcastCutReason(str, Enum):
     CROSSTALK = "crosstalk"    # Overlapping speech that's hard to understand
     IRRELEVANT = "irrelevant"  # Content not relevant to viewers (TMI, inside jokes)
     FILLER = "filler"          # Filler words, "um", "uh", etc.
+    DRAGGING = "dragging"      # Dragging on without a point, beating around the bush
+    META_COMMENT = "meta_comment"  # Talk about the show itself, camera/mic setup, recording logistics
 
 
 class PodcastKeepReason(str, Enum):
