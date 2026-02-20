@@ -85,7 +85,7 @@ class TranscriptOverviewService:
             cmd,
             capture_output=True,
             text=True,
-            timeout=600,  # 10 min timeout (large transcripts)
+            timeout=1800,  # 30 min timeout (large transcripts need multiple LLM calls)
             cwd=str(script_dir),
         )
 
