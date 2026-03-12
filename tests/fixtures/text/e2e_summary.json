@@ -1,0 +1,14 @@
+{
+  "run_id": "20260207_192336",
+  "youtube_url": "https://youtube.com/live/tLkdtEyNAW0",
+  "start_time": "1:24:00",
+  "timings": {
+    "download": 5.9,
+    "transcribe": 1781.6,
+    "overview": 380.3,
+    "podcast_cut_review": 350.3,
+    "podcast_cut_final": 315.3,
+    "total": 2833.4
+  },
+  "completed_at": "2026-02-07T11:10:49.850128+00:00"
+}

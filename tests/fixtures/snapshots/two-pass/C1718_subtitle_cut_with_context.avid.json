@@ -1,0 +1,216 @@
+{
+  "name": "Subtitle Analysis - C1718_compressed",
+  "created_at": "2026-02-07T01:54:29.979311",
+  "updated_at": "2026-02-07T01:54:29.979320",
+  "source_files": [
+    {
+      "id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc",
+      "path": "/home/jonhpark/workspace/auto-video-edit/samples/C1718_compressed.mp4",
+      "original_name": "C1718_compressed.mp4",
+      "info": {
+        "duration_ms": 119619,
+        "width": 3840,
+        "height": 2160,
+        "fps": 23.976,
+        "sample_rate": 48000
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc_video",
+      "source_file_id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc",
+      "track_type": "video",
+      "offset_ms": 0
+    },
+    {
+      "id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc_audio",
+      "source_file_id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc",
+      "track_type": "audio",
+      "offset_ms": 0
+    }
+  ],
+  "transcription": null,
+  "edit_decisions": [
+    {
+      "range": {
+        "start_ms": 4860,
+        "end_ms": 7980
+      },
+      "edit_type": "mute",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "note": "첫 번째 테이크 인트로. seg 4에서 시작하는 세 번째 테이크가 더 완성된 흐름을 가지므로 제거.",
+      "active_video_track_id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc_video",
+      "active_audio_track_ids": [
+        "9e0c402e-a24f-5645-9d8e-be1a63149bcc_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 7980,
+        "end_ms": 10360
+      },
+      "edit_type": "mute",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "note": "첫 번째 테이크의 팀 소개. '후원'이라고 잘못 말함. seg 5의 '주제'가 정확한 표현.",
+      "active_video_track_id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc_video",
+      "active_audio_track_ids": [
+        "9e0c402e-a24f-5645-9d8e-be1a63149bcc_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 14660,
+        "end_ms": 17800
+      },
+      "edit_type": "mute",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "note": "두 번째 테이크 인트로. 단독 테이크로 끊기며 이후 흐름 없음. seg 4 이후 흐름이 훨씬 완성도 높음.",
+      "active_video_track_id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc_video",
+      "active_audio_track_ids": [
+        "9e0c402e-a24f-5645-9d8e-be1a63149bcc_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 57520,
+        "end_ms": 60060
+      },
+      "edit_type": "mute",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "note": "네 번째 테이크 인트로. seg 4와 동일한 내용. seg 4-16 흐름이 더 완성도 높음.",
+      "active_video_track_id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc_video",
+      "active_audio_track_ids": [
+        "9e0c402e-a24f-5645-9d8e-be1a63149bcc_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 60060,
+        "end_ms": 63240
+      },
+      "edit_type": "mute",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "note": "네 번째 테이크 팀 소개. seg 5와 동일 내용 반복.",
+      "active_video_track_id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc_video",
+      "active_audio_track_ids": [
+        "9e0c402e-a24f-5645-9d8e-be1a63149bcc_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 63240,
+        "end_ms": 64660
+      },
+      "edit_type": "mute",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "note": "네 번째 테이크 스킬톤 소개. seg 6과 동일 내용. '왔는데'로 끝나 seg 6의 '왔는데요'보다 덜 자연스러움.",
+      "active_video_track_id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc_video",
+      "active_audio_track_ids": [
+        "9e0c402e-a24f-5645-9d8e-be1a63149bcc_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 64660,
+        "end_ms": 66700
+      },
+      "edit_type": "mute",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "note": "네 번째 테이크 해커톤 설명. seg 7과 동일 내용 반복.",
+      "active_video_track_id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc_video",
+      "active_audio_track_ids": [
+        "9e0c402e-a24f-5645-9d8e-be1a63149bcc_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 69660,
+        "end_ms": 72780
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "클로드 스킬 설명 시도하다 문장이 중간에 끊김. '자동화하는' 이후 완결 안 됨.",
+      "active_video_track_id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc_video",
+      "active_audio_track_ids": [
+        "9e0c402e-a24f-5645-9d8e-be1a63149bcc_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 75360,
+        "end_ms": 79560
+      },
+      "edit_type": "mute",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "note": "핵심 순간(highlight)이지만 seg 26과 동일 내용. seg 26이 최종 테이크와 연결되는 흐름(seg 26-28 → 29-34 의존성)에 있으므로 seg 26 유지.",
+      "active_video_track_id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc_video",
+      "active_audio_track_ids": [
+        "9e0c402e-a24f-5645-9d8e-be1a63149bcc_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 81720,
+        "end_ms": 85200
+      },
+      "edit_type": "mute",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "note": "seg 22, 26과 동일 내용의 세 번째 반복. 제거.",
+      "active_video_track_id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc_video",
+      "active_audio_track_ids": [
+        "9e0c402e-a24f-5645-9d8e-be1a63149bcc_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 85200,
+        "end_ms": 88120
+      },
+      "edit_type": "mute",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "note": "'영상 편집을 자동화해' — seg 27과 동일 내용. seg 27이 최종 테이크 흐름에 포함되므로 제거.",
+      "active_video_track_id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc_video",
+      "active_audio_track_ids": [
+        "9e0c402e-a24f-5645-9d8e-be1a63149bcc_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 88120,
+        "end_ms": 89260
+      },
+      "edit_type": "mute",
+      "reason": "duplicate",
+      "confidence": 0.9,
+      "note": "'보려고 합니다' — seg 28과 동일. seg 27-28이 최종 흐름에 포함되므로 제거.",
+      "active_video_track_id": "9e0c402e-a24f-5645-9d8e-be1a63149bcc_video",
+      "active_audio_track_ids": [
+        "9e0c402e-a24f-5645-9d8e-be1a63149bcc_audio"
+      ],
+      "speed_factor": 1.0
+    }
+  ]
+}

@@ -4,6 +4,7 @@
 > 원칙: 외부 통합은 `avid-cli` 만 사용하고 `avid.*` 내부 모듈은 직접 import 하지 않는다.
 
 테스트 관점 요약 문서는 [TEST_API_SPECS.md](TEST_API_SPECS.md) 에서 관리한다.
+Provider model/effort 설정 표면은 [PROVIDER_RUNTIME_SPEC.md](PROVIDER_RUNTIME_SPEC.md) 에서 관리한다.
 Multicam and FCPXML stability are tracked in the same test-spec document.
 
 ## 범위
@@ -72,6 +73,36 @@ avid-cli <command> ...
 | `podcast-cut` | 팟캐스트/인터뷰 편집 | `artifacts.project_json`, `fcpxml`, `report`, `srt?` |
 | `reexport` | 기존 project JSON 재-export | `artifacts.project_json`, `fcpxml`, `srt?` |
 
+## Provider Runtime 표면
+
+AI provider 를 쓰는 명령은 아래 공통 옵션을 가진다.
+
+- `--provider <claude|codex>`
+- `--provider-model <string>`
+- `--provider-effort <string>`
+
+적용 대상:
+
+- `transcript-overview`
+- `subtitle-cut`
+- `podcast-cut`
+
+`doctor` 는 예외적으로 `--provider` 를 repeatable 로 받고, 생략 시 `claude` 와 `codex` 를 둘 다 검사한다.
+이때 `--provider-model`, `--provider-effort` 는 `--probe-providers` 와 단일 provider 지정 시만 허용한다.
+
+설정 해석 순서:
+
+1. CLI flag
+2. provider-specific env
+3. baked-in default
+
+현재 권장 기본 프로필:
+
+- `claude`: `claude-opus-4-6` + `medium`
+- `codex`: `gpt-5.4` + `medium`
+
+세부 규칙과 payload shape 는 [PROVIDER_RUNTIME_SPEC.md](PROVIDER_RUNTIME_SPEC.md) 를 source of truth 로 본다.
+
 ## 명령별 규칙
 
 ### `avid-cli version`
@@ -91,11 +122,17 @@ avid-cli version --json
 용도:
 - Python/ffmpeg/ffprobe/provider/Chalna 상태 확인
 - live dependency 가 실제로 준비되었는지 진단
+- 기본 실행은 provider binary 존재만 빠르게 확인
+- 정밀 확인이 필요하면 `--probe-providers` 로 아주 작은 실제 호출까지 수행
 
 예시:
 
 ```bash
-avid-cli doctor --provider claude --json
+avid-cli doctor --json
+```
+
+```bash
+avid-cli doctor --provider claude --probe-providers --provider-model claude-opus-4-6 --provider-effort medium --json
 ```
 
 최소 출력 예시:
@@ -110,9 +147,32 @@ avid-cli doctor --provider claude --json
     "ffprobe": true,
     "chalna": true,
     "provider": true
-  }
+  },
+  "provider_probe_requested": false,
+  "provider_probes": {},
+  "provider_configs": {
+    "claude": {
+      "provider": "claude",
+      "model": "claude-opus-4-6",
+      "effort": "medium"
+    }
+  },
+  "hints": [
+    "실제 Claude/Codex 호출까지 확인하려면 --probe-providers 를 사용하세요"
+  ]
 }
 ```
+
+`doctor` 추가 규칙:
+- 기본 `provider` check 는 `which claude` 같은 binary 존재 확인까지만 수행한다
+- 실제 Claude/Codex 호출은 `--probe-providers` 일 때만 수행한다
+- `doctor` 는 resolved `provider/model/effort` 를 payload 에 포함해야 한다
+- multi-provider 기본 실행에서는 `provider_configs` 를 반환하고 `provider_probes` 는 비워 둘 수 있다
+- single-provider probe 실행에서는 `provider_config`, `provider_probe` 도 함께 반환해야 한다
+- `--provider-model`, `--provider-effort` 는 `--probe-providers` 와 함께 provider CLI 까지 전달해 option parsing 도 같이 확인한다
+- 실패 시 어떤 probe 가 깨졌는지 `provider_probe` 또는 stderr 에 남긴다
+- `chalna` 는 현재 deep health API 가 없으므로 당장은 endpoint/binary 존재 수준만 본다
+- TODO: Chalna 가 실제 transcription health/test API 를 제공하면 `doctor` 는 실제 짧은 transcription probe 까지 수행해야 한다
 
 ### `avid-cli transcribe`
 
@@ -133,7 +193,7 @@ avid-cli transcribe sample.mp4 -l ko -d /tmp/out --json
 예시:
 
 ```bash
-avid-cli transcript-overview sample.srt -o /tmp/out/storyline.json --provider claude --json
+avid-cli transcript-overview sample.srt -o /tmp/out/storyline.json --provider claude --provider-model claude-opus-4-6 --provider-effort medium --json
 ```
 
 ### `avid-cli subtitle-cut`
@@ -147,7 +207,7 @@ avid-cli transcript-overview sample.srt -o /tmp/out/storyline.json --provider cl
 예시:
 
 ```bash
-avid-cli subtitle-cut lecture.mp4 --srt lecture.srt --context lecture.storyline.json -d /tmp/out --json
+avid-cli subtitle-cut lecture.mp4 --srt lecture.srt --context lecture.storyline.json -d /tmp/out --provider claude --provider-model claude-opus-4-6 --provider-effort medium --json
 ```
 
 ### `avid-cli podcast-cut`
@@ -161,7 +221,7 @@ avid-cli subtitle-cut lecture.mp4 --srt lecture.srt --context lecture.storyline.
 예시:
 
 ```bash
-avid-cli podcast-cut podcast.mp4 --srt podcast.srt --context podcast.storyline.json -d /tmp/out --json
+avid-cli podcast-cut podcast.mp4 --srt podcast.srt --context podcast.storyline.json -d /tmp/out --provider codex --provider-model gpt-5.4 --provider-effort medium --json
 ```
 
 ### `avid-cli reexport`

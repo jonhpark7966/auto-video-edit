@@ -1,0 +1,1431 @@
+{
+  "version": "1.0",
+  "source_srt": "/home/jonhpark/workspace/auto-video-edit/tests/e2e/data/20260207_192336/source.srt",
+  "total_segments": 633,
+  "total_duration_ms": 1789690,
+  "narrative_arc": {
+    "type": "lecture",
+    "summary": "헬릭스 01 데모를 통해 홀바디 제어가 왜 중요한지 설명한 뒤, 유사한 방향의 신생 로봇(파우나) 사례로 기술 스택과 산업 흐름을 정리한다.",
+    "flow": "오프닝 → 헬릭스 01 데모 → 기술 구조(시스템0/1/2) → 텔레옵 사례 → 파우나 로봇 소개 → 리포트 딥다이브 → 결론/전망",
+    "tone": "educational"
+  },
+  "chapters": [
+    {
+      "id": "ch_1",
+      "title": "오프닝·진행 세팅",
+      "start_segment": 1,
+      "end_segment": 14,
+      "start_ms": 0,
+      "end_ms": 29210,
+      "summary": "대화가 즉흥적으로 흘러가며 잠깐 정리(여기까지)하고, 서로 '재밌다/개꿀잼' 리액션으로 분위기를 띄운 뒤, 다음 파트로 넘어가기 위한 큐(다음 거)와 시작 지점(여기서부터)·진행 방식(이거 보고 하자)을 맞춘다.",
+      "role": "intro",
+      "importance": 6,
+      "topics": [
+        "오프닝 리액션",
+        "진행 정리",
+        "세그먼트 전환 큐",
+        "데모 시작 지점 안내",
+        "현장 톤(캐주얼·즉흥)"
+      ]
+    },
+    {
+      "id": "ch_2",
+      "title": "Figure Helix 01 데모 훑기(홀바디로 확장)",
+      "start_segment": 15,
+      "end_segment": 85,
+      "start_ms": 29210,
+      "end_ms": 232510,
+      "summary": "Figure의 Helix 01 VLA 데모를 ‘상체 고정-어퍼바디’였던 과거 시연과 비교하며, 이번에는 전신(홀바디)으로 확장된 점을 핵심 가치로 짚는다. 단순히 팔/손만 잘 쓰는 것을 넘어, 골반으로 밀고 발로 차서 들어 올리는 등 하지까지 활용하는 장면을 강조하며 ‘움직임이 필요한 현실 태스크’에서 의미가 커졌다고 해석한다. 동시에 “자율 작동” 주장에 대해 테스트 환경 오버피팅 가능성과 실제로는 텔레오퍼레이션이 섞였을 수 있다는 의심을 제기하며 데모의 신뢰도/일반화 문제를 예고한다.",
+      "role": "main_topic",
+      "importance": 8,
+      "topics": [
+        "Figure Helix 01",
+        "비전-랭귀지-액션(VLA) 모델",
+        "홀바디 컨트롤(전신 제어)",
+        "자유도(DoF)와 핸드/팔 관절",
+        "작업 범위(리치) 확장",
+        "골반/하지를 활용한 조작",
+        "한 발 밸런스",
+        "자율(autonomous) vs 텔레오퍼레이션",
+        "데모 신뢰성(오버피팅/테스트셋 의심)"
+      ]
+    },
+    {
+      "id": "ch_3",
+      "title": "헬릭스 01 기술 딥다이브: 이미테이션·밸런스·시스템 0/1/2",
+      "start_segment": 86,
+      "end_segment": 189,
+      "start_ms": 232829,
+      "end_ms": 519510,
+      "summary": "챕터는 ‘일반적인 VLA는 대부분 이미테이션 러닝(사람 데이터 복제)으로 끝나 밸런스 문제가 덜하다’는 대비에서 출발해, 헬릭스 01이 로코-매니퓰레이션/홀바디 컨트롤까지 포함하려면 별도의 저지연 안정화 계층(시스템 0)이 필요하다는 관점으로 확장된다. 시스템 2(장기 계획, 대형 모델)–시스템 1(세부 동작 출력, 중형 모델)에 시스템 0(휴먼라이크 안정 모션 트래킹, 소형 모델/고주파 루프)이 추가되며, 모델 크기와 주파수가 계층별로 다르다는 ‘구조적 설득’을 제시한다. 이후 발로 차기 같은 동작 데이터는 텔레오퍼레이션으로 얻었을 것이고, 로봇은 동작 수행과 동시에 자동 밸런스(몸틀림 보정 포함)를 맞춰야 한다는 논리로 ‘홀바디 텔레오퍼레이션’ 가설을 세운다. 촉각/팜캠 등 센서 추가가 조작 안정성을 크게 올린다는 데모를 언급하고, 시스템 0의 1kHz 구동·그립 포스 토큰 컨트롤 같은 디테일은 정확히 읽지 못해 추정/할루시네이션 가능성을 열어둔다. 마지막은 “오늘 핵심은 이게 전부가 아니다”라며, 왜 홀바디 텔레오퍼레이션을 강조하지 않았는지 의문을 던지고 다음 구간으로 넘어가는 티저로 마무리된다.",
+      "role": "deep_dive",
+      "importance": 8,
+      "topics": [
+        "헬릭스 01",
+        "이미테이션 러닝",
+        "로코-매니퓰레이션(Locomanipulation)",
+        "홀 바디 컨트롤(Whole-body control)",
+        "밸런스 제어",
+        "강화학습(RL)",
+        "MPC",
+        "시스템 0/1/2 아키텍처",
+        "주파수(Hz)·제어 루프",
+        "모델 파라미터 규모(10M/80M/7B)",
+        "휴먼라이크 스테이블 모션 트래킹",
+        "텔레오퍼레이션(teleop)",
+        "촉각(tactile)·팜캠(palm cam)",
+        "그립 포스 토큰 컨트롤",
+        "정보 비대칭/추정·할루시네이션 가능성"
+      ]
+    },
+    {
+      "id": "ch_4",
+      "title": "홀바디 텔레오퍼레이션 사례( VR·MPC )로 개념 정리",
+      "start_segment": 190,
+      "end_segment": 253,
+      "start_ms": 519510,
+      "end_ms": 697550,
+      "summary": "보스 다이내믹스의 홀바디 컨트롤 텔레오퍼레이션(특히 VR 기반) 사례를 보며, 단순 매니퓰레이션이 아니라 보행+조작이 결합된 로코-매니퓰레이션이라는 점을 강조한다. 사람과 로봇의 인바디먼트(질량/무게중심/관절 구조)가 달라 사람 관절값을 그대로 따라가면 넘어질 수 있으므로, 발 디딤 위치를 초록색 오버레이로 가이드하는 등 안정화 로직이 핵심이라고 짚는다. 특히 ‘한 발로도 버티며 텔레옵이 된다’는 지점이 시스템 제로(밸런스/안정화)의 정수라고 보고, 그 내부에 뉴턴역학 기반의 알고리즘(명시적으로 MPC 언급)이 있을 것이라 연결한다. 이어 Figure Helix의 시스템 제로가 뉴럴넷으로 대체되는지에 대한 불확실한 기억과, 테슬라 FSD처럼 많은 컨트롤 코드를 제거했다는 서사를 덧붙이며, 이 파트가 “홀바디 컨트롤 텔레옵까지”의 개념 정리임을 선언하고 다음 핵심 논제로 넘어갈 준비를 한다.",
+      "role": "case_study",
+      "importance": 8,
+      "topics": [
+        "홀바디 컨트롤(Whole-body control)",
+        "텔레오퍼레이션(teleoperation)",
+        "VR 기반 조작",
+        "로코-매니퓰레이션(loco-manipulation)",
+        "인바디먼트(embodiment) 차이",
+        "균형/무게중심 제어",
+        "발 디딤(foothold) 계획/가이드 오버레이",
+        "MPC(Model Predictive Control)",
+        "시스템 0/1/2 프레임",
+        "뉴럴넷이 컨트롤 코드를 대체한다는 내러티브",
+        "Figure Helix 언급",
+        "테슬라 FSD의 코드 제거 비유"
+      ]
+    },
+    {
+      "id": "ch_5",
+      "title": "새 주제: Fauna Robotics 'Sprout' 소개·시연 포인트",
+      "start_segment": 254,
+      "end_segment": 358,
+      "start_ms": 697710,
+      "end_ms": 971620,
+      "summary": "Fauna Robotics의 휴머노이드 로봇 ‘Sprout’를 처음 소개하며, 귀엽고 작은(약 107cm) 폼팩터를 ‘산업용’이 아닌 ‘연구·개발용 안전 플랫폼’으로 해석한다. 29DOF, 스펀지/소프트 접촉 기반의 안전성·컴플라이언스, 기본 네비게이션·SLAM, 안정적인 보행과 OOD(균형 붕괴) 상황 대응, 그리고 whole-body control 텔레옵과 로코-매니퓰레이션(RL 기반) 가능성을 핵심 데모 포인트로 짚는다. 중간에는 케이블/하드웨어 요소를 추정하며 스펙(22.7kg, 배터리 3~4시간, 교체 가능)과 논문 공개 사실을 언급하고, 현재는 일반 소비자용이 아니라 개발자/연구자 타깃임을 결론으로 정리한다.",
+      "role": "main_topic",
+      "importance": 8,
+      "topics": [
+        "Fauna Robotics",
+        "Sprout(스프라트) 소개",
+        "귀여운 디자인/친근한 폼팩터",
+        "연구자·개발자용 포지셔닝",
+        "29 DOF",
+        "컴플라이언스/안전 설계",
+        "로코모션 안정성",
+        "SLAM/기본 네비게이션",
+        "Whole-body control 텔레옵",
+        "로코-매니퓰레이션",
+        "RL(강화학습) 적용",
+        "3D 프린팅/커스터마이즈",
+        "스펙(22.7kg, 107cm)",
+        "배터리(3~4시간, 교체 가능)",
+        "논문/기술 공개(티징)"
+      ]
+    },
+    {
+      "id": "ch_6",
+      "title": "회사/팀·투자·판매 여부 등 배경 정보",
+      "start_segment": 359,
+      "end_segment": 392,
+      "start_ms": 973640,
+      "end_ms": 1073340,
+      "summary": "이 챕터는 제품 데모/기술 설명 사이에 회사의 신뢰도와 현재 사업 단계를 빠르게 보강한다. 설립(재작년 2월) 이후 약 2년간 스텔스였다가 최근 공개로 전환했으며, 뉴욕 기반이라는 점과 창업자(딥마인드 출신이라는 전언), Red Paint라는 인물 언급으로 배경을 덧붙인다. 또한 3천만 달러(약 500억 원) 투자 수령과 자율도/홀바디 컨트롤/텔레오 가능 같은 스펙을 짚지만, 가격과 판매 계획은 확인되지 않았고 아직 판매가 없을 수도 있다는 ‘사업화 미확정’ 톤으로 마무리된다.",
+      "role": "context",
+      "importance": 7,
+      "topics": [
+        "회사 설립 시점",
+        "스텔스 모드/공개 전환",
+        "뉴욕 기반",
+        "창업자 배경(딥마인드 출신 언급)",
+        "Red Paint(공동창업자/관련 인물 추정)",
+        "투자 유치(30M, 약 500억 원 언급)",
+        "자율도 레벨 비교(1 vs 6)",
+        "홀바디 컨트롤",
+        "텔레오퍼레이션(텔레오)",
+        "가격/판매 계획 불확실"
+      ]
+    },
+    {
+      "id": "ch_7",
+      "title": "테크니컬 리포트 기반 심층: RL 정책·텔레옵·SLAM·MCP/스테이트 구조",
+      "start_segment": 393,
+      "end_segment": 560,
+      "start_ms": 1076900,
+      "end_ms": 1594409,
+      "summary": "패널이 로봇의 테크니컬 리포트를 직접 열어보며 시스템 구성을 훑고, 자세(포지션)별로 분리 학습된 RL 정책을 스테이트 머신으로 전환/호출하는 구조라고 해석한다. 텔레오퍼레이션은 VR(메타 퀘스트) 기반 리타게팅으로 보이며, DAgger 스타일 개입을 통해 특정 구간에서 데이터를 수집하는 파이프라인 가능성도 언급한다. 또한 SLAM과 Hybrid A* 등 네비게이션 스택, MCP 제공 및 ‘명령→해당 스테이트 API 호출→정책 실행’ 형태의 비교적 전통적인(브이라이 단일 에이전트 이전) 구조를 긍정적으로 평가한다. 마지막엔 연구용으로 홀바디 컨트롤까지 번들된 플랫폼의 가치, 오픈소스/판매 혼합 모델 가능성, 그리고 투자·수익화에 대한 현실적 질문으로 톤이 이동한다.",
+      "role": "deep_dive",
+      "importance": 8,
+      "topics": [
+        "테크니컬 리포트(PDF) 기반 해설",
+        "강화학습(RL) 정책 분리(자세/포지션별)",
+        "스테이트 머신과 트랜지션 제약",
+        "게임 컨트롤러식 모드 전환(기어가기/점프 등)",
+        "VR 텔레오퍼레이션(리타게팅, Meta Quest, Unity)",
+        "DAgger 스타일 인터벤션/데이터 수집",
+        "SLAM 기반 네비게이션",
+        "Hybrid A* 경로계획",
+        "MCP/스킬 호출 기반 구조",
+        "홀바디 컨트롤/로코-매니퓰레이션 번들링",
+        "그리퍼 1DOF",
+        "오픈소스 여부/사업모델/투자금 논의"
+      ]
+    },
+    {
+      "id": "ch_8",
+      "title": "마무리: 홀바디 로코 매니퓰레이션 스택 전망·엔딩",
+      "start_segment": 561,
+      "end_segment": 633,
+      "start_ms": 1595290,
+      "end_ms": 1789690,
+      "summary": "대화는 마무리 국면으로 들어가며, 홀바디 텔레오퍼레이션 → 데이터 수집/학습 → 로코모션·로코 매니퓰레이션으로 이어지는 ‘홀바디 로코 매니퓰레이션 스택’의 흐름과 전망을 정리한다. 텔레옵을 지원하는 스택 위에 RL 기반 로코모션 모델 및 MPC/NPC 같은 규제·제어 알고리즘이 결합되어야 한다는 관점을 제시하고, 학습 후 최종 배포(인퍼런스) 단계에서도 균형/안전을 위해 이러한 저층 제어(척수반사에 비유)가 필요하다고 논쟁한다. 또한 휴머노이드/자율 시스템은 단일 빅모델의 엔드투엔드보다는 여러 모델이 비동기적으로 상호작용하며, VLM/상위 모델의 ‘무리한 출력’을 제어하는 가드 레이어 등 복잡한 스택이 중요해지고 이를 구현하는 회사가 늘어난다는 산업적 코멘트로 결론을 맺는다.",
+      "role": "outro",
+      "importance": 8,
+      "topics": [
+        "홀바디 로코 매니퓰레이션",
+        "홀바디 텔레오퍼레이션",
+        "텔레옵 스택",
+        "RL 기반 로코모션",
+        "MPC/NPC(규제·제어) 필요성",
+        "인퍼런스 시 안전/밸런스 레이어",
+        "비동기 멀티모델 아키텍처",
+        "가드 레이어",
+        "산업 트렌드(스택 구현 기업 증가, 인수 가능성)",
+        "엔딩/메타 토크"
+      ]
+    }
+  ],
+  "key_moments": [
+    {
+      "segment_index": 1,
+      "type": "setup",
+      "description": "즉흥적으로 말해버리는 흐름을 자각하며 진행을 정돈할 필요를 드러냄(현장성/프리토크 톤 설정).",
+      "chapter_id": "ch_1"
+    },
+    {
+      "segment_index": 3,
+      "type": "transition",
+      "description": "\"여기까지 하고요\"로 오프닝/잡담 구간을 명시적으로 컷, 다음 챕터로 넘어갈 준비.",
+      "chapter_id": "ch_1"
+    },
+    {
+      "segment_index": 4,
+      "type": "highlight",
+      "description": "\"개꿀잼\" 반복과 감사/수긍으로 호스트-게스트 케미를 빠르게 강화(시청자 기대감 상승).",
+      "chapter_id": "ch_1"
+    },
+    {
+      "segment_index": 8,
+      "type": "highlight",
+      "description": "\"제가 생각한 겁니다\"로 주도권/기획자의 자신감을 짧게 어필(이후 데모/구조 설명의 신뢰도 장치).",
+      "chapter_id": "ch_1"
+    },
+    {
+      "segment_index": 11,
+      "type": "transition",
+      "description": "\"여기서부터 하시면 됩니다\"로 실제 본편(데모/설명) 시작 타임코드 기준점을 제공.",
+      "chapter_id": "ch_1"
+    },
+    {
+      "segment_index": 13,
+      "type": "setup",
+      "description": "\"이거 보고 하자\"로 참고자료/가이드 기반 진행을 합의(다음 챕터의 설명 방식 예고).",
+      "chapter_id": "ch_1"
+    },
+    {
+      "segment_index": 22,
+      "type": "context",
+      "description": "블로그/유튜브/트위터로 바이럴 중이라고 언급하며 ‘지금 화제인 데모’라는 프레이밍을 깐다.",
+      "chapter_id": "ch_2"
+    },
+    {
+      "segment_index": 29,
+      "type": "setup",
+      "description": "이전에도 Helix 01을 봤지만 그때는 ‘상체만(하체 고정)’이었다고 비교 기준을 확립한다.",
+      "chapter_id": "ch_2"
+    },
+    {
+      "segment_index": 36,
+      "type": "detail",
+      "description": "손/팔 자유도(DoF) 이야기를 꺼내며, 상체만으로도 난도가 높았다는 전제를 깐다(수치 혼선 포함).",
+      "chapter_id": "ch_2"
+    },
+    {
+      "segment_index": 44,
+      "type": "highlight",
+      "description": "식기세척기/테이블 작업처럼 보이는 ‘물체 이동/배치’ 장면을 예로 들며 전신 동작의 실용성을 즉각 체감시키는 리액션이 나온다.",
+      "chapter_id": "ch_2"
+    },
+    {
+      "segment_index": 47,
+      "type": "insight",
+      "description": "‘제자리에서만 가능한 태스크’보다 ‘조금이라도 움직여야 하는 태스크’가 많다는 논리로, 홀바디의 의미를 기능적으로 정의한다.",
+      "chapter_id": "ch_2"
+    },
+    {
+      "segment_index": 54,
+      "type": "thesis",
+      "description": "핵심 선언: Figure가 홀바디 컨트롤하는 VLA 모델을 본격적으로 보여주기 시작했다.",
+      "chapter_id": "ch_2"
+    },
+    {
+      "segment_index": 61,
+      "type": "highlight",
+      "description": "골반 움직임이 ‘킥인’ 포인트라고 짚으며, 제작사가 그 부분을 잘라 자랑할 정도로 핵심 장면임을 강조한다.",
+      "chapter_id": "ch_2"
+    },
+    {
+      "segment_index": 69,
+      "type": "highlight",
+      "description": "발로 차서 물체를 다루는 장면을 집어 ‘하지 조작’으로 확장된 전신 능력을 보여준다.",
+      "chapter_id": "ch_2"
+    },
+    {
+      "segment_index": 73,
+      "type": "insight",
+      "description": "발로 까는 순간 원래는 넘어져야 하는데, 한 발로도 균형을 유지한다는 설명으로 ‘동적 밸런스’ 난도를 부각한다.",
+      "chapter_id": "ch_2"
+    },
+    {
+      "segment_index": 77,
+      "type": "claim",
+      "description": "‘텔레오퍼레이션이 아니라 자율’이라고 선을 그어 데모의 가치(모델 역량)를 최대치로 주장한다.",
+      "chapter_id": "ch_2"
+    },
+    {
+      "segment_index": 79,
+      "type": "skepticism",
+      "description": "바로 이어 테스트셋 오버피팅 가능성을 언급해 ‘자율 주장’의 일반화/재현성에 의문을 남긴다.",
+      "chapter_id": "ch_2"
+    },
+    {
+      "segment_index": 83,
+      "type": "hook",
+      "description": "“몇 개나 텔레오퍼레이션 했을까?”라는 질문으로 데모 제작 과정(사람 개입)을 추궁하며 다음 논의로 넘긴다.",
+      "chapter_id": "ch_2"
+    },
+    {
+      "segment_index": 86,
+      "type": "transition",
+      "description": "‘여기서부터 복잡해진다’로 기술 딥다이브(구조 설명) 모드로 전환.",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 89,
+      "type": "explanation",
+      "description": "일반 VLA/헬릭스류를 ‘거의 이미테이션 러닝’으로 규정하며 비교 프레임(복제 vs 제어)을 세팅.",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 92,
+      "type": "insight",
+      "description": "상체 고정 조작은 밸런스 문제가 작다는 전제를 깔아 ‘왜 홀바디가 어려운가’를 직관적으로 설명.",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 94,
+      "type": "context",
+      "description": "밸런스는 보통 RL/MPC로 푼다는 업계 관례를 끌어와, 헬릭스의 차별점(단순 IL만으로는 부족)을 강조.",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 100,
+      "type": "highlight",
+      "description": "홀바디 컨트롤을 위해 ‘시스템 0’이라는 별도 계층을 인지했다고 밝히며 핵심 구조(0/1/2)로 진입.",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 108,
+      "type": "architecture",
+      "description": "기존은 시스템 2(롱 호라이즌 플래닝)–시스템 1(세부 액션 출력) 2계층이었다고 정리.",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 114,
+      "type": "insight",
+      "description": "계층별로 주파수/모델 크기가 다르다는 ‘시스템 분업’ 근거 제시(설계의 그럴듯함을 올리는 포인트).",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 129,
+      "type": "detail",
+      "description": "시스템 0는 10M급 ‘엄청 작은 모델’로 언급되며, 저지연 안정화 전용 모듈이라는 인상을 강화.",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 135,
+      "type": "highlight",
+      "description": "VLA가 사람 동작 크로닝을 넘어 홀바디 컨트롤까지 들어온다는 결론—챕터의 핵심 주장.",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 139,
+      "type": "qna",
+      "description": "‘발로 차는 데이터는 어떻게 얻나’ 질문으로 데이터 수집/학습 파이프라인(teleop) 논의로 확장.",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 145,
+      "type": "insight",
+      "description": "발차기 같은 동작은 ‘밸런스를 잡아주면서’ 수행해야 하고 몸체 틀림까지 보정해야 한다는 난이도 명시.",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 151,
+      "type": "inference",
+      "description": "결과적으로 ‘홀바디 자동 밸런스 포함 텔레오퍼레이션’을 구현했을 것이라는 가설을 못 박음.",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 156,
+      "type": "clarification",
+      "description": "실제 로코-매니퓰레이션 텔레오프는 영상에서 명확히 보여주지 않았다고 인정(정보 공백 표시).",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 166,
+      "type": "demo_reference",
+      "description": "촉각/추가 센서 유무에 따른 병뚜껑 조작 안정성 차이를 언급—센서의 ‘체감 효과’ 구간.",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 176,
+      "type": "detail",
+      "description": "시스템 0가 1kHz로 돈다는 언급—‘고주파 안정화 루프’ 인상을 극대화하는 숫자 포인트.",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 180,
+      "type": "uncertainty",
+      "description": "디테일(포스 토큰/컨트롤)은 할루시네이션일 수 있다고 선제적으로 방어—신뢰도 경계선 표시.",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 183,
+      "type": "tease",
+      "description": "‘오늘 하고 싶은 건 이게 전부가 아니다’로 다음 논점(리포트/더 큰 구조) 예고.",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 185,
+      "type": "hook",
+      "description": "‘왜 홀바디 텔레오퍼레이션 자랑을 안 했을까?’라는 미스터리 훅으로 다음 전개 동기 부여.",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 191,
+      "type": "setup",
+      "description": "보스 다이내믹스 홀바디 컨트롤을 처음 보고 ‘진짜 되는구나’라고 느낀 개인적 체감으로 관심의 당위성을 깐다.",
+      "chapter_id": "ch_4"
+    },
+    {
+      "segment_index": 204,
+      "type": "definition",
+      "description": "이 사례를 ‘홀바디 컨트롤을 텔레오퍼레이션하는 것(=VR로)’이라고 한 문장으로 개념 규정한다.",
+      "chapter_id": "ch_4"
+    },
+    {
+      "segment_index": 208,
+      "type": "mechanism",
+      "description": "사람 발 움직임을 추종해 로봇 보행이 따라가는 구조를 설명하며, 텔레옵이 ‘몸 전체’로 확장되는 포인트를 만든다.",
+      "chapter_id": "ch_4"
+    },
+    {
+      "segment_index": 209,
+      "type": "reframe",
+      "description": "‘그냥 매니퓰레이션’이 아니라 ‘로코-매니퓰레이션’이라고 명명해 난이도와 기술 범주를 상향 재정의한다.",
+      "chapter_id": "ch_4"
+    },
+    {
+      "segment_index": 214,
+      "type": "insight",
+      "description": "인바디먼트 차이 때문에 사람 관절값을 그대로 매핑하면 로봇이 넘어질 수 있다는 핵심 제약(왜 안정화 계층이 필요한가)을 제시한다.",
+      "chapter_id": "ch_4"
+    },
+    {
+      "segment_index": 218,
+      "type": "highlight",
+      "description": "발 디딤 위치를 오버레이로 보여주고 그걸 기반으로 이동하는 방식이 ‘균형을 유지하는 안내/계획’의 구체 구현으로 제시된다.",
+      "chapter_id": "ch_4"
+    },
+    {
+      "segment_index": 223,
+      "type": "peak",
+      "description": "‘정수/개쩌는 지점’으로 톤이 올라가며, 무엇이 혁신인지(밸런스 유지한 텔레옵)를 관객의 시선을 한 곳에 모은다.",
+      "chapter_id": "ch_4"
+    },
+    {
+      "segment_index": 225,
+      "type": "highlight",
+      "description": "한 발로도 균형을 잡으며 텔레오퍼레이션이 성립하는 장면을 가장 강한 성능 증거로 채택한다.",
+      "chapter_id": "ch_4"
+    },
+    {
+      "segment_index": 227,
+      "type": "framework_link",
+      "description": "이 균형/안정화 능력을 ‘시스템 제로’로 위치시키며, 앞선 시스템 0/1/2 구조와 직접 접속한다.",
+      "chapter_id": "ch_4"
+    },
+    {
+      "segment_index": 232,
+      "type": "technical_callout",
+      "description": "여기서는 MPC라고 명확히 말했다고 확인하면서, 시스템 제로의 내부가 물리/최적화 기반일 수 있음을 못 박는다.",
+      "chapter_id": "ch_4"
+    },
+    {
+      "segment_index": 247,
+      "type": "analogy",
+      "description": "테슬라 FSD의 ‘컨트롤 코드 제거’ 서사를 끌어와, Figure(헬릭스)에서도 뉴럴넷이 전통 제어를 대체했을 가능성을 내러티브로 확장한다.",
+      "chapter_id": "ch_4"
+    },
+    {
+      "segment_index": 252,
+      "type": "wrap",
+      "description": "이 파트를 ‘홀바디 컨트롤 텔레옵까지의 개념 정리’로 수렴시키고 다음 논점(오늘 진짜 하고 싶은 이야기)으로 전환한다.",
+      "chapter_id": "ch_4"
+    },
+    {
+      "segment_index": 254,
+      "type": "context",
+      "description": "새 스타트업 ‘Fauna Robotics’ 등장으로 화제 전환(새 주제 진입).",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 257,
+      "type": "highlight",
+      "description": "첫인상을 ‘귀엽다/친근하다’로 규정해 이후 포지셔닝(안전·비산업용) 해석의 톤을 깔아둠.",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 270,
+      "type": "spec",
+      "description": "29 DOF 언급으로 ‘장난감 같아 보여도’ 기술적 스펙을 갖춘 로봇임을 확인.",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 271,
+      "type": "demo",
+      "description": "발/소재를 스펀지로 추정하며 소음·안전·접촉 친화 설계를 암시.",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 274,
+      "type": "highlight",
+      "description": "외형/부품 커스터마이즈 가능(3D 프린팅/모듈)로 ‘연구 플랫폼’ 성격을 강화.",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 281,
+      "type": "demo",
+      "description": "로코모션을 ‘잘한다/잘 걸어 다닌다’로 강조하며 데모의 중심을 보행 안정성으로 둠.",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 285,
+      "type": "context",
+      "description": "키/스케일을 ‘유니트리 같은 느낌, 1m 조금 넘는’으로 비교해 시청자 기준점을 제공.",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 286,
+      "type": "highlight",
+      "description": "유니트리 ‘지원 역할(연구용)’로 트레이닝 중이라는 설명으로 존재 이유를 명확화.",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 296,
+      "type": "demo",
+      "description": "밀면 밀리고 다시 반응하며 ‘안 자빠진다’는 안전·컴플라이언스 데모(인간-로봇 공존 강조).",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 300,
+      "type": "highlight",
+      "description": "OOD(균형 붕괴) 상황에서 기존 로봇이 ‘발작’하는 문제를 대비시키며 Sprout의 안정성을 장점으로 설명.",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 303,
+      "type": "spec",
+      "description": "기본 네비게이션/SLAM까지 갖춘 것으로 보인다고 언급해 ‘보행만’이 아닌 시스템 완성도를 시사.",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 310,
+      "type": "highlight",
+      "description": "Whole-body control 텔레옵 데모를 ‘어렵다고 생각했는데 하더라’로 평가하며 기술 레벨을 끌어올림.",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 314,
+      "type": "context",
+      "description": "1월 28일 공개, 아직 널리 알려지지 않았다는 코멘트로 ‘숨은 강자/초기 발굴’ 서사를 형성.",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 341,
+      "type": "spec",
+      "description": "정량 스펙 확인: 22.7kg.",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 345,
+      "type": "spec",
+      "description": "정량 스펙 확인: 107cm, 한 손으로 들 수 있다는 언급으로 ‘휴대/취급 용이’ 장점을 부각.",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 348,
+      "type": "highlight",
+      "description": "논문 공개(만드는 법) 언급으로 이후 ‘리포트 딥다이브’ 파트의 근거 자료를 예고.",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 353,
+      "type": "highlight",
+      "description": "옵티머스/피규어와 ‘완전히 다른’ 계열로 규정하며 비교축을 ‘산업용 경쟁’에서 ‘안전한 연구 플랫폼’으로 이동.",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 358,
+      "type": "highlight",
+      "description": "배터리 3~4시간, 로코-매니퓰레이션 가능, RL 기반, 소비자용이 아닌 개발자/연구자용이라는 최종 포지셔닝 결론.",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 360,
+      "type": "context",
+      "description": "설립 시점(재작년 2월)과 ‘이제 2년 됨’으로 회사 연차를 규정",
+      "chapter_id": "ch_6"
+    },
+    {
+      "segment_index": 361,
+      "type": "highlight",
+      "description": "2년 스텔스 후 ‘일주일도 안 된’ 최근 공개 전환을 강조(시장에 막 등장한 회사라는 프레이밍)",
+      "chapter_id": "ch_6"
+    },
+    {
+      "segment_index": 366,
+      "type": "context",
+      "description": "뉴욕 기반이라는 지리적 포지셔닝(네트워크/인재풀/투자 환경 암시)",
+      "chapter_id": "ch_6"
+    },
+    {
+      "segment_index": 368,
+      "type": "highlight",
+      "description": "창업자 ‘딥마인드 출신’ 언급으로 기술 신뢰도/엘리트 서사를 부여(단, 화자도 확신은 약함)",
+      "chapter_id": "ch_6"
+    },
+    {
+      "segment_index": 370,
+      "type": "context",
+      "description": "Red Paint를 ‘코파운더’로 듣고 확인하는 대목(인물/팀 정보 탐색 흐름)",
+      "chapter_id": "ch_6"
+    },
+    {
+      "segment_index": 382,
+      "type": "highlight",
+      "description": "투자 유치 규모(30M, 약 500억 원) 제시로 ‘자금력/검증’ 신호를 제공",
+      "chapter_id": "ch_6"
+    },
+    {
+      "segment_index": 385,
+      "type": "highlight",
+      "description": "자율도/홀바디 컨트롤 가능 등 기능 요약으로 제품 경쟁력 포인트를 재정렬",
+      "chapter_id": "ch_6"
+    },
+    {
+      "segment_index": 387,
+      "type": "comparison",
+      "description": "이전 언급된 다른 로봇(6자율도 손)과 대비해 ‘여긴 1자율도지만 홀바디 컨트롤’로 차별점을 재정의",
+      "chapter_id": "ch_6"
+    },
+    {
+      "segment_index": 390,
+      "type": "uncertainty",
+      "description": "가격을 못 찾았다고 명시하며 구매/도입 논의는 보류",
+      "chapter_id": "ch_6"
+    },
+    {
+      "segment_index": 392,
+      "type": "uncertainty",
+      "description": "아직 판매 계획이 없을 수도 있다는 가능성 제시(사업화 단계가 초기임을 재확인)",
+      "chapter_id": "ch_6"
+    },
+    {
+      "segment_index": 393,
+      "type": "setup",
+      "description": "‘논문/홈페이지/테크니컬 리포트’를 직접 보며 근거 기반으로 구조를 해설하겠다는 전환점.",
+      "chapter_id": "ch_7"
+    },
+    {
+      "segment_index": 412,
+      "type": "highlight",
+      "description": "포지션(자세)별 밸런스를 RL로 학습했고, 포지션마다 정책을 따로 학습했을 가능성을 제시(모드별 정책 스위칭).",
+      "chapter_id": "ch_7"
+    },
+    {
+      "segment_index": 422,
+      "type": "insight",
+      "description": "스테이트 머신 기반이라 트랜지션이 ‘모든 자세→모든 자세’로 즉시 연결되기 어렵다는 한계/제약을 짚음.",
+      "chapter_id": "ch_7"
+    },
+    {
+      "segment_index": 428,
+      "type": "highlight",
+      "description": "점프 가능 언급으로 데모 인상치 상승(능력치 서프라이즈).",
+      "chapter_id": "ch_7"
+    },
+    {
+      "segment_index": 436,
+      "type": "highlight",
+      "description": "VR 텔레오퍼레이션(리타게팅)과 SLAM 네비게이션 존재를 한 번에 연결하며 ‘현장 운용 스택’ 윤곽을 잡음.",
+      "chapter_id": "ch_7"
+    },
+    {
+      "segment_index": 463,
+      "type": "highlight",
+      "description": "Isaac Sim/Lab에서 RL 정책 학습, 스테이트 머신 트랜지션, Meta Quest+Unity 텔레옵, DAgger 개입 등 파이프라인을 항목 수준으로 재구성.",
+      "chapter_id": "ch_7"
+    },
+    {
+      "segment_index": 483,
+      "type": "highlight",
+      "description": "MCP 제공 및 ‘MCP가 “앉아” 호출→해당 스테이트로 이동→정책 실행’ 구조를 장점(스킬만 잘 깎으면 됨)으로 평가.",
+      "chapter_id": "ch_7"
+    },
+    {
+      "segment_index": 517,
+      "type": "highlight",
+      "description": "홀바디 컨트롤까지 포함된 번들링이 연구용 로코-매니퓰레이션에 매우 유리하다는 ‘구매/활용’ 관점의 결론.",
+      "chapter_id": "ch_7"
+    },
+    {
+      "segment_index": 540,
+      "type": "debate",
+      "description": "오픈소스/판매형 혼합 가능성과 사업모델(투자, 수익화)로 논점이 기술에서 비즈니스로 이동.",
+      "chapter_id": "ch_7"
+    },
+    {
+      "segment_index": 568,
+      "type": "highlight",
+      "description": "‘홀바디 텔레옵 → 학습 모델 → 로코 매니퓰레이션’으로 전환되는 큰 흐름을 결론처럼 요약하며 챕터의 논지를 확정한다.",
+      "chapter_id": "ch_8"
+    },
+    {
+      "segment_index": 577,
+      "type": "insight",
+      "description": "로코모션/로코 매니퓰레이션을 위해 ‘지원되는 텔레오퍼레이션 스택’이 선행되어야 한다고 스택 관점(전제조건)을 명시한다.",
+      "chapter_id": "ch_8"
+    },
+    {
+      "segment_index": 584,
+      "type": "debate",
+      "description": "데이터 수집 후 최종 배포 모델에서 MPC/NPC 같은 제어·규제 알고리즘이 인퍼런스 단계에 ‘필요한가’라는 핵심 쟁점을 제기한다.",
+      "chapter_id": "ch_8"
+    },
+    {
+      "segment_index": 592,
+      "type": "resolution",
+      "description": "인퍼런스 단계에서도 밸런스/안전을 위해 저층 제어가 ‘당연히 들어간다’는 입장으로 수렴하며(척수반사 비유), 계층형 스택의 필요성을 강화한다.",
+      "chapter_id": "ch_8"
+    },
+    {
+      "segment_index": 607,
+      "type": "architecture",
+      "description": "휴머노이드/자율 시스템은 단일 엔드투엔드 빅모델보다 ‘비동기 멀티모델 상호작용’ 구조가 현실적이라는 아키텍처 관점을 제시한다.",
+      "chapter_id": "ch_8"
+    },
+    {
+      "segment_index": 611,
+      "type": "highlight",
+      "description": "VLM/상위 모델의 위험한 동작 출력을 막는 ‘가드 레이어’ 필요성을 언급하며, 안전 레이어가 스택의 핵심 구성요소임을 부각한다.",
+      "chapter_id": "ch_8"
+    },
+    {
+      "segment_index": 614,
+      "type": "trend",
+      "description": "복잡한 스택을 구현하는 회사들이 늘고 있으며(때로는 인수가 목표일 수도), 생태계/산업 방향성으로 결론을 확장한다.",
+      "chapter_id": "ch_8"
+    },
+    {
+      "segment_index": 622,
+      "type": "bookend",
+      "description": "‘홀바디 텔레오퍼레이션이 들어오고 있다’로 최종 한 문장 정리(테마 재확인) 후 엔딩으로 닫는다.",
+      "chapter_id": "ch_8"
+    }
+  ],
+  "dependencies": [
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        11,
+        12,
+        13
+      ],
+      "payoff_segments": [],
+      "description": "시작 지점 지정 및 '이거(자료)'를 보고 진행하자는 합의 → 다음 챕터에서 데모/기술 구조를 더 정돈된 포맷으로 전개할 수 있는 기반.",
+      "strength": "strong"
+    },
+    {
+      "type": "context_bridge",
+      "setup_segments": [
+        3,
+        9,
+        10
+      ],
+      "payoff_segments": [],
+      "description": "\"여기까지\" 컷과 \"다음 거\" 큐 → 오프닝에서 본편(헬릭스 01 데모)으로 자연스럽게 전환하는 브리지 역할.",
+      "strength": "medium"
+    },
+    {
+      "type": "callback",
+      "setup_segments": [
+        23,
+        24,
+        25,
+        26,
+        27,
+        28
+      ],
+      "payoff_segments": [
+        29,
+        30,
+        32,
+        33,
+        34
+      ],
+      "description": "이전 바이럴/과거 시연 회상 → ‘그땐 상체 고정(어퍼바디 컨트롤)’이었다는 비교로 이번 데모의 확장 포인트를 선명화.",
+      "strength": "strong"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        47,
+        48,
+        49,
+        50,
+        51,
+        52
+      ],
+      "payoff_segments": [
+        54
+      ],
+      "description": "현실 태스크는 이동/범위 확장이 필요하다는 문제 제기 → 홀바디 VLA 데모의 ‘의미’로 결론화.",
+      "strength": "strong"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        61,
+        62,
+        63
+      ],
+      "payoff_segments": [
+        65,
+        69,
+        70,
+        75,
+        76
+      ],
+      "description": "골반/하지가 핵심이라는 예고 → ‘골반으로 밀기/발 조작/한 발 밸런스’로 전신 제어의 하이라이트를 증명.",
+      "strength": "strong"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        77,
+        78
+      ],
+      "payoff_segments": [
+        79,
+        80,
+        83
+      ],
+      "description": "자율 작동 주장으로 가치 극대화 → 곧바로 오버피팅/텔레옵 개입 가능성으로 신뢰성 검증 이슈를 열어 다음 챕터(텔레옵 사례/리포트 딥다이브)로 연결.",
+      "strength": "strong"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        89,
+        92
+      ],
+      "payoff_segments": [
+        135,
+        137
+      ],
+      "description": "‘IL 기반 크로닝’ 프레임(밸런스 문제 작음) → ‘헬릭스는 홀바디까지 간다’로 차별성 결론.",
+      "strength": "strong"
+    },
+    {
+      "type": "concept_dependency",
+      "setup_segments": [
+        108,
+        110,
+        112
+      ],
+      "payoff_segments": [
+        124,
+        129,
+        135
+      ],
+      "description": "시스템 2/1 역할 분담 이해가 있어야 시스템 0 추가의 의미(저지연 안정화/트래킹)를 납득 가능.",
+      "strength": "strong"
+    },
+    {
+      "type": "evidence_gap",
+      "setup_segments": [
+        151,
+        152
+      ],
+      "payoff_segments": [
+        156,
+        160
+      ],
+      "description": "‘홀바디 텔레오프 구현’ 가설 제시 → 실제 데모/정보가 제한적이라 확정은 어려움으로 제약 조건 발생.",
+      "strength": "medium"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        166,
+        167
+      ],
+      "payoff_segments": [
+        175,
+        178
+      ],
+      "description": "센서 유무에 따른 조작 품질 차이(현상) → 포스/그립 제어 토큰 같은 제어 인터페이스 추정으로 연결.",
+      "strength": "medium"
+    },
+    {
+      "type": "bridge_to_next_chapter",
+      "setup_segments": [
+        183,
+        185
+      ],
+      "payoff_segments": [
+        186,
+        188
+      ],
+      "description": "‘이게 전부가 아니다’와 ‘왜 안 자랑했나’ 문제제기 → 다음 자료/화면으로 넘어가며 후속 딥다이브를 예고.",
+      "strength": "strong"
+    },
+    {
+      "type": "concept_bridge",
+      "setup_segments": [
+        204,
+        209
+      ],
+      "payoff_segments": [
+        227,
+        232
+      ],
+      "description": "VR 기반 홀바디 텔레옵/로코-매니퓰레이션 정의 → 왜 별도의 안정화 계층(시스템 제로)과 MPC 같은 제어가 필요한지로 연결",
+      "strength": "strong"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        214,
+        215
+      ],
+      "payoff_segments": [
+        218,
+        225
+      ],
+      "description": "인바디먼트 불일치(직접 관절 추종 시 넘어짐)라는 제약 제시 → 발 디딤 가이드/한발 밸런스 같은 ‘안정화된 텔레옵’ 성능 포인트로 설득",
+      "strength": "strong"
+    },
+    {
+      "type": "cross_chapter_reference",
+      "setup_segments": [
+        236,
+        238
+      ],
+      "payoff_segments": [
+        252,
+        253
+      ],
+      "description": "시스템 0/1/2(및 시스템 제로) 프레임은 앞선 ‘기술 구조(시스템0/1/2)’ 챕터 이해를 전제로 하며, 여기서 텔레옵 사례로 그 프레임을 재확인한 뒤 다음 ‘리포트 딥다이브/결론’의 논지로 넘어가는 다리 역할을 한다.",
+      "strength": "medium"
+    },
+    {
+      "type": "analogy_dependency",
+      "setup_segments": [
+        247,
+        248
+      ],
+      "payoff_segments": [
+        249,
+        251
+      ],
+      "description": "테슬라 FSD의 ‘컨트롤 코드 제거’ 비유를 받아, Figure/Helix에서도 밸런스 제어 코드가 뉴럴넷으로 치환되었을 수 있다는 주장(혹은 추정)을 강화",
+      "strength": "medium"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        257,
+        265,
+        266
+      ],
+      "payoff_segments": [
+        356,
+        357,
+        358
+      ],
+      "description": "‘귀엽고 작다/장난감 같다’ 첫인상(설정) → ‘산업용이 아니라 안전한 연구자·개발자용’ 포지셔닝(회수).",
+      "strength": "strong"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        286,
+        299,
+        300,
+        301
+      ],
+      "payoff_segments": [
+        296,
+        298
+      ],
+      "description": "유니트리 지원 및 OOD 균형 붕괴 문제 제기(설정) → 밀어도 넘어지지 않는 안전/안정 데모(회수).",
+      "strength": "strong"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        308,
+        309,
+        310,
+        311
+      ],
+      "payoff_segments": [
+        358
+      ],
+      "description": "whole-body control 텔레옵 데모로 기술 난이도를 보여줌(설정) → ‘로코-매니퓰레이션/RL’까지 가능한 개발용 플랫폼이라는 결론(회수).",
+      "strength": "medium"
+    },
+    {
+      "type": "tease_future",
+      "setup_segments": [
+        348,
+        349,
+        350
+      ],
+      "payoff_segments": [
+        358
+      ],
+      "description": "논문 공개/제작 방식은 ‘이따가’로 미룸(티징) → 본 챕터 말미에서 연구·개발자용임을 확정해 다음 ‘리포트 딥다이브’로 연결.",
+      "strength": "medium"
+    },
+    {
+      "type": "cross_chapter_context",
+      "setup_segments": [],
+      "payoff_segments": [],
+      "description": "이 챕터는 앞선 ‘텔레옵/시스템 논의’의 연장선에서 Sprout를 사례로 꽂아 넣고, 뒤의 ‘리포트 딥다이브(논문/구조 분석)’로 넘어가기 위한 브릿지 역할을 함.",
+      "strength": "strong"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        360,
+        361,
+        366,
+        368,
+        382
+      ],
+      "payoff_segments": [
+        385,
+        387,
+        392
+      ],
+      "description": "‘신생/스텔스 해제/딥마인드 출신/투자 유치’로 신뢰도와 기대치를 세팅한 뒤, ‘홀바디 컨트롤·텔레오 가능하지만 자율도는 낮고 판매/가격은 미정’이라는 현실적 포지셔닝으로 제품의 현재 위치를 정리",
+      "strength": "strong"
+    },
+    {
+      "type": "bridge",
+      "setup_segments": [
+        366,
+        373,
+        377
+      ],
+      "payoff_segments": [
+        382
+      ],
+      "description": "행사에서 봤다는 목격/홈페이지 확인 가능 언급을 통해 ‘출처 기반 탐색’ 흐름을 만들고, 곧바로 투자 규모 같은 객관 정보로 연결",
+      "strength": "medium"
+    },
+    {
+      "type": "continuity",
+      "setup_segments": [
+        385,
+        386,
+        387
+      ],
+      "payoff_segments": [
+        389
+      ],
+      "description": "자율도 레벨 논의(다른 사례와 비교)가 ‘텔레오(원격조작)까지’라는 운용 방식으로 확장되어, 이후 텔레옵/운용 사례 챕터와 자연스럽게 접속",
+      "strength": "medium"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        393,
+        394,
+        403
+      ],
+      "payoff_segments": [
+        412,
+        422,
+        483,
+        517
+      ],
+      "description": "리포트/PDF를 근거로 삼겠다는 셋업 → RL 정책 분리·스테이트 트랜지션·MCP 호출·번들 가치로 구체적 구조 해석/평가로 페이오프.",
+      "strength": "strong"
+    },
+    {
+      "type": "within_chapter",
+      "setup_segments": [
+        412,
+        415
+      ],
+      "payoff_segments": [
+        417,
+        419,
+        422
+      ],
+      "description": "포지션별 RL 정책 가설 → 컨트롤러 입력에 따른 모드 전환(정책 스위칭)과 트랜지션 제약 설명으로 연결.",
+      "strength": "strong"
+    },
+    {
+      "type": "within_chapter",
+      "setup_segments": [
+        436,
+        438
+      ],
+      "payoff_segments": [
+        468,
+        470,
+        480,
+        482
+      ],
+      "description": "텔레옵/SLAM 언급 → 구현 디테일(Quest, Unity, DAgger 개입, Hybrid A*)로 확장.",
+      "strength": "medium"
+    },
+    {
+      "type": "cross_chapter",
+      "setup_segments": [
+        420,
+        496
+      ],
+      "payoff_segments": [
+        505,
+        506,
+        483
+      ],
+      "description": "이전 ‘모션을 상태로 쪼개서 스위칭’ 경험(브이라이 이전 방식)과 연결해, 본 챕터의 MCP/스테이트 아키텍처 평가를 정당화.",
+      "strength": "medium"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        517,
+        522
+      ],
+      "payoff_segments": [
+        540,
+        546,
+        552
+      ],
+      "description": "‘연구용으로 딱 좋다/사라’는 가치 주장 → 오픈소스/판매/투자 기반 수익화 질문으로 현실 검증.",
+      "strength": "medium"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        570,
+        571
+      ],
+      "payoff_segments": [
+        573,
+        577
+      ],
+      "description": "홀바디 텔레옵과 학습 모델의 등장(배경) → 로코 매니퓰레이션으로 넘어가는 ‘시작점 전환’ 및 텔레옵 스택 선행 조건(결론).",
+      "strength": "strong"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        578,
+        579
+      ],
+      "payoff_segments": [
+        592,
+        594
+      ],
+      "description": "스택 구성요소로 RL/제어 계층을 제시(가정) → 인퍼런스 단계에서 밸런스/안전을 위해 반드시 필요하다는 주장으로 확정(결론).",
+      "strength": "strong"
+    },
+    {
+      "type": "contrast",
+      "setup_segments": [
+        602,
+        605
+      ],
+      "payoff_segments": [
+        607,
+        610
+      ],
+      "description": "LLM/VLM의 ‘하나로 연결된’ 엔드투엔드 이미지(대비축) → 휴머노이드는 비동기 멀티모델 상호작용 스택이라는 관점(대비 결론).",
+      "strength": "medium"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        611,
+        613
+      ],
+      "payoff_segments": [
+        614
+      ],
+      "description": "가드 레이어 필요(문제 제기) → 복잡한 스택을 구현하는 회사들이 늘어나는 산업 흐름(확장 결론).",
+      "strength": "medium"
+    },
+    {
+      "type": "cross_chapter_reference",
+      "setup_segments": [
+        575
+      ],
+      "payoff_segments": [
+        577,
+        578
+      ],
+      "description": "이전 챕터에서의 데모/비교(‘비교가 보여졌다’)가 있어야 이 챕터의 ‘스택이 필요하다’는 종합 결론이 설득력을 가진다.",
+      "strength": "medium"
+    },
+    {
+      "type": "cross_chapter_reference",
+      "setup_segments": [
+        602
+      ],
+      "payoff_segments": [
+        607
+      ],
+      "description": "앞선 기술 구조(시스템 0/1/2), 텔레옵 사례, 리포트 딥다이브에서 축적한 ‘계층/모듈’ 관점이 이 챕터의 멀티모델 스택 결론을 뒷받침한다.",
+      "strength": "strong"
+    }
+  ],
+  "pacing_notes": {
+    "slow_sections": [
+      {
+        "start_segment": 9,
+        "end_segment": 14,
+        "note": "진행 지시/합의 중심이라 정보 밀도는 낮지만, 다음 챕터 진입 포인트를 명확히 해 편집 기준점으로 유용."
+      },
+      {
+        "start_segment": 18,
+        "end_segment": 21,
+        "note": "짧은 리액션/대화 정리 구간으로 정보 밀도가 낮다."
+      },
+      {
+        "start_segment": 36,
+        "end_segment": 43,
+        "note": "자유도(DoF) 계산/수치 혼선이 이어져 템포가 느려지지만, ‘상체만으로도 복잡했다’는 전제를 깔아준다."
+      },
+      {
+        "start_segment": 55,
+        "end_segment": 60,
+        "note": "바퀴/골반 위치를 찾는 대화로 잠시 분산되며, 다음 ‘골반이 핵심’ 포인트를 위한 완충 역할."
+      },
+      {
+        "start_segment": 102,
+        "end_segment": 107,
+        "note": "화면 조작/확대 시도와 잡담으로 정보 밀도가 낮아 흐름이 잠시 끊김."
+      },
+      {
+        "start_segment": 120,
+        "end_segment": 123,
+        "note": "‘잘 안 보인다/기억난다’ 등 확인 대화가 이어져 핵심 전개가 지연."
+      },
+      {
+        "start_segment": 160,
+        "end_segment": 174,
+        "note": "정보 부족 인정과 센서(촉각/팜캠) 추정 토론이 이어져 결론 진도가 느려짐(그래도 후반 디테일의 기반)."
+      },
+      {
+        "start_segment": 187,
+        "end_segment": 189,
+        "note": "클립/화면이 잘린 이슈로 전환이 매끄럽지 않음."
+      },
+      {
+        "start_segment": 195,
+        "end_segment": 202,
+        "note": "LBM/TRI 언급과 화면 확대 요청 등으로 논지가 잠시 분산되며 템포가 느려진다(이후 본론 진입 전 워밍업 구간)."
+      },
+      {
+        "start_segment": 236,
+        "end_segment": 242,
+        "note": "시스템 0/1/2/제로 프레임을 회상하며 정확히 기억 못하는 대화가 이어져 정보 밀도가 떨어진다."
+      },
+      {
+        "start_segment": 259,
+        "end_segment": 263,
+        "note": "오디오 확인(‘소리 안 나가죠?’)로 흐름이 잠깐 끊기며 정보 밀도가 낮음."
+      },
+      {
+        "start_segment": 321,
+        "end_segment": 326,
+        "note": "케이블/전선 추정 대화가 이어져 관찰은 늘지만 확정 정보가 적어 템포가 느려짐."
+      },
+      {
+        "start_segment": 330,
+        "end_segment": 340,
+        "note": "스펙 화면을 확대/조정하며 ‘별로 할 얘기 없다’로 정리되는 구간이라 에너지와 정보가 일시 하락."
+      },
+      {
+        "start_segment": 367,
+        "end_segment": 379,
+        "note": "창업자 정보가 ‘잘 모름/홈페이지 보면 알 수도’처럼 탐색·확인 톤으로 이어지고, 369의 과도한 반복/끊김(‘레…’)이 정보 밀도를 급격히 낮춰 템포가 처짐"
+      },
+      {
+        "start_segment": 393,
+        "end_segment": 407,
+        "note": "화면에서 안 보임→PDF 열기/확대 등 ‘자료 접근’ 대화가 길어져 정보 밀도가 낮음(하지만 이후 구조 설명의 전제)."
+      },
+      {
+        "start_segment": 473,
+        "end_segment": 479,
+        "note": "‘코스트가 뭐지?’처럼 용어 확인/모름 구간으로 흐름이 잠깐 끊김."
+      },
+      {
+        "start_segment": 537,
+        "end_segment": 560,
+        "note": "가격/오픈소스/사업모델/투자 얘기로 분기하며 기술 딥다이브의 템포가 완만해짐."
+      },
+      {
+        "start_segment": 561,
+        "end_segment": 567,
+        "note": "마무리로 넘어가는 가벼운 확인·잡담 구간(콘텐츠 밀도 낮음)."
+      },
+      {
+        "start_segment": 618,
+        "end_segment": 633,
+        "note": "촬영/편집 메타 대화와 인사로 마감(정보량 낮고 여운 정리)."
+      }
+    ],
+    "high_energy_sections": [
+      {
+        "start_segment": 4,
+        "end_segment": 8,
+        "note": "칭찬·자신감·리액션이 연속으로 터지며 텐션이 급상승(오프닝 훅/호감 형성 구간)."
+      },
+      {
+        "start_segment": 44,
+        "end_segment": 46,
+        "note": "구체 장면 언급(식기세척기/배치) + ‘개고수’ 반응으로 감탄이 터지는 구간."
+      },
+      {
+        "start_segment": 47,
+        "end_segment": 54,
+        "note": "홀바디의 ‘의미(현실 태스크는 이동 필요)’를 논리로 정리하고 핵심 선언까지 밀어붙인다."
+      },
+      {
+        "start_segment": 61,
+        "end_segment": 76,
+        "note": "골반 푸시→발 킥→한 발 밸런스로 난도/임팩트가 연속 상승하는 하이라이트."
+      },
+      {
+        "start_segment": 77,
+        "end_segment": 83,
+        "note": "자율 주장 직후 오버피팅·텔레옵 의심으로 긴장감을 만들며 ‘검증 프레임’으로 전환한다."
+      },
+      {
+        "start_segment": 86,
+        "end_segment": 101,
+        "note": "IL vs 밸런스 제어 대비를 빠르게 깔고 ‘시스템 0’ 필요성으로 핵심 논점 점프."
+      },
+      {
+        "start_segment": 108,
+        "end_segment": 138,
+        "note": "시스템 2/1/0 역할·모델 크기·주파수까지 구조적으로 설명하며 챕터의 메인 인사이트를 제공."
+      },
+      {
+        "start_segment": 139,
+        "end_segment": 155,
+        "note": "발차기 데이터/텔레오프 Q&A로 난이도(밸런스+몸체 보정)를 구체화해 몰입도가 상승."
+      },
+      {
+        "start_segment": 175,
+        "end_segment": 186,
+        "note": "1kHz·포스 토큰 등 ‘숫자/디테일’로 흥미를 끌고, “전부가 아니다/왜 안 자랑했나” 훅으로 텐션을 올림."
+      },
+      {
+        "start_segment": 208,
+        "end_segment": 218,
+        "note": "로코-매니퓰레이션 재정의와 인바디먼트 차이 설명이 연속으로 나오며 ‘왜 어려운가/무엇이 핵심인가’가 빠르게 정리된다."
+      },
+      {
+        "start_segment": 223,
+        "end_segment": 235,
+        "note": "한 발 밸런스 장면을 정점으로 감탄→시스템 제로 규정→MPC 확인까지 이어지며 이 챕터의 핵심 설득 구간이 된다."
+      },
+      {
+        "start_segment": 281,
+        "end_segment": 304,
+        "note": "보행 성능, 크기 비교, 유니트리 지원 목적, 안전/컴플라이언스, OOD 안정성, SLAM까지 핵심 가치가 연쇄적으로 제시됨."
+      },
+      {
+        "start_segment": 308,
+        "end_segment": 314,
+        "note": "whole-body control 텔레옵 데모 + 공개 시점 언급으로 ‘기술적 하이라이트’와 화제성이 동시에 상승."
+      },
+      {
+        "start_segment": 341,
+        "end_segment": 358,
+        "note": "무게/키/배터리/기능(RL·로코-매니퓰레이션)과 시장 포지셔닝을 한 번에 못 박는 결론 구간."
+      },
+      {
+        "start_segment": 381,
+        "end_segment": 392,
+        "note": "NYU/투자 규모/자율도·홀바디 컨트롤·텔레오/가격·판매 미정까지 ‘사업+스펙’ 핵심만 연속으로 던지며 정보 처리 속도가 빨라짐"
+      },
+      {
+        "start_segment": 412,
+        "end_segment": 427,
+        "note": "포지션별 RL 정책, 컨트롤러 기반 모드 전환, 트랜지션 제약 등 핵심 구조 인사이트가 연쇄적으로 나옴."
+      },
+      {
+        "start_segment": 436,
+        "end_segment": 443,
+        "note": "VR 텔레옵·리타게팅·SLAM 네비게이션까지 한 번에 ‘기능 스택’이 펼쳐져 이해도가 급상승."
+      },
+      {
+        "start_segment": 463,
+        "end_segment": 492,
+        "note": "Isaac 기반 RL 학습, Quest/Unity 텔레옵, DAgger 개입, Hybrid A*, MCP/스테이트 구조를 항목별로 조립하며 정리."
+      },
+      {
+        "start_segment": 517,
+        "end_segment": 534,
+        "note": "홀바디 컨트롤+로코-매니퓰레이션 번들링 가치와 연구 활용 시나리오가 명확해지는 ‘설득’ 구간."
+      },
+      {
+        "start_segment": 568,
+        "end_segment": 614,
+        "note": "홀바디 로코 매니퓰레이션 스택(텔레옵→학습→배포), RL·MPC/NPC 필요성, 멀티모델·가드 레이어까지 핵심 인사이트가 연속으로 제시되는 고밀도 구간."
+      }
+    ]
+  }
+}

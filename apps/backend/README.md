@@ -7,6 +7,8 @@
 
 - [CLI_INTERFACE.md](CLI_INTERFACE.md): 외부 통합에서 기대해도 되는 CLI 표면과 JSON/manifest 규칙
 - [TEST_API_SPECS.md](TEST_API_SPECS.md): CLI/HTTP 테스트 대상 스펙, 준비물, dependency 목록
+- [PROVIDER_RUNTIME_SPEC.md](PROVIDER_RUNTIME_SPEC.md): Claude/Codex model/effort 설정 표면, 기본 프로필, smoke/test 계획
+- [TEST_DATA_GUIDE.md](TEST_DATA_GUIDE.md): 현재 테스트 데이터 분류, canonical fixture 기준, 리뷰 순서
 - [TESTING.md](TESTING.md): 어떤 테스트를 어떤 순서로 만들고 어떻게 실행할지
 - [../../SPEC.md](../../SPEC.md): 제품/도메인 수준 스펙
 - [../../ARCHITECTURE.md](../../ARCHITECTURE.md): 서비스 계층과 데이터 흐름
@@ -17,7 +19,9 @@
 cd apps/backend
 pip install -e '.[dev,sync]'
 avid-cli version --json
-avid-cli doctor --provider claude --json
+avid-cli doctor --json
+avid-cli doctor --probe-providers --json
+avid-cli doctor --provider claude --probe-providers --provider-model claude-opus-4-6 --provider-effort medium --json
 ```
 
 ## 외부 통합 원칙

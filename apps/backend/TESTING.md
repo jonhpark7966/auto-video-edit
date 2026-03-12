@@ -7,6 +7,8 @@
 
 - [CLI_INTERFACE.md](CLI_INTERFACE.md)
 - [TEST_API_SPECS.md](TEST_API_SPECS.md)
+- [TEST_DATA_GUIDE.md](TEST_DATA_GUIDE.md)
+- [PROVIDER_RUNTIME_SPEC.md](PROVIDER_RUNTIME_SPEC.md)
 
 ## 왜 CLI부터 테스트하나
 
@@ -25,6 +27,8 @@
 
 범위:
 - pure helper 함수
+- provider config resolution
+- provider argv mapping
 - evaluation override 적용
 - extra source stripping
 - JSON payload 생성 규칙
@@ -54,6 +58,7 @@
 - `doctor` 로 실제 환경 진단
 - live Chalna 로 `transcribe`
 - live provider 로 `transcript-overview` / `subtitle-cut` / `podcast-cut`
+- provider smoke 는 가능한 한 짧은 prompt 와 저비용 설정으로 실행한다
 - `audio-offset-finder` 가 설치된 상태의 sync smoke
 
 특징:
@@ -69,6 +74,8 @@ apps/backend/tests/
     cli/
       test_version.py
       test_doctor.py
+      test_provider_resolution.py
+      test_provider_argv.py
       test_manifest_output.py
       test_reexport_logic.py
       test_multicam_contract.py
@@ -84,6 +91,7 @@ apps/backend/tests/
       test_cli_reexport_contract.py
   live/
     test_doctor_live.py
+    test_provider_profiles_live.py
     test_transcribe_live.py
     test_sync_live.py
 ```
@@ -94,6 +102,12 @@ apps/backend/tests/
 
 - `version --json` 이 유효한 JSON 을 반환하고 핵심 필드를 포함한다
 - `doctor --json` 이 `checks.python/ffmpeg/ffprobe/chalna/provider` 를 반환한다
+- 기본 `doctor --json` 은 provider binary 존재만 검사하고 `provider_probes` 는 비워 둔다
+- `doctor --probe-providers --json` 의 provider check 가 실제 작은 `claude`/`codex` 호출을 수행한다
+- `doctor --json` 결과에 resolved `provider/model/effort` 가 single-provider에서는 `provider_config`, multi-provider에서는 `provider_configs` 로 남는다
+- 기본 doctor 출력에는 정밀체크 안내 hint 가 포함된다
+- `doctor --json` 결과에 provider smoke 에 사용한 `model` 과 `reasoning_effort` 또는 동등 옵션 정보가 남는다
+- AI 명령들이 CLI flag > env > default 우선순위로 같은 provider config 를 해석한다
 - `--manifest-out` 이 stdout JSON 과 같은 payload 를 기록한다
 - `transcribe --json` 이 `artifacts.srt` 를 반환한다
 - `transcript-overview --json` 이 `artifacts.storyline` 을 반환한다
@@ -105,6 +119,9 @@ apps/backend/tests/
 
 ### P1: 구현 회귀를 막기 위한 것
 
+- Claude argv 가 `--model` / `--effort` 를 포함해 생성된다
+- Codex argv 가 `-m` / `-c model_reasoning_effort=...` 를 포함해 생성된다
+- provider-specific env 가 올바르게 해석된다
 - evaluation override 가 기존 overlapping decision 을 제거하고 human cut 을 다시 추가한다
 - `reexport` 가 기존 extra source 를 제거한 뒤 새 extra source 를 다시 붙인다
 - multicam case 에서 auto sync 와 manual offset 둘 다 기대대로 반영된다
@@ -117,6 +134,11 @@ apps/backend/tests/
 ### P2: live dependency 검증
 
 - `doctor` 가 실제 설치 환경을 통과한다
+- 기본 `doctor --json` 실행이 `claude` 와 `codex` binary 를 둘 다 확인한다
+- `doctor --probe-providers --json` 실행이 실제 Claude/Codex 호출까지 수행한다
+- provider live smoke 가 실제 API/auth/model/reasoning 옵션 조합으로 통과한다
+- baseline profile 은 `claude-opus-4-6 + medium`, `gpt-5.4 + medium` 으로 1회 이상 검증한다
+- TODO: Chalna 가 deep health/test API 를 제공하면 doctor live smoke 에 실제 transcription probe 를 추가한다
 - 작은 fixture 로 `transcribe` live smoke 가 통과한다
 - 작은 fixture 로 `transcript-overview` live smoke 가 통과한다
 - 작은 fixture 로 `subtitle-cut` 또는 `podcast-cut` live smoke 가 통과한다
@@ -192,14 +214,16 @@ PYTHONPATH=src pytest --cov=src/avid --cov-report=term-missing
 ## 구현 순서 제안
 
 1. `tests/unit/cli/test_version.py`
-2. `tests/unit/cli/test_doctor.py`
-3. `tests/unit/cli/test_manifest_output.py`
-4. `tests/unit/cli/test_reexport_logic.py`
-5. `tests/integration/cli/test_cli_contract.py`
-6. `tests/integration/cli/test_cli_reexport_contract.py`
-7. `tests/unit/export/test_fcpxml_multicam.py`
-8. `tests/unit/export/test_adjusted_srt_consistency.py`
-9. 마지막으로 `tests/live/*`
+2. `tests/unit/cli/test_provider_resolution.py`
+3. `tests/unit/cli/test_provider_argv.py`
+4. `tests/unit/cli/test_doctor.py`
+5. `tests/unit/cli/test_manifest_output.py`
+6. `tests/unit/cli/test_reexport_logic.py`
+7. `tests/integration/cli/test_cli_contract.py`
+8. `tests/integration/cli/test_cli_reexport_contract.py`
+9. `tests/unit/export/test_fcpxml_multicam.py`
+10. `tests/unit/export/test_adjusted_srt_consistency.py`
+11. 마지막으로 `tests/live/*`
 
 ## eogum 연결 전 완료 기준
 

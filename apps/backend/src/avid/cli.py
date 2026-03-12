@@ -21,6 +21,7 @@ from typing import Any
 
 from avid import __version__
 from avid.export.fcpxml import FCPXMLExporter
+from avid.provider_runtime import probe_provider, provider_config_payload, resolve_provider_config
 
 
 _VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".wmv"}
@@ -72,6 +73,10 @@ def _json_default(value: Any) -> Any:
     if isinstance(value, Path):
         return str(value)
     raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+def _provider_config_payload(provider: str, model: str | None = None, effort: str | None = None) -> dict[str, Any]:
+    return provider_config_payload(resolve_provider_config(provider, model=model, effort=effort))
 
 
 def _write_machine_output(args: argparse.Namespace, payload: dict[str, Any]) -> None:
@@ -147,7 +152,7 @@ async def cmd_transcribe(args: argparse.Namespace) -> dict[str, Any]:
     from avid.services.transcription import ChalnaTranscriptionService
 
     chalna_url = args.chalna_url
-    service = ChalnaTranscriptionService(base_url=chalna_url)
+    service = ChalnaTranscriptionService(base_url=chalna_url, timeout=3.0)
 
     print(f"음성 인식 시작 (Chalna API): {video_path.name}")
     print(f"  API: {service.base_url}")
@@ -218,6 +223,11 @@ async def cmd_transcript_overview(args: argparse.Namespace) -> dict[str, Any]:
     from avid.services.transcript_overview import TranscriptOverviewService
 
     service = TranscriptOverviewService()
+    provider_config = _provider_config_payload(
+        args.provider,
+        args.provider_model,
+        args.provider_effort,
+    )
 
     srt_path = Path(args.input).resolve()
     if not srt_path.exists():
@@ -228,13 +238,17 @@ async def cmd_transcript_overview(args: argparse.Namespace) -> dict[str, Any]:
 
     print(f"스토리 구조 분석 시작: {srt_path.name}")
     print(f"  콘텐츠 유형: {args.content_type}")
-    print(f"  프로바이더: {args.provider}")
+    print(f"  프로바이더: {provider_config['provider']}")
+    print(f"  모델: {provider_config['model']}")
+    print(f"  effort: {provider_config['effort']}")
 
     storyline_path = await service.analyze(
         srt_path=srt_path,
         output_path=output_path,
         content_type=args.content_type,
         provider=args.provider,
+        provider_model=args.provider_model,
+        provider_effort=args.provider_effort,
     )
 
     storyline = service.load_storyline(storyline_path)
@@ -256,6 +270,7 @@ async def cmd_transcript_overview(args: argparse.Namespace) -> dict[str, Any]:
             "dependencies": len(deps),
             "key_moments": len(kms),
         },
+        provider_config=provider_config,
     )
 
 
@@ -291,6 +306,11 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
     from avid.services.subtitle_cut import SubtitleCutService
 
     service = SubtitleCutService()
+    provider_config = _provider_config_payload(
+        args.provider,
+        args.provider_model,
+        args.provider_effort,
+    )
 
     video_path = Path(args.input).resolve()
     srt_path = Path(args.srt).resolve()
@@ -312,7 +332,9 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
 
     print(f"자막 분석 시작: {srt_path.name}")
     print(f"  비디오: {video_path.name}")
-    print(f"  프로바이더: {args.provider}")
+    print(f"  프로바이더: {provider_config['provider']}")
+    print(f"  모델: {provider_config['model']}")
+    print(f"  effort: {provider_config['effort']}")
     print(f"  모드: {export_mode} ({'모든 편집 적용' if export_mode == 'final' else '검토용 disabled'})")
     if context_path:
         print(f"  컨텍스트: {context_path.name}")
@@ -325,6 +347,8 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
         output_dir=output_dir,
         storyline_path=context_path,
         provider=args.provider,
+        provider_model=args.provider_model,
+        provider_effort=args.provider_effort,
         extra_sources=extra_sources,
         extra_offsets=extra_offsets,
     )
@@ -370,6 +394,7 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
         "subtitle-cut",
         artifacts=artifacts,
         stats={"edit_decisions": len(project.edit_decisions)},
+        provider_config=provider_config,
     )
 
 
@@ -379,6 +404,11 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
     from avid.services.podcast_cut import PodcastCutService
 
     service = PodcastCutService()
+    provider_config = _provider_config_payload(
+        args.provider,
+        args.provider_model,
+        args.provider_effort,
+    )
 
     audio_path = Path(args.input).resolve()
     srt_path = Path(args.srt).resolve() if args.srt else None
@@ -399,6 +429,9 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
     extra_sources, extra_offsets = _parse_extra_sources(args)
 
     print(f"팟캐스트 편집 시작: {audio_path.name}")
+    print(f"  프로바이더: {provider_config['provider']}")
+    print(f"  모델: {provider_config['model']}")
+    print(f"  effort: {provider_config['effort']}")
     if srt_path:
         print(f"  SRT: {srt_path.name}")
         print(f"  (자막 생성 건너뜀)")
@@ -419,6 +452,8 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
         export_mode=export_mode,
         storyline_path=context_path,
         provider=args.provider,
+        provider_model=args.provider_model,
+        provider_effort=args.provider_effort,
         extra_sources=extra_sources,
         extra_offsets=extra_offsets,
     )
@@ -451,6 +486,7 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
         "podcast-cut",
         artifacts=artifacts,
         stats={"edit_decisions": len(project.edit_decisions)},
+        provider_config=provider_config,
     )
 
 
@@ -632,19 +668,87 @@ async def cmd_doctor(args: argparse.Namespace) -> dict[str, Any]:
     from avid.services.transcription import ChalnaTranscriptionService
 
     chalna_url = args.chalna_url or os.environ.get("CHALNA_API_URL") or "http://localhost:7861"
-    provider = args.provider
+    requested_providers = list(dict.fromkeys(args.provider or ["claude", "codex"]))
+    probe_requested = bool(args.probe_providers)
+
+    if not probe_requested and (args.provider_model or args.provider_effort):
+        raise RuntimeError(
+            "--provider-model 과 --provider-effort 는 --probe-providers 와 함께 사용해야 합니다"
+        )
+    if len(requested_providers) != 1 and (args.provider_model or args.provider_effort):
+        raise RuntimeError(
+            "--provider-model 과 --provider-effort 는 정확히 하나의 --provider 와 함께 사용해야 합니다"
+        )
+
     checks = {
         "python": True,
         "ffmpeg": shutil.which("ffmpeg") is not None,
         "ffprobe": shutil.which("ffprobe") is not None,
-        "provider": shutil.which(provider) is not None if provider else True,
     }
 
-    service = ChalnaTranscriptionService(base_url=chalna_url)
+    service = ChalnaTranscriptionService(base_url=chalna_url, timeout=3.0)
     try:
         checks["chalna"] = await service.health_check()
     except Exception:
         checks["chalna"] = False
+
+    provider_checks: dict[str, bool] = {}
+    provider_probe_checks: dict[str, bool] = {}
+    provider_probes: dict[str, Any] = {}
+    provider_configs: dict[str, Any] = {}
+    hints: list[str] = []
+
+    single_provider = len(requested_providers) == 1
+
+    for provider in requested_providers:
+        model_override = args.provider_model if single_provider else None
+        effort_override = args.provider_effort if single_provider else None
+        provider_configs[provider] = _provider_config_payload(
+            provider,
+            model_override,
+            effort_override,
+        )
+        provider_checks[provider] = shutil.which(provider) is not None
+
+        if not probe_requested:
+            continue
+
+        if not provider_checks[provider]:
+            provider_probe_checks[provider] = False
+            provider_probes[provider] = {
+                "status": "failed",
+                "provider": provider,
+                "model": provider_configs[provider]["model"],
+                "reasoning_effort": provider_configs[provider]["effort"],
+                "source": provider_configs[provider]["source"],
+                "error": f"{provider} binary not found",
+            }
+            continue
+
+        try:
+            provider_probes[provider] = probe_provider(
+                provider,
+                model=model_override,
+                effort=effort_override,
+                timeout=60,
+            )
+            provider_probe_checks[provider] = True
+        except Exception as exc:
+            provider_probe_checks[provider] = False
+            provider_probes[provider] = {
+                "status": "failed",
+                "provider": provider,
+                "model": provider_configs[provider]["model"],
+                "reasoning_effort": provider_configs[provider]["effort"],
+                "source": provider_configs[provider]["source"],
+                "error": str(exc),
+            }
+
+    checks["provider"] = all(provider_checks.values()) if provider_checks else True
+    if probe_requested:
+        checks["provider"] = checks["provider"] and all(provider_probe_checks.values())
+    else:
+        hints.append("실제 Claude/Codex 호출까지 확인하려면 --probe-providers 를 사용하세요")
 
     ok = all(checks.values())
 
@@ -652,17 +756,42 @@ async def cmd_doctor(args: argparse.Namespace) -> dict[str, Any]:
         print("환경 진단 결과:")
         for name, passed in checks.items():
             print(f"  {name}: {'ok' if passed else 'failed'}")
+        for provider in requested_providers:
+            print(
+                f"  provider[{provider}]: "
+                f"{'ok' if provider_checks[provider] else 'failed'}"
+                f" ({'probe' if probe_requested else 'binary only'})"
+            )
+            print(f"    model: {provider_configs[provider]['model']}")
+            print(f"    effort: {provider_configs[provider]['effort']}")
+            if probe_requested and provider in provider_probes and not provider_probe_checks.get(provider, False):
+                print(f"    error: {provider_probes[provider].get('error')}")
         print(f"  chalna_url: {chalna_url}")
+        for hint in hints:
+            print(f"  hint: {hint}")
 
     payload = _payload(
         "doctor",
         checks=checks,
         chalna_url=chalna_url,
-        provider=provider,
+        provider_checks=provider_checks,
+        provider_probe_requested=probe_requested,
+        provider_probe_checks=provider_probe_checks,
+        provider_probes=provider_probes,
+        provider_configs=provider_configs,
+        requested_providers=requested_providers,
+        hints=hints,
     )
+    if single_provider:
+        only_provider = requested_providers[0]
+        payload["provider_config"] = provider_configs[only_provider]
+        if probe_requested and only_provider in provider_probes:
+            payload["provider_probe"] = provider_probes[only_provider]
 
     if not ok:
-        raise RuntimeError(json.dumps(payload, ensure_ascii=False, default=_json_default))
+        if args.json:
+            raise RuntimeError(json.dumps(payload, ensure_ascii=False, default=_json_default))
+        raise RuntimeError("doctor checks failed")
 
     return payload
 
@@ -689,6 +818,8 @@ def main() -> None:
     p_overview.add_argument("-o", "--output", type=str, help="출력 storyline JSON 경로")
     p_overview.add_argument("--content-type", choices=["lecture", "podcast", "auto"], default="auto", help="콘텐츠 유형 (기본: auto)")
     p_overview.add_argument("--provider", choices=["claude", "codex"], default="codex", help="AI 프로바이더 (기본: codex)")
+    p_overview.add_argument("--provider-model", type=str, help="provider model override")
+    p_overview.add_argument("--provider-effort", type=str, help="provider effort override")
     _add_machine_output_flags(p_overview)
 
     p_subcut = subparsers.add_parser("subtitle-cut", help="자막 기반 컷 편집")
@@ -696,6 +827,8 @@ def main() -> None:
     p_subcut.add_argument("--srt", type=str, required=True, help="SRT 자막 파일 (필수)")
     p_subcut.add_argument("--context", type=str, help="storyline.json 경로 (Pass 1 결과)")
     p_subcut.add_argument("--provider", choices=["claude", "codex"], default="codex", help="AI 프로바이더 (기본: codex)")
+    p_subcut.add_argument("--provider-model", type=str, help="provider model override")
+    p_subcut.add_argument("--provider-effort", type=str, help="provider effort override")
     p_subcut.add_argument("-o", "--output", type=str, help="출력 FCPXML 경로")
     p_subcut.add_argument("-d", "--output-dir", type=str, help="출력 디렉토리")
     p_subcut.add_argument("--final", action="store_true", help="최종 편집본 (모든 편집 적용, 기본: 검토용 disabled)")
@@ -708,6 +841,8 @@ def main() -> None:
     p_podcast.add_argument("--srt", type=str, help="SRT 자막 파일 (없으면 chalna로 생성)")
     p_podcast.add_argument("--context", type=str, help="storyline.json 경로 (Pass 1 결과)")
     p_podcast.add_argument("--provider", choices=["claude", "codex"], default="codex", help="AI 프로바이더 (기본: codex)")
+    p_podcast.add_argument("--provider-model", type=str, help="provider model override")
+    p_podcast.add_argument("--provider-effort", type=str, help="provider effort override")
     p_podcast.add_argument("-d", "--output-dir", type=str, help="출력 디렉토리")
     p_podcast.add_argument("--final", action="store_true", help="최종 편집본 (모든 편집 적용, 기본: 검토용 disabled)")
     p_podcast.add_argument("--extra-source", action="append", default=[], help="추가 소스 파일 (반복 가능)")
@@ -731,7 +866,10 @@ def main() -> None:
 
     p_doctor = subparsers.add_parser("doctor", help="실행 환경 진단")
     p_doctor.add_argument("--chalna-url", type=str, help="진단할 Chalna API URL")
-    p_doctor.add_argument("--provider", default="claude", help="확인할 AI provider CLI 이름 (기본: claude)")
+    p_doctor.add_argument("--provider", choices=["claude", "codex"], action="append", help="진단할 AI provider (기본: claude,codex 둘 다)")
+    p_doctor.add_argument("--probe-providers", action="store_true", help="provider binary 확인을 넘어서 실제 Claude/Codex 호출까지 수행")
+    p_doctor.add_argument("--provider-model", type=str, help="단일 provider probe 시 model override")
+    p_doctor.add_argument("--provider-effort", type=str, help="단일 provider probe 시 effort override")
     _add_machine_output_flags(p_doctor)
 
     args = parser.parse_args()

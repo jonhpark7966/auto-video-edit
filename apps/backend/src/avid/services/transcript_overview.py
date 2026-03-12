@@ -10,6 +10,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from avid.services.provider_env import build_provider_subprocess_env
+
 
 def _find_project_root() -> Path:
     """Find the project root (where skills/ lives)."""
@@ -44,6 +46,8 @@ class TranscriptOverviewService:
         output_path: Path | None = None,
         content_type: str = "auto",
         provider: str = "codex",
+        provider_model: str | None = None,
+        provider_effort: str | None = None,
     ) -> Path:
         """Analyze SRT and produce storyline JSON.
 
@@ -87,6 +91,11 @@ class TranscriptOverviewService:
             text=True,
             timeout=1800,  # 30 min timeout (large transcripts need multiple LLM calls)
             cwd=str(script_dir),
+            env=build_provider_subprocess_env(
+                provider,
+                model=provider_model,
+                effort=provider_effort,
+            ),
         )
 
         if result.returncode != 0:

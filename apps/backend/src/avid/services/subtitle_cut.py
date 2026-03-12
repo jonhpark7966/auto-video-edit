@@ -15,6 +15,7 @@ from pathlib import Path
 
 from avid.models.project import Project, Transcription, TranscriptSegment
 from avid.models.timeline import EditDecision, EditReason, EditType, TimeRange
+from avid.services.provider_env import build_provider_subprocess_env
 
 
 def _find_project_root() -> Path:
@@ -55,6 +56,8 @@ class SubtitleCutService:
         source_id: str | None = None,
         storyline_path: Path | None = None,
         provider: str = "codex",
+        provider_model: str | None = None,
+        provider_effort: str | None = None,
         extra_sources: list[Path] | None = None,
         extra_offsets: dict[str, int] | None = None,
     ) -> tuple[Project, Path]:
@@ -67,6 +70,8 @@ class SubtitleCutService:
             source_id: Optional source file ID
             storyline_path: Optional path to storyline.json from Pass 1
             provider: AI provider ("codex" or "claude")
+            provider_model: Optional provider model override
+            provider_effort: Optional provider effort override
             extra_sources: Additional media files to sync and include.
             extra_offsets: Manual offset overrides ``{filename: ms}``.
 
@@ -116,6 +121,11 @@ class SubtitleCutService:
             text=True,
             timeout=1800,
             cwd=str(script_dir),
+            env=build_provider_subprocess_env(
+                provider,
+                model=provider_model,
+                effort=provider_effort,
+            ),
         )
 
         if result.returncode != 0:

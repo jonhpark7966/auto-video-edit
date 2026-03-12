@@ -6,7 +6,9 @@
 ## 1. Source Of Truth
 
 - CLI 표면: [CLI_INTERFACE.md](CLI_INTERFACE.md)
+- provider 설정 표면: [PROVIDER_RUNTIME_SPEC.md](PROVIDER_RUNTIME_SPEC.md)
 - 테스트 계층/우선순위: [TESTING.md](TESTING.md)
+- 테스트 데이터 분류/리뷰 순서: [TEST_DATA_GUIDE.md](TEST_DATA_GUIDE.md)
 - 제품/도메인 스펙: [../../SPEC.md](../../SPEC.md)
 - 런타임 구조: [../../ARCHITECTURE.md](../../ARCHITECTURE.md)
 
@@ -66,7 +68,9 @@
 - 런타임 준비 상태 확인
 
 입력:
-- 선택: `--provider`
+- 선택: `--provider` (repeatable, 생략 시 claude+codex)
+- 선택: `--provider-model` (`--probe-providers` + 단일 provider 지정 시만 허용)
+- 선택: `--provider-effort` (`--probe-providers` + 단일 provider 지정 시만 허용)
 - 선택: `--chalna-url`
 
 검증할 성공 조건:
@@ -78,14 +82,30 @@
   - `ffprobe`
   - `chalna`
   - `provider`
+- multi-provider 기본 실행에서는 `provider_configs` 가 존재하고 `provider_probes` 는 비어 있거나 생략 가능
+- single-provider 실행에서는 `provider_config` 가 존재
+- `provider_config.provider` 가 요청 provider 와 일치
+- `provider_config.model` 이 resolved model 과 일치
+- `provider_config.effort` 가 resolved effort 와 일치
+- `--probe-providers` 사용 시 `provider_probe` 또는 동등한 상세 필드가 존재
+- `provider_probe.provider` 가 요청 provider 와 일치
+- smoke 호출에 사용한 `model`, `reasoning_effort` 또는 동등 옵션 정보가 결과에 남는다
+- provider smoke 가 실제 응답까지 도달했음을 확인할 수 있다
 
 검증할 실패 조건:
 - provider CLI 부재 시 non-zero exit
+- `--probe-providers` 사용 시 provider binary 는 있으나 실제 API/auth/model 호출이 실패하면 non-zero exit
+- `--provider-model` / `--provider-effort` 우선순위가 env/default 보다 낮게 해석되면 실패로 본다
+- multi-provider 기본 실행에서 generic override를 허용하면 실패로 본다
+- 요청한 `model` 또는 `reasoning_effort` 옵션이 무효이면 non-zero exit 또는 명시적 check failure
 - Chalna 비가동 시 non-zero exit
 - stderr 에 진단 payload 또는 실패 이유 존재
 
 필요 준비물:
 - live profile 에서는 실제 provider CLI
+- provider auth 가 설정된 shell environment
+- canonical smoke prompt fixture: `tests/fixtures/text/provider_smoke_prompt.txt`
+- provider smoke 에 쓸 최소 model 이름과 reasoning option 조합
 - live profile 에서는 실제 Chalna server
 
 의존성:
@@ -93,11 +113,42 @@
 - `ffmpeg`
 - `ffprobe`
 - `claude` or `codex`
+- provider API auth
 - Chalna
 
 권장 테스트 계층:
-- unit: payload shape / check aggregation
+- unit: payload shape / check aggregation / probe result formatting
 - live smoke: 실제 dependency 상태
+- TODO: Chalna 가 deep health/test API 를 제공하면 doctor live test 는 실제 transcription probe 까지 확장
+
+### 3.2a Provider runtime resolution
+
+목적:
+- provider 이름만이 아니라 model/effort 조합도 stable 하게 전달
+- model churn 시 코드 수정 없이 env/CLI 로 교체 가능하게 유지
+
+입력:
+- `--provider`
+- `--provider-model`
+- `--provider-effort`
+- provider-specific env
+
+검증할 성공 조건:
+- CLI flag > env > default 우선순위가 유지된다
+- `provider_config.source` 에 각 값의 해석 출처가 남는다
+- `transcript-overview`, `subtitle-cut`, `podcast-cut`, `doctor` 가 같은 resolution 규칙을 공유한다
+
+검증할 실패 조건:
+- provider별 env 를 잘못 섞어 읽으면 실패
+- model/effort 가 payload 에 누락되면 실패
+
+필요 준비물:
+- env override fixture
+- subprocess argv capture fixture
+
+권장 테스트 계층:
+- unit
+- CLI integration
 
 ### 3.3 `avid-cli transcribe`
 
@@ -148,6 +199,8 @@
 - 선택: `-o/--output`
 - 선택: `--content-type`
 - 선택: `--provider`
+- 선택: `--provider-model`
+- 선택: `--provider-effort`
 - 선택: `--json`
 - 선택: `--manifest-out`
 
@@ -183,6 +236,8 @@
 - `--srt`
 - 선택: `--context`
 - 선택: `--provider`
+- 선택: `--provider-model`
+- 선택: `--provider-effort`
 - 선택: `-o/--output`
 - 선택: `-d/--output-dir`
 - 선택: `--final`
@@ -234,6 +289,8 @@
 - 선택: `--srt`
 - 선택: `--context`
 - 선택: `--provider`
+- 선택: `--provider-model`
+- 선택: `--provider-effort`
 - 선택: `-d/--output-dir`
 - 선택: `--final`
 - 선택: `--extra-source`

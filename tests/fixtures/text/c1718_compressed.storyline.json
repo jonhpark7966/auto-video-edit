@@ -1,0 +1,209 @@
+{
+  "version": "1.0",
+  "source_srt": "/home/jonhpark/workspace/auto-video-edit/srcs/C1718_compressed.srt",
+  "total_segments": 35,
+  "total_duration_ms": 115060,
+  "narrative_arc": {
+    "type": "podcast",
+    "summary": "클로드 스킬톤(해커톤) 행사에 참석한 팀 어텐션이 네이버 D2SF에서 영상 편집 자동화 프로젝트를 소개하는 브이로그 스타일 인트로 영상. 여러 차례 테이크를 반복하며 최종 오프닝 멘트를 완성하는 과정이 담겨 있다.",
+    "flow": "리허설 테이크들 → 중간 테이크들 → 최종 오프닝 멘트 → 마무리",
+    "tone": "entertaining"
+  },
+  "chapters": [
+    {
+      "id": "ch_1",
+      "title": "첫 번째 테이크 (리허설)",
+      "start_segment": 1,
+      "end_segment": 2,
+      "start_ms": 4860,
+      "end_ms": 10360,
+      "summary": "첫 인사와 팀 소개 시도. 짧게 끊김.",
+      "role": "intro",
+      "importance": 3,
+      "topics": [
+        "인사",
+        "팀 소개",
+        "네이버 D2SF"
+      ]
+    },
+    {
+      "id": "ch_2",
+      "title": "두 번째 테이크",
+      "start_segment": 3,
+      "end_segment": 3,
+      "start_ms": 14660,
+      "end_ms": 17800,
+      "summary": "동일한 인사 멘트 재시도. 단독 테이크.",
+      "role": "intro",
+      "importance": 2,
+      "topics": [
+        "인사",
+        "재촬영"
+      ]
+    },
+    {
+      "id": "ch_3",
+      "title": "세 번째 테이크 (확장)",
+      "start_segment": 4,
+      "end_segment": 16,
+      "start_ms": 22020,
+      "end_ms": 48880,
+      "summary": "인사부터 해커톤 설명, 영상 편집 자동화 주제 소개, 다른 참가자에 대한 기대까지 완성된 흐름. 가장 자연스러운 초기 테이크.",
+      "role": "intro",
+      "importance": 7,
+      "topics": [
+        "클로드 스킬톤",
+        "해커톤",
+        "영상 편집 자동화",
+        "참가자 기대"
+      ]
+    },
+    {
+      "id": "ch_4",
+      "title": "네 번째 테이크 (재시도)",
+      "start_segment": 17,
+      "end_segment": 28,
+      "start_ms": 57520,
+      "end_ms": 104040,
+      "summary": "오프닝 멘트를 처음부터 다시 촬영. 클로드 스킬 설명 부분에서 여러 번 반복(세그먼트 21-27)하며 정확한 표현을 잡으려 함.",
+      "role": "intro",
+      "importance": 5,
+      "topics": [
+        "클로드 스킬",
+        "워크플로우 자동화",
+        "영상 편집"
+      ]
+    },
+    {
+      "id": "ch_5",
+      "title": "최종 테이크 (완성본)",
+      "start_segment": 29,
+      "end_segment": 35,
+      "start_ms": 104040,
+      "end_ms": 115060,
+      "summary": "다른 참가자들의 스킬 활용에 대한 기대를 표현하고 '렛츠고', '굿'으로 마무리. 최종 사용될 가능성이 높은 클로징 파트.",
+      "role": "outro",
+      "importance": 9,
+      "topics": [
+        "다른 참가자",
+        "스킬 활용",
+        "마무리"
+      ]
+    }
+  ],
+  "key_moments": [
+    {
+      "segment_index": 10,
+      "type": "highlight",
+      "description": "영상 편집 자동화라는 핵심 주제를 처음 명확히 언급하는 순간",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 16,
+      "type": "punchline",
+      "description": "'바로 가시죠' - 에너지 있는 전환 멘트",
+      "chapter_id": "ch_3"
+    },
+    {
+      "segment_index": 22,
+      "type": "highlight",
+      "description": "클로드 스킬이 워크플로우 자동화 도구라는 핵심 설명을 완성한 테이크",
+      "chapter_id": "ch_4"
+    },
+    {
+      "segment_index": 34,
+      "type": "punchline",
+      "description": "'렛츠고' - 최종 마무리 멘트, 영상 시작을 알리는 에너지 포인트",
+      "chapter_id": "ch_5"
+    },
+    {
+      "segment_index": 35,
+      "type": "emotional_peak",
+      "description": "'굿' - 촬영 완료에 대한 만족감 표현",
+      "chapter_id": "ch_5"
+    }
+  ],
+  "dependencies": [
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "payoff_segments": [
+        10,
+        11
+      ],
+      "description": "해커톤 소개(setup)가 있어야 영상 편집 자동화 주제 언급(payoff)이 맥락이 성립함",
+      "strength": "required"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        8,
+        9
+      ],
+      "payoff_segments": [
+        10,
+        11
+      ],
+      "description": "'스킬은 자동화하는 것 → 저도 자동화'라는 연결이 '영상 편집 자동화'로 이어짐",
+      "strength": "strong"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        12,
+        13,
+        14,
+        15
+      ],
+      "payoff_segments": [
+        16
+      ],
+      "description": "유명한 참가자에 대한 기대감이 '바로 가시죠'라는 전환의 근거",
+      "strength": "strong"
+    },
+    {
+      "type": "setup_payoff",
+      "setup_segments": [
+        26,
+        27,
+        28
+      ],
+      "payoff_segments": [
+        29,
+        30,
+        31,
+        32,
+        33,
+        34
+      ],
+      "description": "영상 편집 자동화 주제 설정 후 다른 참가자 스킬 활용 기대 및 마무리로 연결",
+      "strength": "moderate"
+    }
+  ],
+  "pacing_notes": {
+    "slow_sections": [
+      {
+        "start_segment": 17,
+        "end_segment": 28,
+        "note": "동일 멘트를 여러 번 반복하는 NG 테이크 구간. 편집 시 최종 테이크만 남기고 컷 가능하나, 비하인드 느낌을 살리려면 일부 유지 권장."
+      }
+    ],
+    "high_energy_sections": [
+      {
+        "start_segment": 10,
+        "end_segment": 16,
+        "note": "주제 소개부터 '바로 가시죠'까지 자연스럽고 에너지 있는 흐름"
+      },
+      {
+        "start_segment": 33,
+        "end_segment": 35,
+        "note": "'잘 배우고 가도록 하겠습니다 → 렛츠고 → 굿' 마무리 에너지"
+      }
+    ]
+  }
+}

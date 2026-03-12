@@ -22,6 +22,7 @@ from avid.models.media import MediaFile, MediaInfo
 from avid.models.project import Project, Transcription, TranscriptSegment
 from avid.models.timeline import EditDecision, EditReason, EditType, TimeRange
 from avid.models.track import Track, TrackType
+from avid.services.provider_env import build_provider_subprocess_env
 
 
 @dataclass
@@ -103,6 +104,8 @@ class PodcastCutService:
         export_mode: str = "review",
         storyline_path: Path | None = None,
         provider: str = "codex",
+        provider_model: str | None = None,
+        provider_effort: str | None = None,
         extra_sources: list[Path] | None = None,
         extra_offsets: dict[str, int] | None = None,
     ) -> tuple[Project, dict[str, Path]]:
@@ -116,6 +119,8 @@ class PodcastCutService:
             export_mode: "review" (disabled for review) or "final" (all cuts applied)
             storyline_path: Optional path to storyline.json from Pass 1.
             provider: AI provider to use ("codex" or "claude")
+            provider_model: Optional provider model override
+            provider_effort: Optional provider effort override
             extra_sources: Additional media files to sync and include.
             extra_offsets: Manual offset overrides ``{filename: ms}``.
 
@@ -155,6 +160,8 @@ class PodcastCutService:
             audio_path=audio_path,
             output_path=skill_output,
             provider=provider,
+            provider_model=provider_model,
+            provider_effort=provider_effort,
             storyline_path=storyline_path,
         )
 
@@ -229,6 +236,8 @@ class PodcastCutService:
         audio_path: Path,
         output_path: Path,
         provider: str = "codex",
+        provider_model: str | None = None,
+        provider_effort: str | None = None,
         storyline_path: Path | None = None,
     ) -> None:
         """Run podcast-cut skill as subprocess.
@@ -238,6 +247,8 @@ class PodcastCutService:
             audio_path: Path to audio/video file
             output_path: Output path for avid.json
             provider: AI provider ("codex" or "claude")
+            provider_model: Optional provider model override
+            provider_effort: Optional provider effort override
             storyline_path: Optional storyline.json path
 
         Raises:
@@ -270,6 +281,11 @@ class PodcastCutService:
             text=True,
             timeout=1800,  # 30 min timeout
             cwd=str(script_dir),
+            env=build_provider_subprocess_env(
+                provider,
+                model=provider_model,
+                effort=provider_effort,
+            ),
         )
 
         if result.returncode != 0:
