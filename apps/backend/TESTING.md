@@ -3,6 +3,11 @@
 > 목표: `avid-cli` 표면을 먼저 고정하고, 그 다음 서비스/내보내기/live dependency 테스트를 쌓는다.
 > 원칙: `eogum` 연결 전에 `auto-video-edit` 자체 테스트가 먼저 돌아야 한다.
 
+## 관련 문서
+
+- [CLI_INTERFACE.md](CLI_INTERFACE.md)
+- [TEST_API_SPECS.md](TEST_API_SPECS.md)
+
 ## 왜 CLI부터 테스트하나
 
 지금 상위 시스템이 의존하는 것은 `avid` 내부 Python 객체가 아니라 `avid-cli` 표면이다.
@@ -66,8 +71,11 @@ apps/backend/tests/
       test_doctor.py
       test_manifest_output.py
       test_reexport_logic.py
+      test_multicam_contract.py
     export/
       test_fcpxml_modes.py
+      test_fcpxml_multicam.py
+      test_adjusted_srt_consistency.py
     services/
       test_audio_sync_offsets.py
   integration/
@@ -99,9 +107,12 @@ apps/backend/tests/
 
 - evaluation override 가 기존 overlapping decision 을 제거하고 human cut 을 다시 추가한다
 - `reexport` 가 기존 extra source 를 제거한 뒤 새 extra source 를 다시 붙인다
+- multicam case 에서 auto sync 와 manual offset 둘 다 기대대로 반영된다
 - review/final 모드에 따라 `content_mode` 가 기대대로 반영된다
 - subtitle/podcast cut 에서 report artifact 가 항상 생긴다
+- 모든 핵심 경로에서 `fcpxml` artifact 가 생성되고 XML 파싱 가능하다
 - transcription 이 있는 project 를 reexport 하면 adjusted SRT 가 같이 나온다
+- adjusted SRT 와 FCPXML cut 결과가 시간적으로 일관된다
 
 ### P2: live dependency 검증
 
@@ -110,6 +121,7 @@ apps/backend/tests/
 - 작은 fixture 로 `transcript-overview` live smoke 가 통과한다
 - 작은 fixture 로 `subtitle-cut` 또는 `podcast-cut` live smoke 가 통과한다
 - sample pair 로 audio sync smoke 가 통과한다
+- multicam export 결과를 수동으로 열어 connected clip 구조를 spot-check 한다
 
 ## 추천 pytest marker
 
@@ -185,7 +197,9 @@ PYTHONPATH=src pytest --cov=src/avid --cov-report=term-missing
 4. `tests/unit/cli/test_reexport_logic.py`
 5. `tests/integration/cli/test_cli_contract.py`
 6. `tests/integration/cli/test_cli_reexport_contract.py`
-7. 마지막으로 `tests/live/*`
+7. `tests/unit/export/test_fcpxml_multicam.py`
+8. `tests/unit/export/test_adjusted_srt_consistency.py`
+9. 마지막으로 `tests/live/*`
 
 ## eogum 연결 전 완료 기준
 

@@ -6,6 +6,7 @@
 ## 문서 우선순위
 
 - [CLI_INTERFACE.md](CLI_INTERFACE.md): 외부 통합에서 기대해도 되는 CLI 표면과 JSON/manifest 규칙
+- [TEST_API_SPECS.md](TEST_API_SPECS.md): CLI/HTTP 테스트 대상 스펙, 준비물, dependency 목록
 - [TESTING.md](TESTING.md): 어떤 테스트를 어떤 순서로 만들고 어떻게 실행할지
 - [../../SPEC.md](../../SPEC.md): 제품/도메인 수준 스펙
 - [../../ARCHITECTURE.md](../../ARCHITECTURE.md): 서비스 계층과 데이터 흐름

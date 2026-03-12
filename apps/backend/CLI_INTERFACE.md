@@ -3,6 +3,9 @@
 > 목적: 외부 시스템이 믿고 사용할 수 있는 `avid-cli` 표면을 고정한다.
 > 원칙: 외부 통합은 `avid-cli` 만 사용하고 `avid.*` 내부 모듈은 직접 import 하지 않는다.
 
+테스트 관점 요약 문서는 [TEST_API_SPECS.md](TEST_API_SPECS.md) 에서 관리한다.
+Multicam and FCPXML stability are tracked in the same test-spec document.
+
 ## 범위
 
 이 문서는 아래에만 안정성을 약속한다.
