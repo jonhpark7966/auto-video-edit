@@ -61,9 +61,11 @@ class TimeRange(BaseModel):
 
     @model_validator(mode="after")
     def validate_range(self) -> "TimeRange":
-        """Ensure end is after start."""
-        if self.end_ms <= self.start_ms:
-            raise ValueError("end_ms must be greater than start_ms")
+        """Ensure end is after start. Auto-swap if reversed."""
+        if self.end_ms < self.start_ms:
+            self.start_ms, self.end_ms = self.end_ms, self.start_ms
+        elif self.end_ms == self.start_ms:
+            self.end_ms = self.start_ms + 1
         return self
 
     @property

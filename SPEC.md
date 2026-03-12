@@ -4,6 +4,9 @@
 
 영상의 불필요한 발화와 SRT 자막 갭(무음)을 자동 감지하여 Final Cut Pro용 편집 타임라인(FCPXML)을 생성하는 CLI 도구.
 
+CLI 표면과 machine-readable 출력 규칙은 [apps/backend/CLI_INTERFACE.md](apps/backend/CLI_INTERFACE.md)를 기준으로 한다.
+테스트 우선순위와 실행 방법은 [apps/backend/TESTING.md](apps/backend/TESTING.md)를 기준으로 한다.
+
 ---
 
 ## CLI 명령어 (API)
@@ -130,6 +133,16 @@ avid-cli podcast-cut <audio|video> [--srt <srt>] [--context <storyline.json>] [-
 세그먼트 수에 따라 적응적 처리:
 - ≤80: 단일 호출
 - &gt;80: 병렬 chunk 처리 (chunk_size=80, overlap=5)
+
+### reexport / version / doctor
+
+상위 시스템 통합과 운영 진단용 명령은 아래를 사용한다.
+
+- `avid-cli reexport` — 기존 `.avid.json` 기반 재-export
+- `avid-cli version --json` — 버전 식별
+- `avid-cli doctor --json` — 실행 환경 진단
+
+이 명령들의 안정성 기준과 JSON/manifest 규칙은 [apps/backend/CLI_INTERFACE.md](apps/backend/CLI_INTERFACE.md) 에서 관리한다.
 
 ---
 

@@ -181,6 +181,20 @@ avid-cli podcast-cut <파일> [--srt <srt>] [--context storyline.json] [--provid
 | `--extra-source` | 없음 | 추가 소스 파일 (반복 가능) |
 | `--offset` | 자동 감지 | 수동 오프셋 ms (`--extra-source` 순서 대응) |
 
+## Backend 통합 기준
+
+외부 시스템은 `src/avid/*` 내부 모듈을 직접 import 하지 말고 `avid-cli` 를 실행해야 한다.
+
+주요 통합 명령:
+- `avid-cli version --json`
+- `avid-cli doctor --provider claude --json`
+- `avid-cli reexport --project-json ... --output-dir ... --json`
+
+상세 문서:
+- [apps/backend/README.md](apps/backend/README.md)
+- [apps/backend/CLI_INTERFACE.md](apps/backend/CLI_INTERFACE.md)
+- [apps/backend/TESTING.md](apps/backend/TESTING.md)
+
 ## 기술 스택
 
 - **Backend**: Python 3.11+ / FastAPI
@@ -193,7 +207,7 @@ avid-cli podcast-cut <파일> [--srt <srt>] [--context storyline.json] [--provid
 
 ```
 apps/backend/src/avid/
-├── cli.py              # CLI 진입점 (4개 명령어)
+├── cli.py              # CLI 진입점 (7개 명령어 + JSON/manifest output)
 ├── services/           # 비즈니스 로직 (AudioSyncService 포함)
 ├── models/             # Pydantic 데이터 모델
 └── export/             # FCPXML (connected clips), 보고서 내보내기
@@ -255,6 +269,9 @@ python tests/e2e/test_podcast_e2e.py
 
 - [SPEC.md](SPEC.md) — CLI API 스펙, 데이터 모델, 내보내기 형식
 - [ARCHITECTURE.md](ARCHITECTURE.md) — 시스템 아키텍처, 서비스 계층, 데이터 흐름
+- [apps/backend/README.md](apps/backend/README.md) — backend 작업 입구 문서
+- [apps/backend/CLI_INTERFACE.md](apps/backend/CLI_INTERFACE.md) — 외부 통합용 stable CLI 표면
+- [apps/backend/TESTING.md](apps/backend/TESTING.md) — backend 테스트 전략과 실행 순서
 
 ## 라이선스
 

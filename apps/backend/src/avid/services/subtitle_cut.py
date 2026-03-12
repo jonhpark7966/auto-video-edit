@@ -114,7 +114,7 @@ class SubtitleCutService:
             cmd,
             capture_output=True,
             text=True,
-            timeout=300,
+            timeout=1800,
             cwd=str(script_dir),
         )
 

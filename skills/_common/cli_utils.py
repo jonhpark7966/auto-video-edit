@@ -5,7 +5,7 @@ import os
 import subprocess
 
 
-def call_claude(prompt: str, timeout: int = 120) -> str:
+def call_claude(prompt: str, timeout: int = 300) -> str:
     """Call Claude CLI and get response.
 
     Args:

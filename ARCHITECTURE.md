@@ -1,11 +1,15 @@
 # AVID 아키텍처
 
+> Stable CLI boundary: [apps/backend/CLI_INTERFACE.md](apps/backend/CLI_INTERFACE.md)
+> Testing plan: [apps/backend/TESTING.md](apps/backend/TESTING.md)
+
+
 ## 시스템 개요
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                        CLI (avid-cli)                         │
-│  transcribe │ transcript-overview │ subtitle-cut │ podcast-cut │
+│ transcribe │ transcript-overview │ subtitle-cut │ podcast-cut │ reexport │ version │ doctor │
 └──────┬───────────────┬──────────────────┬────────────────┬───┘
        │               │                  │                │
        ▼               ▼                  ▼                ▼
@@ -36,7 +40,7 @@
 
 ```
 apps/backend/src/avid/
-├── cli.py                  # CLI 진입점 (4개 명령어)
+├── cli.py                  # CLI 진입점 (7개 명령어 + JSON/manifest output)
 ├── main.py                 # FastAPI 앱 (현재 /health만)
 ├── config.py               # 설정 (host, port, dirs)
 ├── services/               # 비즈니스 로직

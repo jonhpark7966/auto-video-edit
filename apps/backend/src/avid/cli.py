@@ -5,20 +5,106 @@ Usage:
     avid-cli transcript-overview <srt> [-o storyline.json] [--provider codex] [--content-type auto]
     avid-cli subtitle-cut <video> --srt sub.srt [--provider codex] [--context storyline.json] [-o output.fcpxml]
     avid-cli podcast-cut <audio> [--srt sub.srt] [--provider codex] [--context storyline.json] [-d output_dir]
+    avid-cli reexport --project-json project.avid.json --output-dir out
 """
 
 import argparse
 import asyncio
+import contextlib
+import json
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
+from avid import __version__
 from avid.export.fcpxml import FCPXMLExporter
 
 
-# --- Transcribe subcommand ---
-
 _VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".wmv"}
+
+
+def _backend_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _git_revision() -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(_backend_root()),
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except Exception:
+        return None
+
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
+def _base_payload(command: str) -> dict[str, Any]:
+    git_revision = _git_revision()
+    return {
+        "command": command,
+        "status": "ok",
+        "avid_version": git_revision or __version__,
+        "package_version": __version__,
+        "git_revision": git_revision,
+    }
+
+
+def _payload(command: str, *, artifacts: dict[str, Any] | None = None, stats: dict[str, Any] | None = None, **extra: Any) -> dict[str, Any]:
+    payload = _base_payload(command)
+    if artifacts is not None:
+        payload["artifacts"] = artifacts
+    if stats is not None:
+        payload["stats"] = stats
+    payload.update(extra)
+    return payload
+
+
+def _json_default(value: Any) -> Any:
+    if isinstance(value, Path):
+        return str(value)
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+def _write_machine_output(args: argparse.Namespace, payload: dict[str, Any]) -> None:
+    if getattr(args, "manifest_out", None):
+        manifest_path = Path(args.manifest_out).resolve()
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2, default=_json_default),
+            encoding="utf-8",
+        )
+
+    if getattr(args, "json", False):
+        print(json.dumps(payload, ensure_ascii=False, default=_json_default))
+
+
+def _run_handler(args: argparse.Namespace, handler, *, is_async: bool) -> dict[str, Any]:
+    redirect_stdout = getattr(args, "json", False)
+
+    if is_async:
+        if redirect_stdout:
+            with contextlib.redirect_stdout(sys.stderr):
+                return asyncio.run(handler(args))
+        return asyncio.run(handler(args))
+
+    if redirect_stdout:
+        with contextlib.redirect_stdout(sys.stderr):
+            return handler(args)
+    return handler(args)
+
+
+def _add_machine_output_flags(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--json", action="store_true", help="stdout에 machine-readable JSON 출력")
+    parser.add_argument("--manifest-out", type=str, help="지정 경로에 JSON manifest 저장")
 
 
 def _extract_audio(video_path: Path, output_dir: Path) -> Path:
@@ -39,7 +125,7 @@ def _extract_audio(video_path: Path, output_dir: Path) -> Path:
     return wav_path
 
 
-async def cmd_transcribe(args: argparse.Namespace) -> None:
+async def cmd_transcribe(args: argparse.Namespace) -> dict[str, Any]:
     """Run transcription using Chalna API."""
     video_path = Path(args.input).resolve()
     if not video_path.exists():
@@ -94,7 +180,6 @@ async def cmd_transcribe(args: argparse.Namespace) -> None:
             temp_audio.unlink()
     print()  # newline after progress bar
 
-    # Save as SRT
     srt_path = output_dir / f"{video_path.stem}.srt"
     lines = []
     for i, seg in enumerate(result.segments, 1):
@@ -105,8 +190,16 @@ async def cmd_transcribe(args: argparse.Namespace) -> None:
         lines.append(f"{i}\n{start_str} --> {end_str}\n{seg.text}\n")
     srt_path.write_text("\n".join(lines), encoding="utf-8")
     print(f"  세그먼트: {len(result.segments)}개")
-
     print(f"\n완료: {srt_path}")
+
+    return _payload(
+        "transcribe",
+        artifacts={"srt": str(srt_path)},
+        stats={
+            "segments": len(result.segments),
+            "language": args.language,
+        },
+    )
 
 
 def _ms_to_srt_time(ms: int) -> str:
@@ -120,9 +213,7 @@ def _ms_to_srt_time(ms: int) -> str:
     return f"{hours:02d}:{minutes:02d}:{seconds:02d},{millis:03d}"
 
 
-# --- Transcript overview subcommand ---
-
-async def cmd_transcript_overview(args: argparse.Namespace) -> None:
+async def cmd_transcript_overview(args: argparse.Namespace) -> dict[str, Any]:
     """Run transcript overview analysis (Pass 1)."""
     from avid.services.transcript_overview import TranscriptOverviewService
 
@@ -146,7 +237,6 @@ async def cmd_transcript_overview(args: argparse.Namespace) -> None:
         provider=args.provider,
     )
 
-    # Load and show summary
     storyline = service.load_storyline(storyline_path)
     chapters = storyline.get("chapters", [])
     deps = storyline.get("dependencies", [])
@@ -158,8 +248,16 @@ async def cmd_transcript_overview(args: argparse.Namespace) -> None:
     print(f"  핵심 순간: {len(kms)}개")
     print(f"  출력: {storyline_path}")
 
+    return _payload(
+        "transcript-overview",
+        artifacts={"storyline": str(storyline_path)},
+        stats={
+            "chapters": len(chapters),
+            "dependencies": len(deps),
+            "key_moments": len(kms),
+        },
+    )
 
-# --- Multi-source helpers ---
 
 def _parse_extra_sources(args: argparse.Namespace) -> tuple[list[Path] | None, dict[str, int] | None]:
     """Parse --extra-source and --offset args into service-ready parameters."""
@@ -171,13 +269,11 @@ def _parse_extra_sources(args: argparse.Namespace) -> tuple[list[Path] | None, d
 
     extra_sources = [Path(p).resolve() for p in extra_sources_raw]
 
-    # Validate extra sources exist
     for p in extra_sources:
         if not p.exists():
             print(f"오류: 추가 소스 파일을 찾을 수 없습니다: {p}", file=sys.stderr)
             sys.exit(1)
 
-    # Build manual offsets dict (keyed by filename)
     extra_offsets: dict[str, int] | None = None
     if offsets_raw:
         extra_offsets = {}
@@ -189,10 +285,9 @@ def _parse_extra_sources(args: argparse.Namespace) -> tuple[list[Path] | None, d
     return extra_sources, extra_offsets
 
 
-# --- Subtitle cut subcommand ---
-
-async def cmd_subtitle_cut(args: argparse.Namespace) -> None:
+async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
     """Run subtitle cut analysis."""
+    from avid.export.report import save_report
     from avid.services.subtitle_cut import SubtitleCutService
 
     service = SubtitleCutService()
@@ -234,8 +329,7 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> None:
         extra_offsets=extra_offsets,
     )
 
-    # Export to FCPXML + adjusted SRT
-    fcpxml_path = Path(args.output) if args.output else output_dir / f"{srt_path.stem}_subtitle_cut.fcpxml"
+    fcpxml_path = Path(args.output).resolve() if args.output else output_dir / f"{srt_path.stem}_subtitle_cut.fcpxml"
     exporter = FCPXMLExporter()
 
     if export_mode == "final":
@@ -253,20 +347,36 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> None:
         content_mode=content_mode,
     )
 
+    report_path = output_dir / f"{video_path.stem}.report.md"
+    save_report(project, report_path, format="markdown")
+
     print(f"\n결과:")
     print(f"  편집 결정: {len(project.edit_decisions)}개")
     print(f"  프로젝트: {project_path}")
     print(f"  FCPXML: {fcpxml_result}")
     if srt_result:
         print(f"  SRT: {srt_result}")
+    print(f"  report: {report_path}")
+
+    artifacts: dict[str, str] = {
+        "project_json": str(project_path),
+        "fcpxml": str(fcpxml_result),
+        "report": str(report_path),
+    }
+    if srt_result:
+        artifacts["srt"] = str(srt_result)
+
+    return _payload(
+        "subtitle-cut",
+        artifacts=artifacts,
+        stats={"edit_decisions": len(project.edit_decisions)},
+    )
 
 
-# --- Podcast cut subcommand ---
-
-async def cmd_podcast_cut(args: argparse.Namespace) -> None:
+async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
     """Run podcast cut analysis (entertainment-focused editing)."""
-    from avid.services.podcast_cut import PodcastCutService
     from avid.export.report import save_report
+    from avid.services.podcast_cut import PodcastCutService
 
     service = PodcastCutService()
 
@@ -285,8 +395,6 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     output_dir = Path(args.output_dir) if args.output_dir else audio_path.parent
-
-    # Determine export mode
     export_mode = "final" if args.final else "review"
     extra_sources, extra_offsets = _parse_extra_sources(args)
 
@@ -315,7 +423,6 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> None:
         extra_offsets=extra_offsets,
     )
 
-    # Generate report
     report_path = output_dir / f"{audio_path.stem}.report.md"
     save_report(project, report_path, format="markdown")
 
@@ -326,8 +433,239 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> None:
         print(f"    - {name}: {path}")
     print(f"    - report: {report_path}")
 
+    adjusted_srt = outputs.get("srt_adjusted")
+    raw_srt = outputs.get("srt_raw")
+    artifacts: dict[str, str] = {
+        "project_json": str(outputs["project"]),
+        "fcpxml": str(outputs["fcpxml"]),
+        "report": str(report_path),
+    }
+    if adjusted_srt:
+        artifacts["srt"] = str(adjusted_srt)
+    elif srt_path:
+        artifacts["srt"] = str(srt_path)
+    if raw_srt:
+        artifacts["srt_raw"] = str(raw_srt)
 
-# --- Main CLI ---
+    return _payload(
+        "podcast-cut",
+        artifacts=artifacts,
+        stats={"edit_decisions": len(project.edit_decisions)},
+    )
+
+
+def _load_evaluation_segments(path: Path) -> list[dict[str, Any]]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(data, dict):
+        segments = data.get("segments", [])
+        if isinstance(segments, list):
+            return segments
+        raise RuntimeError("evaluation JSON must contain a list at 'segments'")
+    if isinstance(data, list):
+        return data
+    raise RuntimeError("evaluation JSON must be a list or an object with 'segments'")
+
+
+def _apply_evaluation_to_project(project, eval_segments: list[dict[str, Any]]) -> tuple[int, int]:
+    from avid.models.timeline import EditDecision, EditReason, EditType, TimeRange
+
+    video_tracks = project.get_video_tracks()
+    primary_video_track_id = video_tracks[0].id if video_tracks else None
+    audio_tracks = project.get_audio_tracks()
+    primary_audio_track_ids = None
+    if video_tracks:
+        primary_source_id = video_tracks[0].source_file_id
+        primary_audio_track_ids = [
+            t.id for t in audio_tracks if t.source_file_id == primary_source_id
+        ]
+
+    human_overrides = []
+    for seg in eval_segments:
+        human = seg.get("human")
+        if human:
+            human_overrides.append((seg["start_ms"], seg["end_ms"], human["action"]))
+
+    if not human_overrides:
+        return 0, 0
+
+    original_count = len(project.edit_decisions)
+
+    new_decisions = []
+    for ed in project.edit_decisions:
+        ed_start = ed.range.start_ms
+        ed_end = ed.range.end_ms
+
+        overlaps_human = False
+        for h_start, h_end, _ in human_overrides:
+            if ed_start < h_end and ed_end > h_start:
+                overlaps_human = True
+                break
+
+        if not overlaps_human:
+            new_decisions.append(ed)
+
+    cuts_added = 0
+    for h_start, h_end, action in human_overrides:
+        if action == "cut":
+            new_decisions.append(EditDecision(
+                range=TimeRange(start_ms=h_start, end_ms=h_end),
+                edit_type=EditType.CUT,
+                reason=EditReason.MANUAL,
+                confidence=1.0,
+                note="human evaluation override",
+                active_video_track_id=primary_video_track_id,
+                active_audio_track_ids=primary_audio_track_ids,
+            ))
+            cuts_added += 1
+
+    new_decisions.sort(key=lambda ed: ed.range.start_ms)
+    project.edit_decisions = new_decisions
+
+    changes = abs(original_count - len(new_decisions)) + cuts_added
+    return len(human_overrides), changes
+
+
+def _strip_extra_sources(project) -> int:
+    if len(project.source_files) <= 1:
+        return 0
+
+    primary_source = project.source_files[0]
+    primary_source_id = primary_source.id
+    removed = max(0, len(project.source_files) - 1)
+    project.source_files = [primary_source]
+    project.tracks = [
+        track for track in project.tracks
+        if track.source_file_id == primary_source_id
+    ]
+    return removed
+
+
+async def cmd_reexport(args: argparse.Namespace) -> dict[str, Any]:
+    from avid.models.project import Project
+    from avid.services.audio_sync import AudioSyncService
+
+    project_json_path = Path(args.project_json).resolve()
+    if not project_json_path.exists():
+        print(f"오류: 프로젝트 JSON을 찾을 수 없습니다: {project_json_path}", file=sys.stderr)
+        sys.exit(1)
+
+    output_dir = Path(args.output_dir).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    project = Project.load(project_json_path)
+
+    override_count = 0
+    changes_applied = 0
+    if args.evaluation:
+        evaluation_path = Path(args.evaluation).resolve()
+        if not evaluation_path.exists():
+            print(f"오류: evaluation JSON을 찾을 수 없습니다: {evaluation_path}", file=sys.stderr)
+            sys.exit(1)
+        eval_segments = _load_evaluation_segments(evaluation_path)
+        override_count, changes_applied = _apply_evaluation_to_project(project, eval_segments)
+
+    stripped_sources = _strip_extra_sources(project)
+    extra_sources, extra_offsets = _parse_extra_sources(args)
+
+    source_path = None
+    if args.source:
+        source_path = Path(args.source).resolve()
+        if not source_path.exists():
+            print(f"오류: 메인 소스 파일을 찾을 수 없습니다: {source_path}", file=sys.stderr)
+            sys.exit(1)
+
+    if extra_sources:
+        if source_path is None:
+            print("오류: --extra-source 를 사용할 때는 --source 가 필요합니다", file=sys.stderr)
+            sys.exit(1)
+        sync_service = AudioSyncService()
+        await sync_service.add_extra_sources(
+            project,
+            source_path,
+            extra_sources,
+            extra_offsets or {},
+        )
+
+    updated_json_path = output_dir / project_json_path.name
+    project.save(updated_json_path)
+
+    base_name = project_json_path.stem
+    if source_path is not None:
+        base_name = source_path.stem
+    elif project.source_files:
+        base_name = Path(project.source_files[0].original_name).stem
+
+    fcpxml_path = Path(args.output).resolve() if args.output else output_dir / f"{base_name}_subtitle_cut.fcpxml"
+    exporter = FCPXMLExporter()
+    fcpxml_result, srt_result = await exporter.export(
+        project,
+        fcpxml_path,
+        silence_mode=args.silence_mode,
+        content_mode=args.content_mode,
+    )
+
+    artifacts: dict[str, str] = {
+        "project_json": str(updated_json_path),
+        "fcpxml": str(fcpxml_result),
+    }
+    if srt_result:
+        artifacts["srt"] = str(srt_result)
+
+    print(f"재-export 완료: {fcpxml_result}")
+
+    return _payload(
+        "reexport",
+        artifacts=artifacts,
+        stats={
+            "applied_evaluation_segments": override_count,
+            "applied_changes": changes_applied,
+            "extra_sources": len(extra_sources or []),
+            "stripped_extra_sources": stripped_sources,
+        },
+    )
+
+
+def cmd_version(_args: argparse.Namespace) -> dict[str, Any]:
+    return _payload("version")
+
+
+async def cmd_doctor(args: argparse.Namespace) -> dict[str, Any]:
+    from avid.services.transcription import ChalnaTranscriptionService
+
+    chalna_url = args.chalna_url or os.environ.get("CHALNA_API_URL") or "http://localhost:7861"
+    provider = args.provider
+    checks = {
+        "python": True,
+        "ffmpeg": shutil.which("ffmpeg") is not None,
+        "ffprobe": shutil.which("ffprobe") is not None,
+        "provider": shutil.which(provider) is not None if provider else True,
+    }
+
+    service = ChalnaTranscriptionService(base_url=chalna_url)
+    try:
+        checks["chalna"] = await service.health_check()
+    except Exception:
+        checks["chalna"] = False
+
+    ok = all(checks.values())
+
+    if not args.json:
+        print("환경 진단 결과:")
+        for name, passed in checks.items():
+            print(f"  {name}: {'ok' if passed else 'failed'}")
+        print(f"  chalna_url: {chalna_url}")
+
+    payload = _payload(
+        "doctor",
+        checks=checks,
+        chalna_url=chalna_url,
+        provider=provider,
+    )
+
+    if not ok:
+        raise RuntimeError(json.dumps(payload, ensure_ascii=False, default=_json_default))
+
+    return payload
+
 
 def main() -> None:
     """CLI entry point."""
@@ -337,7 +675,6 @@ def main() -> None:
     )
     subparsers = parser.add_subparsers(dest="command", help="사용 가능한 명령")
 
-    # --- transcribe ---
     p_transcribe = subparsers.add_parser("transcribe", help="음성 인식 (Chalna API)")
     p_transcribe.add_argument("input", type=str, help="입력 영상/오디오 파일")
     p_transcribe.add_argument("-l", "--language", default="ko", help="언어 (기본: ko)")
@@ -345,15 +682,15 @@ def main() -> None:
     p_transcribe.add_argument("--llm-refine", action="store_true", default=False, help="LLM 텍스트 정제 활성화")
     p_transcribe.add_argument("--context", type=str, default=None, help="전사 정확도 향상을 위한 컨텍스트 텍스트")
     p_transcribe.add_argument("-d", "--output-dir", type=str, help="출력 디렉토리")
+    _add_machine_output_flags(p_transcribe)
 
-    # --- transcript-overview ---
     p_overview = subparsers.add_parser("transcript-overview", help="스토리 구조 분석 (Pass 1)")
     p_overview.add_argument("input", type=str, help="입력 SRT 자막 파일")
     p_overview.add_argument("-o", "--output", type=str, help="출력 storyline JSON 경로")
     p_overview.add_argument("--content-type", choices=["lecture", "podcast", "auto"], default="auto", help="콘텐츠 유형 (기본: auto)")
     p_overview.add_argument("--provider", choices=["claude", "codex"], default="codex", help="AI 프로바이더 (기본: codex)")
+    _add_machine_output_flags(p_overview)
 
-    # --- subtitle-cut ---
     p_subcut = subparsers.add_parser("subtitle-cut", help="자막 기반 컷 편집")
     p_subcut.add_argument("input", type=str, help="입력 영상 파일")
     p_subcut.add_argument("--srt", type=str, required=True, help="SRT 자막 파일 (필수)")
@@ -364,8 +701,8 @@ def main() -> None:
     p_subcut.add_argument("--final", action="store_true", help="최종 편집본 (모든 편집 적용, 기본: 검토용 disabled)")
     p_subcut.add_argument("--extra-source", action="append", default=[], help="추가 소스 파일 (반복 가능)")
     p_subcut.add_argument("--offset", action="append", default=[], help="수동 오프셋 ms (--extra-source 순서 대응)")
+    _add_machine_output_flags(p_subcut)
 
-    # --- podcast-cut ---
     p_podcast = subparsers.add_parser("podcast-cut", help="팟캐스트 편집 (재미 기준)")
     p_podcast.add_argument("input", type=str, help="입력 오디오/영상 파일")
     p_podcast.add_argument("--srt", type=str, help="SRT 자막 파일 (없으면 chalna로 생성)")
@@ -375,6 +712,27 @@ def main() -> None:
     p_podcast.add_argument("--final", action="store_true", help="최종 편집본 (모든 편집 적용, 기본: 검토용 disabled)")
     p_podcast.add_argument("--extra-source", action="append", default=[], help="추가 소스 파일 (반복 가능)")
     p_podcast.add_argument("--offset", action="append", default=[], help="수동 오프셋 ms (--extra-source 순서 대응)")
+    _add_machine_output_flags(p_podcast)
+
+    p_reexport = subparsers.add_parser("reexport", help="기존 avid project를 재-export")
+    p_reexport.add_argument("--project-json", required=True, type=str, help="입력 avid project JSON")
+    p_reexport.add_argument("--output-dir", required=True, type=str, help="출력 디렉토리")
+    p_reexport.add_argument("--source", type=str, help="메인 소스 파일 경로 (extra source sync 시 필요)")
+    p_reexport.add_argument("--evaluation", type=str, help="evaluation JSON 파일")
+    p_reexport.add_argument("--extra-source", action="append", default=[], help="추가 소스 파일 (반복 가능)")
+    p_reexport.add_argument("--offset", action="append", default=[], help="수동 오프셋 ms (--extra-source 순서 대응)")
+    p_reexport.add_argument("-o", "--output", type=str, help="출력 FCPXML 경로")
+    p_reexport.add_argument("--silence-mode", choices=["cut", "disabled"], default="cut", help="무음 처리 방식")
+    p_reexport.add_argument("--content-mode", choices=["cut", "disabled"], default="disabled", help="콘텐츠 컷 처리 방식")
+    _add_machine_output_flags(p_reexport)
+
+    p_version = subparsers.add_parser("version", help="avid 버전 정보 출력")
+    _add_machine_output_flags(p_version)
+
+    p_doctor = subparsers.add_parser("doctor", help="실행 환경 진단")
+    p_doctor.add_argument("--chalna-url", type=str, help="진단할 Chalna API URL")
+    p_doctor.add_argument("--provider", default="claude", help="확인할 AI provider CLI 이름 (기본: claude)")
+    _add_machine_output_flags(p_doctor)
 
     args = parser.parse_args()
 
@@ -382,15 +740,29 @@ def main() -> None:
         parser.print_help()
         sys.exit(1)
 
-    # Dispatch
-    if args.command == "transcribe":
-        asyncio.run(cmd_transcribe(args))
-    elif args.command == "transcript-overview":
-        asyncio.run(cmd_transcript_overview(args))
-    elif args.command == "subtitle-cut":
-        asyncio.run(cmd_subtitle_cut(args))
-    elif args.command == "podcast-cut":
-        asyncio.run(cmd_podcast_cut(args))
+    try:
+        if args.command == "transcribe":
+            payload = _run_handler(args, cmd_transcribe, is_async=True)
+        elif args.command == "transcript-overview":
+            payload = _run_handler(args, cmd_transcript_overview, is_async=True)
+        elif args.command == "subtitle-cut":
+            payload = _run_handler(args, cmd_subtitle_cut, is_async=True)
+        elif args.command == "podcast-cut":
+            payload = _run_handler(args, cmd_podcast_cut, is_async=True)
+        elif args.command == "reexport":
+            payload = _run_handler(args, cmd_reexport, is_async=True)
+        elif args.command == "version":
+            payload = _run_handler(args, cmd_version, is_async=False)
+        elif args.command == "doctor":
+            payload = _run_handler(args, cmd_doctor, is_async=True)
+        else:
+            parser.error(f"unknown command: {args.command}")
+            return
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(1)
+
+    _write_machine_output(args, payload)
 
 
 if __name__ == "__main__":

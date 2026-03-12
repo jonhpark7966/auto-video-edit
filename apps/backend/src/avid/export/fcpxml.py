@@ -57,6 +57,12 @@ class FCPXMLExporter(ProjectExporter):
         # Apply mode-based filtering to edit decisions
         processed_project = self._apply_edit_modes(project, silence_mode, content_mode)
 
+        # Compute final removed ranges (including absorbed short gaps) once,
+        # so both FCPXML timeline and SRT use the same cut list.
+        final_removed_ranges = self._compute_removed_ranges(
+            processed_project, merge_short_gaps_ms
+        )
+
         root = self._create_fcpxml_structure(
             processed_project, show_disabled_cuts, merge_short_gaps_ms
         )
@@ -76,7 +82,10 @@ class FCPXMLExporter(ProjectExporter):
         srt_path = None
         if project.transcription and project.transcription.segments:
             srt_path = output_path.with_suffix(".srt")
-            self._export_adjusted_srt(processed_project, srt_path, show_disabled_cuts)
+            self._export_adjusted_srt(
+                processed_project, srt_path, show_disabled_cuts,
+                removed_ranges=final_removed_ranges,
+            )
 
         return output_path, srt_path
 
@@ -153,21 +162,108 @@ class FCPXMLExporter(ProjectExporter):
 
         return new_project
 
+    def _compute_removed_ranges(
+        self,
+        project: Project,
+        merge_short_gaps_ms: int = 500,
+    ) -> list[tuple[int, int]]:
+        """Compute the final list of removed time ranges.
+
+        This includes both explicit CUT ranges and short enabled gaps
+        between CUT regions that are absorbed (< merge_short_gaps_ms).
+        Both the FCPXML timeline and SRT export use this to stay in sync.
+        """
+        video_tracks = project.get_video_tracks()
+        if not video_tracks:
+            return []
+
+        primary_track = video_tracks[0]
+        source = project.get_source_file(primary_track.source_file_id)
+        if not source:
+            return []
+
+        total_duration_ms = source.info.duration_ms
+
+        cut_decisions = [
+            d for d in project.edit_decisions
+            if d.edit_type == EditType.CUT
+            and d.active_video_track_id == primary_track.id
+        ]
+        mute_decisions = [
+            d for d in project.edit_decisions
+            if d.edit_type == EditType.MUTE
+            and d.active_video_track_id == primary_track.id
+        ]
+
+        merged_cuts = self._merge_overlapping_ranges(
+            [(d.range.start_ms, d.range.end_ms) for d in cut_decisions]
+        )
+        merged_mutes = self._merge_overlapping_ranges(
+            [(d.range.start_ms, d.range.end_ms) for d in mute_decisions]
+        )
+
+        # Build segments with states
+        boundary_points = {0, total_duration_ms}
+        for s, e in merged_cuts:
+            boundary_points.add(s)
+            boundary_points.add(e)
+        for s, e in merged_mutes:
+            boundary_points.add(s)
+            boundary_points.add(e)
+
+        sorted_boundaries = sorted(boundary_points)
+        segments: list[tuple[int, int, str]] = []
+
+        for i in range(len(sorted_boundaries) - 1):
+            range_start = sorted_boundaries[i]
+            range_end = sorted_boundaries[i + 1]
+            if range_start >= range_end:
+                continue
+
+            is_cut = any(
+                cs <= range_start and range_end <= ce
+                for cs, ce in merged_cuts
+            )
+            is_mute = any(
+                ms <= range_start and range_end <= me
+                for ms, me in merged_mutes
+            )
+
+            if is_cut:
+                state = 'removed'
+            elif is_mute:
+                state = 'disabled'
+            else:
+                state = 'enabled'
+            segments.append((range_start, range_end, state))
+
+        # Absorb short enabled gaps between removed segments
+        if merge_short_gaps_ms > 0:
+            for i in range(1, len(segments) - 1):
+                s, e, state = segments[i]
+                if state == 'enabled' and (e - s) < merge_short_gaps_ms:
+                    if segments[i - 1][2] == 'removed' and segments[i + 1][2] == 'removed':
+                        segments[i] = (s, e, 'removed')
+
+        # Collect and merge all removed ranges
+        removed = [(s, e) for s, e, st in segments if st == 'removed']
+        return self._merge_overlapping_ranges(removed)
+
     def _export_adjusted_srt(
         self,
         project: Project,
         output_path: Path,
         show_disabled_cuts: bool = False,
+        removed_ranges: list[tuple[int, int]] | None = None,
     ) -> None:
         """Export SRT with timestamps adjusted for cuts.
-
-        For CUT mode: timestamps are shifted earlier by the total duration of cuts before them.
-        For DISABLED mode: timestamps remain unchanged.
 
         Args:
             project: Project with transcription and edit decisions
             output_path: Path for the SRT file
-            show_disabled_cuts: If True, keep original timestamps; if False, adjust for cuts
+            show_disabled_cuts: If True, keep original timestamps
+            removed_ranges: Pre-computed removed ranges (including absorbed
+                short gaps). If None, falls back to CUT decisions only.
         """
         if not project.transcription:
             return
@@ -178,17 +274,19 @@ class FCPXMLExporter(ProjectExporter):
 
         primary_track = video_tracks[0]
 
-        # CUT segments are always removed from the timeline,
-        # so SRT timestamps always need adjustment for cuts.
-        cut_decisions = [
-            d
-            for d in project.edit_decisions
-            if d.edit_type == EditType.CUT
-            and d.active_video_track_id == primary_track.id
-        ]
-        cuts_to_apply = self._merge_overlapping_ranges(
-            [(d.range.start_ms, d.range.end_ms) for d in cut_decisions]
-        )
+        if removed_ranges is not None:
+            cuts_to_apply = removed_ranges
+        else:
+            # Fallback: use CUT decisions only (no short gap absorption)
+            cut_decisions = [
+                d
+                for d in project.edit_decisions
+                if d.edit_type == EditType.CUT
+                and d.active_video_track_id == primary_track.id
+            ]
+            cuts_to_apply = self._merge_overlapping_ranges(
+                [(d.range.start_ms, d.range.end_ms) for d in cut_decisions]
+            )
 
         def adjust_time(original_ms: int) -> int:
             """Adjust timestamp by subtracting all cuts that come before it."""
@@ -549,6 +647,17 @@ class FCPXMLExporter(ProjectExporter):
 
             segments.append((range_start, range_end, state))
 
+        # Absorb short enabled segments between removed segments
+        # (e.g. tiny silence gaps between CUT regions)
+        if merge_short_gaps_ms > 0:
+            for i in range(1, len(segments) - 1):
+                seg_start, seg_end, state = segments[i]
+                if state == 'enabled' and (seg_end - seg_start) < merge_short_gaps_ms:
+                    prev_state = segments[i - 1][2]
+                    next_state = segments[i + 1][2]
+                    if prev_state == 'removed' and next_state == 'removed':
+                        segments[i] = (seg_start, seg_end, 'removed')
+
         # Filter out removed segments and convert to (start, end, enabled_bool)
         final_segments: list[tuple[int, int, bool]] = [
             (start, end, state == 'enabled')
@@ -652,10 +761,10 @@ class FCPXMLExporter(ProjectExporter):
         """Attach connected clips for extra sources as children of *parent_clip*.
 
         Each connected clip lives in its own lane (negative lane numbers).
-        All timing attributes (offset, start, duration) use the **sequence
-        format** (primary_fps) so they align to the timeline's frame grid.
-        The ``<asset>`` element separately declares each source's native
-        format; FCP handles frame-rate conversion internally.
+        The ``offset`` uses the **primary** (sequence) fps so it aligns to
+        the timeline grid.  ``start`` and ``duration`` use the **extra
+        source's own fps** so FCP can seek accurately in the source media
+        without frame-rate drift.
 
         Args:
             parent_clip: The parent ``<asset-clip>`` element.
@@ -663,8 +772,7 @@ class FCPXMLExporter(ProjectExporter):
             main_end_ms: End of the main clip in main-source time.
             extra_tracks: Output of ``_get_extra_source_tracks()``.
             asset_map: source_file_id → FCPXML asset ID.
-            source_format_map: Reserved for future use (currently unused;
-                asset-clips always use the sequence format).
+            source_format_map: source_file_id → (format_id, fps).
             primary_fps: Frame rate of the sequence timeline.
             enabled: If False, connected clips get ``enabled="0"``.
         """
@@ -675,8 +783,8 @@ class FCPXMLExporter(ProjectExporter):
         if clip_duration_ms <= 0:
             return
 
-        # Connected clips use the sequence format so all timing values
-        # land on the timeline's frame grid.
+        # All connected clips use the primary (sequence) format so timing
+        # is consistent and FCP scales resolution automatically.
         primary_format_id = parent_clip.get("format", "r1")
 
         for track, source, lane in extra_tracks:
@@ -701,12 +809,17 @@ class FCPXMLExporter(ProjectExporter):
 
             actual_duration_ms = extra_end_ms - extra_start_ms
 
+            # Skip clips that round to zero frames (would crash FCP)
+            duration_frames = self._ms_to_frames(actual_duration_ms, primary_fps)
+            if duration_frames <= 0:
+                continue
+
             attrs = {
                 "ref": extra_asset_id,
                 "lane": str(lane),
                 "offset": self._ms_to_time(main_start_ms, primary_fps),
-                "duration": self._ms_to_time(actual_duration_ms, primary_fps),
                 "start": self._ms_to_time(extra_start_ms, primary_fps),
+                "duration": self._frames_to_time(duration_frames, primary_fps),
                 "format": primary_format_id,
                 "tcFormat": "NDF",
                 "name": source.original_name,
