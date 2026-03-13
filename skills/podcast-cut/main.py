@@ -158,6 +158,8 @@ def generate_project_json(
             "active_video_track_id": video_track_id,
             "active_audio_track_ids": [audio_track_id],
             "speed_factor": 1.0,
+            "origin_kind": "content_segment",
+            "source_segment_index": seg_idx,
         }
         project["edit_decisions"].append(edit_decision)
 

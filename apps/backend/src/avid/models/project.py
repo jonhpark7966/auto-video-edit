@@ -14,6 +14,11 @@ from avid.models.track import Track, TrackType
 class TranscriptSegment(BaseModel):
     """A single segment of transcription with timing."""
 
+    index: int | None = Field(
+        default=None,
+        ge=0,
+        description="Stable segment index in the source transcript",
+    )
     start_ms: int = Field(..., description="Start time in milliseconds")
     end_ms: int = Field(..., description="End time in milliseconds")
     text: str = Field(..., description="Transcribed text")
@@ -312,6 +317,8 @@ class Project(BaseModel):
                 active_video_track_id=video_track_id,
                 active_audio_track_ids=audio_track_ids,
                 speed_factor=decision.speed_factor,
+                origin_kind=decision.origin_kind,
+                source_segment_index=decision.source_segment_index,
             )
             self.edit_decisions.append(remapped_decision)
 

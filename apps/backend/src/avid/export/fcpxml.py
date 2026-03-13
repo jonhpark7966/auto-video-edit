@@ -104,6 +104,7 @@ class FCPXMLExporter(ProjectExporter):
         EditReason.CROSSTALK,
         EditReason.IRRELEVANT,
         EditReason.DRAGGING,
+        EditReason.META_COMMENT,
     }
 
     def _apply_edit_modes(
@@ -150,6 +151,8 @@ class FCPXMLExporter(ProjectExporter):
                     active_video_track_id=decision.active_video_track_id,
                     active_audio_track_ids=decision.active_audio_track_ids,
                     speed_factor=decision.speed_factor,
+                    origin_kind=decision.origin_kind,
+                    source_segment_index=decision.source_segment_index,
                 )
                 new_decisions.append(new_decision)
             else:

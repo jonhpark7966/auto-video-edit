@@ -13,6 +13,14 @@ class EditType(str, Enum):
     MUTE = "mute"
 
 
+class EditOriginKind(str, Enum):
+    """Origin of an edit decision."""
+
+    CONTENT_SEGMENT = "content_segment"
+    SILENCE_GAP = "silence_gap"
+    MANUAL_OVERRIDE = "manual_override"
+
+
 class EditReason(str, Enum):
     """Reason for the edit.
 
@@ -119,4 +127,13 @@ class EditDecision(BaseModel):
     # Speed control
     speed_factor: float = Field(
         default=1.0, gt=0.0, description="Speed factor (1.0 = normal, 2.0 = 2x speed)"
+    )
+    origin_kind: EditOriginKind | None = Field(
+        default=None,
+        description="Where this decision came from (content segment, silence gap, manual override)",
+    )
+    source_segment_index: int | None = Field(
+        default=None,
+        ge=0,
+        description="Stable transcript segment index for reviewable content decisions",
     )

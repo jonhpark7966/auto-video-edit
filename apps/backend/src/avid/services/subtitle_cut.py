@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 from avid.models.project import Project, Transcription, TranscriptSegment
-from avid.models.timeline import EditDecision, EditReason, EditType, TimeRange
+from avid.models.timeline import EditDecision, EditOriginKind, EditReason, EditType, TimeRange
 from avid.services.provider_env import build_provider_subprocess_env
 
 
@@ -181,6 +181,7 @@ class SubtitleCutService:
                     language="ko",
                     segments=[
                         TranscriptSegment(
+                            index=seg["index"],
                             start_ms=seg["start_ms"],
                             end_ms=seg["end_ms"],
                             text=seg["text"],
@@ -203,6 +204,7 @@ class SubtitleCutService:
                 note="SRT gap (no speech)",
                 active_video_track_id=video_track.id if video_track else None,
                 active_audio_track_ids=[audio_track.id] if audio_track else [],
+                origin_kind=EditOriginKind.SILENCE_GAP,
             ))
 
         # Sort all decisions by start time
@@ -223,6 +225,10 @@ def _parse_srt(srt_path: Path) -> list[dict]:
         lines = block.strip().split("\n")
         if len(lines) < 3:
             continue
+        try:
+            index = int(lines[0].strip())
+        except ValueError:
+            index = len(segments) + 1
         time_match = re.match(
             r"(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[,.](\d{3})",
             lines[1].strip(),
@@ -233,7 +239,7 @@ def _parse_srt(srt_path: Path) -> list[dict]:
         start_ms = h1 * 3600000 + m1 * 60000 + s1 * 1000 + ms1
         end_ms = h2 * 3600000 + m2 * 60000 + s2 * 1000 + ms2
         text = " ".join(l.strip() for l in lines[2:] if l.strip())
-        segments.append({"start_ms": start_ms, "end_ms": end_ms, "text": text})
+        segments.append({"index": index, "start_ms": start_ms, "end_ms": end_ms, "text": text})
     return segments
 
 

@@ -20,7 +20,7 @@ from pathlib import Path
 
 from avid.models.media import MediaFile, MediaInfo
 from avid.models.project import Project, Transcription, TranscriptSegment
-from avid.models.timeline import EditDecision, EditReason, EditType, TimeRange
+from avid.models.timeline import EditDecision, EditOriginKind, EditReason, EditType, TimeRange
 from avid.models.track import Track, TrackType
 from avid.services.provider_env import build_provider_subprocess_env
 
@@ -358,6 +358,12 @@ class PodcastCutService:
                 reason=reason,
                 confidence=confidence,
                 note=ed.get("note", ""),
+                origin_kind=(
+                    EditOriginKind(ed["origin_kind"])
+                    if ed.get("origin_kind") in {kind.value for kind in EditOriginKind}
+                    else EditOriginKind.CONTENT_SEGMENT
+                ),
+                source_segment_index=ed.get("source_segment_index"),
             ))
 
         if skipped:
@@ -603,6 +609,7 @@ class PodcastCutService:
             language="ko",
             segments=[
                 TranscriptSegment(
+                    index=seg.index,
                     start_ms=seg.start_ms,
                     end_ms=seg.end_ms,
                     text=seg.text,
@@ -623,6 +630,7 @@ class PodcastCutService:
                 note="SRT gap (no speech)",
                 active_video_track_id=video_track.id,
                 active_audio_track_ids=[audio_track.id],
+                origin_kind=EditOriginKind.SILENCE_GAP,
             ))
 
         # Add content decisions with track info

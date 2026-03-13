@@ -504,7 +504,7 @@ def _load_evaluation_segments(path: Path) -> list[dict[str, Any]]:
 
 
 def _apply_evaluation_to_project(project, eval_segments: list[dict[str, Any]]) -> tuple[int, int]:
-    from avid.models.timeline import EditDecision, EditReason, EditType, TimeRange
+    from avid.models.timeline import EditDecision, EditOriginKind, EditReason, EditType, TimeRange
 
     video_tracks = project.get_video_tracks()
     primary_video_track_id = video_tracks[0].id if video_tracks else None
@@ -552,6 +552,7 @@ def _apply_evaluation_to_project(project, eval_segments: list[dict[str, Any]]) -
                 note="human evaluation override",
                 active_video_track_id=primary_video_track_id,
                 active_audio_track_ids=primary_audio_track_ids,
+                origin_kind=EditOriginKind.MANUAL_OVERRIDE,
             ))
             cuts_added += 1
 
@@ -622,6 +623,17 @@ def _resolve_export_base_name(project_json_path: Path, project, source_path: Pat
     return project_json_path.stem
 
 
+def _resolve_export_suffix(project_json_path: Path, project) -> str:
+    hints = [
+        project_json_path.name.lower(),
+        project_json_path.stem.lower(),
+        getattr(project, "name", "").lower(),
+    ]
+    if any("podcast" in hint for hint in hints):
+        return "podcast_cut"
+    return "subtitle_cut"
+
+
 def _resolve_source_path_or_exit(source_path: str) -> Path:
     resolved_path = Path(source_path).resolve()
     if not resolved_path.exists():
@@ -643,7 +655,8 @@ async def _export_project_artifacts(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     base_name = _resolve_export_base_name(project_json_path, project, source_path)
-    fcpxml_path = Path(output_path).resolve() if output_path else output_dir / f"{base_name}_subtitle_cut.fcpxml"
+    export_suffix = _resolve_export_suffix(project_json_path, project)
+    fcpxml_path = Path(output_path).resolve() if output_path else output_dir / f"{base_name}_{export_suffix}.fcpxml"
 
     exporter = FCPXMLExporter()
     fcpxml_result, srt_result = await exporter.export(
