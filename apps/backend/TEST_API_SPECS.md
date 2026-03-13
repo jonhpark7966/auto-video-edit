@@ -540,6 +540,7 @@
   - `applied_changes`
   - `extra_sources`
   - `stripped_extra_sources`
+- stderr 에 deprecated warning 이 남는다
 - evaluation 적용 후 output project JSON 에 manual override 가 반영됨
 - 기존 extra source 가 있는 입력에서도 strip 후 재구성됨
 

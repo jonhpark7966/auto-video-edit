@@ -562,6 +562,15 @@ def _apply_evaluation_to_project(project, eval_segments: list[dict[str, Any]]) -
     return len(human_overrides), changes
 
 
+def _apply_evaluation_from_path(project, evaluation_path: Path) -> tuple[int, int]:
+    if not evaluation_path.exists():
+        print(f"오류: evaluation JSON을 찾을 수 없습니다: {evaluation_path}", file=sys.stderr)
+        sys.exit(1)
+
+    eval_segments = _load_evaluation_segments(evaluation_path)
+    return _apply_evaluation_to_project(project, eval_segments)
+
+
 def _strip_extra_sources(project) -> int:
     if len(project.source_files) <= 1:
         return 0
@@ -575,6 +584,23 @@ def _strip_extra_sources(project) -> int:
         if track.source_file_id == primary_source_id
     ]
     return removed
+
+
+async def _rebuild_multicam_in_place(
+    project,
+    source_path: Path,
+    extra_sources: list[Path],
+    extra_offsets: dict[str, int] | None = None,
+) -> None:
+    from avid.services.audio_sync import AudioSyncService
+
+    sync_service = AudioSyncService()
+    await sync_service.add_extra_sources(
+        project,
+        source_path,
+        extra_sources,
+        extra_offsets or {},
+    )
 
 
 def _load_project_or_exit(project_json_path: str) -> tuple[Path, Any]:
@@ -644,8 +670,7 @@ def cmd_apply_evaluation(args: argparse.Namespace) -> dict[str, Any]:
     output_project_json = Path(args.output_project_json).resolve()
     output_project_json.parent.mkdir(parents=True, exist_ok=True)
 
-    eval_segments = _load_evaluation_segments(evaluation_path)
-    override_count, changes_applied = _apply_evaluation_to_project(project, eval_segments)
+    override_count, changes_applied = _apply_evaluation_from_path(project, evaluation_path)
     saved_project_json = project.save(output_project_json)
 
     print(f"평가 적용 완료: {saved_project_json}")
@@ -679,8 +704,6 @@ async def cmd_export_project(args: argparse.Namespace) -> dict[str, Any]:
 
 
 async def cmd_rebuild_multicam(args: argparse.Namespace) -> dict[str, Any]:
-    from avid.services.audio_sync import AudioSyncService
-
     project_json_path, project = _load_project_or_exit(args.project_json)
     source_path = _resolve_source_path_or_exit(args.source)
     output_project_json = Path(args.output_project_json).resolve()
@@ -692,8 +715,7 @@ async def cmd_rebuild_multicam(args: argparse.Namespace) -> dict[str, Any]:
         sys.exit(1)
 
     stripped_sources = _strip_extra_sources(project)
-    sync_service = AudioSyncService()
-    await sync_service.add_extra_sources(
+    await _rebuild_multicam_in_place(
         project,
         source_path,
         extra_sources,
@@ -731,8 +753,6 @@ def cmd_clear_extra_sources(args: argparse.Namespace) -> dict[str, Any]:
 
 
 async def cmd_reexport(args: argparse.Namespace) -> dict[str, Any]:
-    from avid.services.audio_sync import AudioSyncService
-
     project_json_path, project = _load_project_or_exit(args.project_json)
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -746,11 +766,7 @@ async def cmd_reexport(args: argparse.Namespace) -> dict[str, Any]:
     changes_applied = 0
     if args.evaluation:
         evaluation_path = Path(args.evaluation).resolve()
-        if not evaluation_path.exists():
-            print(f"오류: evaluation JSON을 찾을 수 없습니다: {evaluation_path}", file=sys.stderr)
-            sys.exit(1)
-        eval_segments = _load_evaluation_segments(evaluation_path)
-        override_count, changes_applied = _apply_evaluation_to_project(project, eval_segments)
+        override_count, changes_applied = _apply_evaluation_from_path(project, evaluation_path)
 
     stripped_sources = _strip_extra_sources(project)
     extra_sources, extra_offsets = _parse_extra_sources(args)
@@ -763,8 +779,7 @@ async def cmd_reexport(args: argparse.Namespace) -> dict[str, Any]:
         if source_path is None:
             print("오류: --extra-source 를 사용할 때는 --source 가 필요합니다", file=sys.stderr)
             sys.exit(1)
-        sync_service = AudioSyncService()
-        await sync_service.add_extra_sources(
+        await _rebuild_multicam_in_place(
             project,
             source_path,
             extra_sources,

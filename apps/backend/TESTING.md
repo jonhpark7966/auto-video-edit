@@ -105,7 +105,7 @@ apps/backend/tests/
 ## `reexport` 분해 메모
 
 - 현재 `reexport` 는 compatibility wrapper 로 유지한다.
-- `apply-evaluation`, `export-project`, `rebuild-multicam`, `clear-extra-sources` 는 구현 완료, 다음 목표는 deprecated `reexport` parity 와 상위 통합 교체다.
+- `apply-evaluation`, `export-project`, `rebuild-multicam`, `clear-extra-sources`, deprecated `reexport` parity 는 구현 완료, 다음 목표는 상위 통합 교체다.
 - 새 테스트는 가능하면 분리된 명령을 우선 대상으로 하고, `reexport` 는 parity / deprecation coverage 로 남긴다.
 - 자세한 계획은 [REEXPORT_SPLIT_PLAN.md](REEXPORT_SPLIT_PLAN.md) 를 본다.
 
@@ -124,6 +124,7 @@ apps/backend/tests/
 - `export-project --json` 이 `fcpxml/srt?` artifact 를 반환한다
 - `rebuild-multicam --json` 이 `project_json` artifact 와 `extra_sources/stripped_extra_sources` stats 를 반환한다
 - `clear-extra-sources --json` 이 `project_json` artifact 와 `stripped_extra_sources` stats 를 반환한다
+- deprecated `reexport` 가 stderr warning 을 남기고 split 명령들과 동일한 핵심 stats/artifact 계약을 유지한다
 - `transcribe --json` 이 `artifacts.srt` 를 반환한다
 - `transcript-overview --json` 이 `artifacts.storyline` 을 반환한다
 - `subtitle-cut --json` 이 `project_json/fcpxml/report/srt` key 를 반환한다

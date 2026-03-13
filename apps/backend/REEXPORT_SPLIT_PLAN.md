@@ -154,7 +154,9 @@
 
 ### Phase 5: deprecated `reexport`
 
-- 새 세 명령과 동일 결과를 내는지 parity test
+- 구현 완료
+- warning + parity unit test 추가 완료
+- real sample deprecated smoke 확인 완료
 - backward compatibility 만 검증
 
 ## 5. `eogum` 마이그레이션 계획

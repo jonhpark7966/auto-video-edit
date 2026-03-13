@@ -387,6 +387,7 @@ avid-cli reexport \
 - 평가 JSON 은 list 자체이거나 `{ "segments": [...] }` 형태를 허용한다
 - 기존 extra source 가 이미 프로젝트에 있으면 먼저 벗겨내고 다시 구성한다
 - 새 통합은 가능하면 `reexport` 대신 분리된 명령으로 수렴해야 한다
+- 실행 시 stderr 로 deprecated warning 을 남긴다
 
 ## Artifact key 규칙
 
