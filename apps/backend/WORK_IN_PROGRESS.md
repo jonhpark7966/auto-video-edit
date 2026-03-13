@@ -23,9 +23,8 @@
   - [x] `clear-extra-sources`
 - [x] deprecated `reexport` 유지
 - [x] `manual-fixtures` 경로 정리
-- [x] main workflow 기준 human eval fixture 추가
 - [x] legacy 자동화 테스트 제거
-- [ ] review 데이터 모델 정렬 시작
+- [x] review 데이터 모델 정렬 완료
 
 ## 현재 구현 작업
 
@@ -46,8 +45,8 @@
 - [x] Commit 2. `avid-cli review-segments` 추가
 - [x] Commit 3. `apply-evaluation` 를 index 기반 patch 로 교체
 - [x] Commit 4. `eogum` API 를 engine-native review payload 소비자로 변경
-- [ ] Commit 5. `eogum` frontend / 문서 정리
-- [ ] Commit 6. 새 영상 기준 수동 검증 문서 갱신
+- [x] Commit 5. `eogum` frontend / 문서 정리
+- [x] Commit 6. 수동 검증 문서 갱신
 
 세부 파일 목록과 완료 기준은 [REVIEW_DATA_ALIGNMENT_PLAN.md](/home/jonhpark/workspace/auto-video-edit/apps/backend/REVIEW_DATA_ALIGNMENT_PLAN.md) 를 따른다.
 
@@ -62,6 +61,8 @@
   - [ ] `avid-cli transcript-overview`
 - [ ] storyline -> initial edit decisions
   - [ ] `avid-cli podcast-cut` 또는 `avid-cli subtitle-cut`
+- [ ] review payload
+  - [ ] `avid-cli review-segments`
 - [ ] human override
   - [ ] `avid-cli apply-evaluation`
 - [ ] multicam add

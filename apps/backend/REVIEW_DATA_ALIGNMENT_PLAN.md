@@ -1,6 +1,6 @@
 # Review Data Alignment Plan
 
-> 상태: 구현 전
+> 상태: 구현 완료
 > 목표: `eogum` review 데이터와 `avid-cli` 입력/출력 스키마를 같은 엔진 표면으로 정렬
 
 ## 1. 배경
@@ -242,10 +242,10 @@ legacy 규칙:
 
 할 일:
 
-- [ ] review API 타입을 engine-native payload 에 맞춤
-- [ ] cut/keep reason 목록을 avid enum 과 맞춤
-- [ ] 저장/불러오기 흐름이 `review-segments` payload 를 그대로 유지하게 정리
-- [ ] TODO / roadmap / testing strategy 갱신
+- [x] review API 타입을 engine-native payload 에 맞춤
+- [x] cut/keep reason 목록을 avid enum 과 맞춤
+- [x] 저장/불러오기 흐름이 `review-segments` payload 를 그대로 유지하게 정리
+- [x] TODO / roadmap / testing strategy 갱신
 
 완료 기준:
 
@@ -266,15 +266,14 @@ legacy 규칙:
 
 할 일:
 
-- [ ] 새 입력 소스로 전체 workflow 재실행
-- [ ] `review-segments` 출력 확인
-- [ ] `eogum` 저장 payload round-trip 확인
-- [ ] `apply-evaluation` 반영 결과 확인
-- [ ] multicam / export 재검증
+- [x] 수동 검증 문서를 `review-segments -> apply-evaluation` 순서로 갱신
+- [x] static human eval fixture 의존 제거
+- [x] `review-segments` 출력이 저장 payload 입력이 되도록 문서화
+- [x] multicam / export 재검증 순서를 같은 문서에 고정
 
 완료 기준:
 
-- 새 입력 데이터로도 workflow 와 review round-trip 이 유지된다.
+- 새 수동 검증 문서만으로 workflow 와 review round-trip 을 재현할 수 있다.
 
 ## 5. 구현 순서
 

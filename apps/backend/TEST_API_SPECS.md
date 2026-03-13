@@ -206,10 +206,11 @@ legacy 기준:
 
 - `samples/test_multisource/main_live.mp4`
 - `samples/test_multisource/cam_sony.mp4`
-- `apps/backend/manual-fixtures/text/main_live_eval_override.json`
 - `samples/test_multisource/main_live.srt`
 - `samples/test_multisource/main_live.storyline.json`
 - `samples/test_multisource/main_live.podcast.avid.json`
+- runtime 에서 생성한 `04_review/main_live.review.json`
+- 사람이 `human` 필드를 채운 `04_review/main_live.eval.json`
 
 보조 reference 데이터:
 

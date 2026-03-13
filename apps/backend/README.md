@@ -22,12 +22,20 @@ pip install -e '.[sync]'
 avid-cli version --json
 avid-cli doctor --json
 avid-cli doctor --probe-providers --json
-avid-cli doctor --provider claude --probe-providers --provider-model claude-opus-4-6 --provider-effort medium --json
-avid-cli apply-evaluation --project-json /tmp/in.avid.json --evaluation /tmp/evaluation.json --output-project-json /tmp/out.avid.json --json
-avid-cli export-project --project-json /tmp/in.avid.json --output-dir /tmp/out --content-mode cut --json
-avid-cli rebuild-multicam --project-json /tmp/in.avid.json --source /tmp/main.mp4 --extra-source /tmp/cam2.mp4 --offset 1200 --output-project-json /tmp/out.avid.json --json
-avid-cli clear-extra-sources --project-json /tmp/in.avid.json --output-project-json /tmp/out.avid.json --json
 ```
+
+권장 workflow 검증 시작점:
+
+1. `doctor`
+2. `transcribe`
+3. `transcript-overview`
+4. `subtitle-cut` 또는 `podcast-cut`
+5. `review-segments`
+6. `apply-evaluation`
+7. `rebuild-multicam`
+8. `export-project`
+
+즉, `reexport` 나 split command 부터 보지 말고 source input 부터 final export 까지 따라가는 것이 맞다.
 
 ## 외부 통합 원칙
 
@@ -39,6 +47,6 @@ avid-cli clear-extra-sources --project-json /tmp/in.avid.json --output-project-j
 ## 현재 우선순위
 
 1. CLI 표면 고정
-2. 수동 검증 시나리오 정리
+2. 실제 workflow 기준 수동 검증 시나리오 정리
 3. live dependency 를 분리한 smoke 절차 확립
 4. 그 다음 상위 시스템 통합

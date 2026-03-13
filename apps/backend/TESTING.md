@@ -58,7 +58,6 @@ cd "$REPO_ROOT"
 
 - 메인 source: `samples/test_multisource/main_live.mp4`
 - extra source: `samples/test_multisource/cam_sony.mp4`
-- human eval fixture: `apps/backend/manual-fixtures/text/main_live_eval_override.json`
 - 참고 artifact:
   - `samples/test_multisource/main_live.srt`
   - `samples/test_multisource/main_live.storyline.json`
@@ -148,9 +147,10 @@ avid-cli podcast-cut \
 - 엔진이 review payload 를 직접 내보내는지 본다.
 
 ```bash
+mkdir -p "$TMP_DIR/04_review"
 avid-cli review-segments \
   --project-json "$TMP_DIR/03_cut/main_live.podcast.avid.json" \
-  --json
+  --json > "$TMP_DIR/04_review/main_live.review.json"
 ```
 
 기대 결과:
@@ -160,6 +160,14 @@ avid-cli review-segments \
 - `segments[].ai.source_segment_index` 존재
 - 새 project JSON 기준으로 `join_strategy=source_segment_index`
 
+review 입력 준비:
+
+```bash
+cp "$TMP_DIR/04_review/main_live.review.json" "$TMP_DIR/04_review/main_live.eval.json"
+```
+
+그 다음 `main_live.eval.json` 에서 필요한 `segments[].human` 만 직접 채운다.
+
 ### 5. Human Eval Override
 
 목적:
@@ -168,7 +176,7 @@ avid-cli review-segments \
 ```bash
 avid-cli apply-evaluation \
   --project-json "$TMP_DIR/03_cut/main_live.podcast.avid.json" \
-  --evaluation apps/backend/manual-fixtures/text/main_live_eval_override.json \
+  --evaluation "$TMP_DIR/04_review/main_live.eval.json" \
   --output-project-json "$TMP_DIR/04_eval/main_live.eval.avid.json" \
   --json
 ```
@@ -258,7 +266,7 @@ avid-cli clear-extra-sources \
 ```bash
 avid-cli reexport \
   --project-json "$TMP_DIR/03_cut/main_live.podcast.avid.json" \
-  --evaluation apps/backend/manual-fixtures/text/main_live_eval_override.json \
+  --evaluation "$TMP_DIR/04_review/main_live.eval.json" \
   --source samples/test_multisource/main_live.mp4 \
   --extra-source samples/test_multisource/cam_sony.mp4 \
   --offset 0 \

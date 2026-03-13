@@ -5,7 +5,7 @@
 
 현재 canonical live source:
 
-- `samples/test_multisource/`: multicam + extra source + export 검증
+- `samples/test_multisource/`: source -> transcribe -> cut -> review-segments -> human eval -> multicam -> export 전체 workflow 검증
 - `samples/sample_10min.m4a`: podcast-cut 기본 live sample
 - `samples/C1718_compressed.mp4`: subtitle-cut / two-pass 관련 live sample
 - `apps/backend/manual-fixtures/historical/20260207_192336/source.mp4`: historical single-source sample

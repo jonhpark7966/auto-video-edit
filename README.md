@@ -9,13 +9,22 @@
 | **subtitle-cut** | 강의, 설명, 튜토리얼 | 정보 효율성 — 중복/필러/말실수 제거 |
 | **podcast-cut** | 팟캐스트, 인터뷰 | 재미 유지 — 지루한 구간 제거, 하이라이트 보존 |
 
-## Two-Pass 워크플로우
+## 실제 워크플로우
 
-```
-SRT ──→ [Pass 1: transcript-overview] ──storyline.json──→ [Pass 2: subtitle-cut / podcast-cut] ──→ FCPXML
+```text
+source media
+  -> transcribe
+  -> transcript-overview
+  -> subtitle-cut / podcast-cut
+  -> review-segments
+  -> human evaluation override
+  -> multicam add
+  -> export-project
+  -> FCPXML
 ```
 
-Pass 1이 스토리 구조를 먼저 파악하여, Pass 2에서 setup-payoff 쌍이나 Q&A가 분리되는 것을 방지한다.
+`transcript-overview` 와 `subtitle-cut / podcast-cut` 은 기존 two-pass 구조를 유지한다.
+다만 실제 작업 순서는 initial cut 뒤에 사람 평가와 multicam 재구성이 들어가고, 최종 delivery FCPXML 은 마지막 `export-project` 단계에서 다시 본다.
 
 ## 설치
 
@@ -34,7 +43,7 @@ pip install -e .
 
 ### 팟캐스트 편집 (영상 → FCPXML)
 
-영상 파일 하나에서 팟캐스트 편집본까지의 전체 흐름:
+영상 파일 하나에서 initial edit decision 까지의 기본 흐름:
 
 ```bash
 # 1) 음성 전사 — 영상에서 오디오를 추출하고 Chalna API로 SRT 생성
@@ -47,11 +56,27 @@ avid-cli transcript-overview podcast.srt --content-type podcast
 avid-cli podcast-cut podcast.mp4 --srt podcast.srt --context podcast.storyline.json
 ```
 
-출력물:
+초기 출력물:
 - `podcast.fcpxml` — Final Cut Pro 타임라인 (review 모드: 컷이 disabled 상태로 표시)
 - `podcast.srt` — 편집 반영된 자막
 - `podcast.report.md` — 편집 판단 근거 보고서
 - `podcast.podcast.avid.json` — 프로젝트 메타데이터
+
+실제 작업에서는 이 뒤에 보통 아래가 이어진다.
+
+```bash
+# 4) review payload 생성
+avid-cli review-segments --project-json podcast.podcast.avid.json --json > review.json
+
+# 5) 사람 검토 반영
+avid-cli apply-evaluation --project-json podcast.podcast.avid.json --evaluation human_eval.json --output-project-json podcast.eval.avid.json
+
+# 6) 멀티캠 추가
+avid-cli rebuild-multicam --project-json podcast.eval.avid.json --source podcast.mp4 --extra-source cam2.mp4 --output-project-json podcast.multicam.avid.json
+
+# 7) 최종 export
+avid-cli export-project --project-json podcast.multicam.avid.json --output-dir out
+```
 
 ### 강의 편집 (영상 → FCPXML)
 
@@ -188,7 +213,16 @@ avid-cli podcast-cut <파일> [--srt <srt>] [--context storyline.json] [--provid
 주요 통합 명령:
 - `avid-cli version --json`
 - `avid-cli doctor --provider claude --json`
-- `avid-cli reexport --project-json ... --output-dir ... --json`
+- `avid-cli transcribe ... --json`
+- `avid-cli transcript-overview ... --json`
+- `avid-cli subtitle-cut ... --json` 또는 `avid-cli podcast-cut ... --json`
+- `avid-cli review-segments ... --json`
+- `avid-cli apply-evaluation ... --json`
+- `avid-cli rebuild-multicam ... --json`
+- `avid-cli clear-extra-sources ... --json`
+- `avid-cli export-project ... --json`
+
+`reexport` 는 deprecated compatibility wrapper 로만 본다.
 
 상세 문서:
 - [apps/backend/README.md](apps/backend/README.md)
@@ -207,7 +241,7 @@ avid-cli podcast-cut <파일> [--srt <srt>] [--context storyline.json] [--provid
 
 ```
 apps/backend/src/avid/
-├── cli.py              # CLI 진입점 (7개 명령어 + JSON/manifest output)
+├── cli.py              # CLI 진입점 (명시적 subcommands + JSON/manifest output)
 ├── services/           # 비즈니스 로직 (AudioSyncService 포함)
 ├── models/             # Pydantic 데이터 모델
 └── export/             # FCPXML (connected clips), 보고서 내보내기
