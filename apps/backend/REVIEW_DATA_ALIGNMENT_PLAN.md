@@ -216,11 +216,11 @@ legacy 규칙:
 
 할 일:
 
-- [ ] `avid.review_segments()` wrapper 추가
-- [ ] `/projects/{id}/segments` 를 `review-segments` 결과 기반으로 변경
-- [ ] 저장 스키마에 `schema_version`, `origin_kind`, `source_segment_index` 반영
-- [ ] 재처리 시 evaluation JSON 을 그대로 `apply-evaluation` 에 전달
-- [ ] 기존 overlap merge 제거
+- [x] `avid.review_segments()` wrapper 추가
+- [x] `/projects/{id}/segments` 를 `review-segments` 결과 기반으로 변경
+- [x] 저장 스키마에 `schema_version`, `origin_kind`, `source_segment_index` 반영
+- [x] 재처리 시 evaluation JSON 을 그대로 `apply-evaluation` 에 전달
+- [x] 기존 overlap merge 제거
 
 완료 기준:
 

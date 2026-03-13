@@ -45,7 +45,7 @@
 - [x] Commit 1. avid 모델에 segment identity 추가
 - [x] Commit 2. `avid-cli review-segments` 추가
 - [x] Commit 3. `apply-evaluation` 를 index 기반 patch 로 교체
-- [ ] Commit 4. `eogum` API 를 engine-native review payload 소비자로 변경
+- [x] Commit 4. `eogum` API 를 engine-native review payload 소비자로 변경
 - [ ] Commit 5. `eogum` frontend / 문서 정리
 - [ ] Commit 6. 새 영상 기준 수동 검증 문서 갱신
 
