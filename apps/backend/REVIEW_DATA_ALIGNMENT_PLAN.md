@@ -162,11 +162,11 @@ legacy 규칙:
 
 할 일:
 
-- [ ] `avid-cli review-segments --project-json ... --json` 추가
-- [ ] review payload `schema_version` 추가
-- [ ] content decision 은 `source_segment_index` 로만 join
-- [ ] silence decision 은 review payload 에 기본 제외
-- [ ] 문서에 engine-native review payload 명세 추가
+- [x] `avid-cli review-segments --project-json ... --json` 추가
+- [x] review payload `schema_version` 추가
+- [x] content decision 은 `source_segment_index` 로만 join
+- [x] silence decision 은 review payload 에 기본 제외
+- [x] 문서에 engine-native review payload 명세 추가
 
 완료 기준:
 

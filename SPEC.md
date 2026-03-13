@@ -2,7 +2,7 @@
 
 ## 한 줄 요약
 
-영상의 불필요한 발화와 SRT 자막 갭(무음)을 자동 감지하여 Final Cut Pro용 편집 타임라인(FCPXML)을 생성하는 CLI 도구.
+영상의 불필요한 발화와 SRT 자막 갭(무음)을 자동 감지하고, 사람 평가와 멀티캠 후처리를 거쳐 Final Cut Pro용 편집 타임라인(FCPXML)을 생성하는 CLI 도구.
 
 CLI 표면과 machine-readable 출력 규칙은 [apps/backend/CLI_INTERFACE.md](apps/backend/CLI_INTERFACE.md)를 기준으로 한다.
 테스트 우선순위와 실행 방법은 [apps/backend/TESTING.md](apps/backend/TESTING.md)를 기준으로 한다.
@@ -87,7 +87,7 @@ avid-cli subtitle-cut <video> --srt <srt> [--context <storyline.json>] [--provid
 | `--offset` | 자동 감지 | 수동 오프셋 ms (`--extra-source` 순서 대응) |
 
 **출력**:
-- `{stem}_subtitle_cut.fcpxml` — 편집 타임라인
+- `{stem}_subtitle_cut.fcpxml` — 초기 편집 타임라인
 - `{stem}_subtitle_cut.srt` — 조정된 자막
 - `{stem}_subtitle_cut.avid.json` — 프로젝트 JSON
 
@@ -120,12 +120,12 @@ avid-cli podcast-cut <audio|video> [--srt <srt>] [--context <storyline.json>] [-
 | `--offset` | 자동 감지 | 수동 오프셋 ms (`--extra-source` 순서 대응) |
 
 **출력**:
-- `{stem}_podcast_cut.fcpxml` — 편집 타임라인
+- `{stem}_podcast_cut.fcpxml` — 초기 편집 타임라인
 - `{stem}_podcast_cut.srt` — 조정된 자막
 - `{stem}.report.md` — 편집 보고서
 - `{stem}_podcast_cut.avid.json` — 프로젝트 JSON
 
-**CUT 이유**: `boring`, `tangent`, `repetitive`, `long_pause`, `crosstalk`, `irrelevant`, `filler`, `dragging`
+**CUT 이유**: `boring`, `tangent`, `repetitive`, `long_pause`, `crosstalk`, `irrelevant`, `filler`, `dragging`, `meta_comment`
 **KEEP 이유**: `funny`, `witty`, `chemistry`, `reaction`, `callback`, `climax`, `engaging`, `emotional`
 
 각 세그먼트에 `entertainment_score` (1-10)를 부여한다.
@@ -134,24 +134,56 @@ avid-cli podcast-cut <audio|video> [--srt <srt>] [--context <storyline.json>] [-
 - ≤80: 단일 호출
 - &gt;80: 병렬 chunk 처리 (chunk_size=80, overlap=5)
 
-### reexport / version / doctor
+### review-segments / apply-evaluation / rebuild-multicam / clear-extra-sources / export-project
 
-상위 시스템 통합과 운영 진단용 명령은 아래를 사용한다.
+초기 편집 이후의 후처리 workflow 는 아래 명령을 사용한다.
 
-- `avid-cli reexport` — 기존 `.avid.json` 기반 재-export
+- `avid-cli review-segments` — engine-native review payload 생성
+- `avid-cli apply-evaluation` — 기존 `.avid.json` 에 human keep/cut override 적용
+- `avid-cli rebuild-multicam` — 기존 extra source 제거 후 새 extra source / manual offset 재구성
+- `avid-cli clear-extra-sources` — 기존 extra source 제거만 수행
+- `avid-cli export-project` — project JSON 기준 최종 FCPXML / adjusted SRT 생성
+
+### version / doctor / reexport
+
+운영 진단과 compatibility 용 명령은 아래를 사용한다.
+
 - `avid-cli version --json` — 버전 식별
 - `avid-cli doctor --json` — 실행 환경 진단
+- `avid-cli reexport` — deprecated compatibility command
 
 이 명령들의 안정성 기준과 JSON/manifest 규칙은 [apps/backend/CLI_INTERFACE.md](apps/backend/CLI_INTERFACE.md) 에서 관리한다.
 
 ---
 
-## Two-Pass 편집 워크플로우
+## 실제 편집 워크플로우
+
+실제 운영 경로는 아래 순서를 따른다.
+
+```
+source media
+  └─→ transcribe
+        └─→ transcript-overview
+              └─→ subtitle-cut 또는 podcast-cut
+                    └─→ review-segments
+                          └─→ apply-evaluation
+                                └─→ rebuild-multicam
+                                      └─→ export-project
+                                            └─→ FCPXML
+```
+
+보조 경로:
+- `clear-extra-sources` 는 멀티캠 제거용 유지보수 명령이다.
+- `reexport` 는 위 단계를 감싼 deprecated compatibility 경로다.
+
+---
+
+## Two-Pass 초기 편집 워크플로우
 
 프로 편집자의 "Paper Edit" 워크플로우를 자동화한 구조.
 
 ```
-SRT ──→ [Pass 1: transcript-overview] ──storyline.json──→ [Pass 2: subtitle-cut 또는 podcast-cut] ──→ FCPXML
+SRT ──→ [Pass 1: transcript-overview] ──storyline.json──→ [Pass 2: subtitle-cut 또는 podcast-cut] ──→ Project
 ```
 
 **Pass 1**: 전체 자막을 읽고 스토리 구조, 챕터, 의존성, 핵심 순간을 분석
@@ -163,6 +195,7 @@ SRT ──→ [Pass 1: transcript-overview] ──storyline.json──→ [Pass 
 - Q&A 쌍 분리
 
 > Pass 2 스킬은 `--context` 없이도 독립 동작한다 (하위 호환).
+> 최종 FCPXML 은 초기 cut 단계 산출물을 그대로 쓰는 경우도 있지만, 사람 평가와 멀티캠 반영 후 `export-project` 로 다시 생성하는 경로가 기준이다.
 
 ---
 
@@ -181,10 +214,17 @@ SRT ──→ [Pass 1: transcript-overview] ──storyline.json──→ [Pass 
   "transcription": {
     "source_track_id": "uuid_audio",
     "language": "ko",
-    "segments": [{ "start_ms": 0, "end_ms": 3000, "text": "안녕하세요" }]
+    "segments": [{ "index": 1, "start_ms": 0, "end_ms": 3000, "text": "안녕하세요" }]
   },
   "edit_decisions": [
-    { "range": { "start_ms": 5000, "end_ms": 8000 }, "edit_type": "cut", "reason": "duplicate", "confidence": 0.95 }
+    {
+      "range": { "start_ms": 5000, "end_ms": 8000 },
+      "edit_type": "cut",
+      "reason": "duplicate",
+      "confidence": 0.95,
+      "origin_kind": "content_segment",
+      "source_segment_index": 12
+    }
   ]
 }
 ```
@@ -213,6 +253,7 @@ SRT ──→ [Pass 1: transcript-overview] ──storyline.json──→ [Pass 
 | | `crosstalk` | 동시 발화 |
 | | `irrelevant` | 무관한 내용 |
 | | `dragging` | 늘어짐 |
+| | `meta_comment` | 녹화/기획/장비 관련 메타 발언 |
 | 팟캐스트 KEEP | `funny` | 유머 |
 | | `witty` | 재치 |
 | | `chemistry` | 케미 |

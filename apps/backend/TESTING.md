@@ -1,7 +1,7 @@
 # AVID Backend Manual Verification
 
-> 목표: `avid-cli` 표면을 사람이 직접 확인하면서 깨지는 지점을 빠르게 찾는다.
-> 원칙: 외부 통합 전에 CLI 입력, 산출물, 오류 처리를 눈으로 검증한다.
+> 목표: 실제 작업 순서 그대로 `avid-cli` 를 검증한다.
+> 원칙: `reexport` 로 시작하지 않고, source input 부터 final FCPXML 까지 따라간다.
 
 ## 관련 문서
 
@@ -15,15 +15,25 @@
 
 - 자동화된 테스트 스위트는 유지하지 않는다.
 - 검증은 실제 `avid-cli` 명령을 직접 돌려서 본다.
-- 결과 확인은 세 가지로 한다.
-  - stdout/stderr
-  - `--json` 또는 `--manifest-out` payload
-  - 실제 생성된 산출물 파일
+- 기본 워크플로우는 아래 순서다.
+  - source input
+  - `transcribe`
+  - `transcript-overview`
+  - `subtitle-cut` 또는 `podcast-cut`
+  - `review-segments`
+  - `apply-evaluation`
+  - `rebuild-multicam`
+  - `export-project`
+  - Final Cut Pro 에서 FCPXML 확인
+- `reexport` 는 compatibility check 용으로만 마지막에 본다.
 
 ## 준비
 
 ```bash
 REPO_ROOT=/home/jonhpark/workspace/auto-video-edit
+TMP_DIR=/tmp/avid-workflow
+mkdir -p "$TMP_DIR"
+
 cd "$REPO_ROOT/apps/backend"
 pip install -e '.[sync]'
 cd "$REPO_ROOT"
@@ -42,107 +52,162 @@ cd "$REPO_ROOT"
 - Chalna
 - `audio-offset-finder`
 
-## 검증 순서
+## Canonical Workflow Scenario
 
-### 1. Fast doctor
+기본 시나리오는 아래 source 를 쓴다.
+
+- 메인 source: `samples/test_multisource/main_live.mp4`
+- extra source: `samples/test_multisource/cam_sony.mp4`
+- human eval fixture: `apps/backend/manual-fixtures/text/main_live_eval_override.json`
+- 참고 artifact:
+  - `samples/test_multisource/main_live.srt`
+  - `samples/test_multisource/main_live.storyline.json`
+  - `samples/test_multisource/main_live.podcast.avid.json`
+  - `samples/test_multisource/main_live.final.fcpxml`
+
+### 0. Preflight
 
 목적:
-- 바이너리와 기본 런타임이 즉시 살아 있는지 본다.
-
-명령:
+- workflow 를 시작하기 전에 런타임이 살아 있는지 본다.
 
 ```bash
 avid-cli doctor --json
-```
-
-기대 결과:
-
-- exit code `0`
-- `checks.python`, `checks.ffmpeg`, `checks.ffprobe`, `checks.provider` 존재
-- `provider_probe_requested` 는 `false`
-- `provider_probes` 는 비어 있음
-- deep probe 안내 hint 가 출력에 포함됨
-
-### 2. Deep doctor
-
-목적:
-- Claude/Codex API 인증과 실제 짧은 호출이 되는지 본다.
-
-명령:
-
-```bash
 avid-cli doctor --probe-providers --json
 ```
 
-단일 provider override:
+### 1. Source -> SRT
+
+목적:
+- 원본 소스에서 자막이 생성되는지 본다.
 
 ```bash
-avid-cli doctor --provider claude --probe-providers --provider-model claude-opus-4-6 --provider-effort medium --json
-avid-cli doctor --provider codex --probe-providers --provider-model gpt-5.4 --provider-effort medium --json
+avid-cli transcribe \
+  samples/test_multisource/main_live.mp4 \
+  -d "$TMP_DIR/01_transcribe" \
+  --json
 ```
 
 기대 결과:
 
-- `provider_configs` 또는 `provider_config` 에 resolved `provider/model/effort` 가 남음
-- `provider_probes` 또는 `provider_probe` 에 실제 응답 요약이 남음
-- 실패 시 어떤 provider/model/effort 조합에서 실패했는지 바로 보임
+- `artifacts.srt` 생성
+- 결과 파일이 `samples/test_multisource/main_live.srt` 와 같은 종류의 출력인지 확인
 
-### 3. `apply-evaluation`
+### 2. SRT -> Storyline
 
 목적:
-- 기존 `.avid.json` 의 cut decision 이 사람 평가로 patch 되는지 본다.
-
-준비:
+- 생성된 SRT 를 기반으로 story analysis 가 되는지 본다.
 
 ```bash
-TMP_DIR=/tmp/avid-manual
-mkdir -p "$TMP_DIR"
-cat > "$TMP_DIR/evaluation.json" <<'EOF'
-{
-  "segments": [
-    {
-      "start_ms": 2720,
-      "end_ms": 3699,
-      "human": {"action": "keep"}
-    },
-    {
-      "start_ms": 16000,
-      "end_ms": 17000,
-      "human": {"action": "cut"}
-    }
-  ]
-}
-EOF
+avid-cli transcript-overview \
+  "$TMP_DIR/01_transcribe/main_live.srt" \
+  -o "$TMP_DIR/02_overview/main_live.storyline.json" \
+  --content-type podcast \
+  --provider codex \
+  --provider-model gpt-5.4 \
+  --provider-effort medium \
+  --json
 ```
 
-명령:
+기대 결과:
+
+- `artifacts.storyline` 생성
+- chapter / dependency / key moment 가 채워짐
+- 결과 shape 가 `samples/test_multisource/main_live.storyline.json` 과 같은 계열인지 확인
+
+### 3. Storyline -> Initial Edit Decisions
+
+목적:
+- source + srt + storyline 를 기반으로 initial cut/edit decision 이 생성되는지 본다.
 
 ```bash
-avid-cli apply-evaluation \
-  --project-json apps/backend/manual-fixtures/historical/20260207_192336/podcast_cut_final/source.podcast.avid.json \
-  --evaluation "$TMP_DIR/evaluation.json" \
-  --output-project-json "$TMP_DIR/source.eval.avid.json" \
+avid-cli podcast-cut \
+  samples/test_multisource/main_live.mp4 \
+  --srt "$TMP_DIR/01_transcribe/main_live.srt" \
+  --context "$TMP_DIR/02_overview/main_live.storyline.json" \
+  --provider codex \
+  --provider-model gpt-5.4 \
+  --provider-effort medium \
+  -d "$TMP_DIR/03_cut" \
   --json
 ```
 
 기대 결과:
 
 - `artifacts.project_json` 생성
-- `stats.applied_evaluation_segments` 가 `2`
-- `stats.applied_changes` 가 `1` 이상
-- 결과 project JSON 에서 `2720-3699` 구간 기존 cut overlap 이 줄어들거나 사라짐
+- `artifacts.fcpxml`, `artifacts.report`, `artifacts.srt` 도 같이 생성될 수 있음
+- 여기서 중요한 것은 **initial project JSON / edit decisions 가 생겼는지**다
+- final delivery 검증은 아직 하지 않는다
 
-### 4. `export-project`
+참고:
+
+- 강의형 워크플로우를 보고 싶으면 `podcast-cut` 대신 `subtitle-cut` 을 쓰면 된다.
+
+### 4. Review Payload
 
 목적:
-- project JSON 만으로 FCPXML/SRT 산출물이 다시 생성되는지 본다.
+- 엔진이 review payload 를 직접 내보내는지 본다.
 
-명령:
+```bash
+avid-cli review-segments \
+  --project-json "$TMP_DIR/03_cut/main_live.podcast.avid.json" \
+  --json
+```
+
+기대 결과:
+
+- `schema_version=review-segments/v1`
+- `segments[].index` 가 transcript segment identity 로 채워짐
+- `segments[].ai.source_segment_index` 존재
+- 새 project JSON 기준으로 `join_strategy=source_segment_index`
+
+### 5. Human Eval Override
+
+목적:
+- 사람이 저장한 evaluation 이 initial cut 을 덮어쓰는지 본다.
+
+```bash
+avid-cli apply-evaluation \
+  --project-json "$TMP_DIR/03_cut/main_live.podcast.avid.json" \
+  --evaluation apps/backend/manual-fixtures/text/main_live_eval_override.json \
+  --output-project-json "$TMP_DIR/04_eval/main_live.eval.avid.json" \
+  --json
+```
+
+기대 결과:
+
+- `artifacts.project_json` 생성
+- `stats.applied_evaluation_segments` 존재
+- keep/cut override 가 실제로 반영됨
+
+### 6. Multicam Add
+
+목적:
+- 사람 평가가 반영된 project JSON 에 extra source 를 붙인다.
+
+```bash
+avid-cli rebuild-multicam \
+  --project-json "$TMP_DIR/04_eval/main_live.eval.avid.json" \
+  --source samples/test_multisource/main_live.mp4 \
+  --extra-source samples/test_multisource/cam_sony.mp4 \
+  --offset 0 \
+  --output-project-json "$TMP_DIR/05_multicam/main_live.multicam.avid.json" \
+  --json
+```
+
+기대 결과:
+
+- `stats.extra_sources` 가 `1`
+- 결과 project JSON 에 secondary source 와 track 이 추가됨
+
+### 7. Final Export
+
+목적:
+- human eval + multicam 이 반영된 최종 project JSON 에서 FCPXML 을 만든다.
 
 ```bash
 avid-cli export-project \
-  --project-json "$TMP_DIR/source.eval.avid.json" \
-  --output-dir "$TMP_DIR/exported" \
+  --project-json "$TMP_DIR/05_multicam/main_live.multicam.avid.json" \
+  --output-dir "$TMP_DIR/06_export" \
   --content-mode cut \
   --json
 ```
@@ -151,101 +216,56 @@ avid-cli export-project \
 
 - `artifacts.fcpxml` 생성
 - transcription 이 있으면 `artifacts.srt` 생성
-- `report` 는 생성하지 않음
+- **이 단계의 FCPXML 이 최종 확인 대상**이다
 
-### 5. `rebuild-multicam`
-
-목적:
-- extra source strip 후 재구성, manual offset 반영을 본다.
-
-명령:
-
-```bash
-avid-cli rebuild-multicam \
-  --project-json samples/test_multisource/main_live.podcast.avid.json \
-  --source samples/test_multisource/main_live.mp4 \
-  --extra-source samples/test_multisource/cam_sony.mp4 \
-  --offset 0 \
-  --output-project-json "$TMP_DIR/main_live.multicam.avid.json" \
-  --json
-```
-
-기대 결과:
-
-- `stats.extra_sources` 가 `1`
-- `stats.stripped_extra_sources` 가 `1` 이상
-- 결과 project JSON 의 source/tracks 에 secondary source 가 들어감
-
-### 6. `clear-extra-sources`
+### 8. Final Cut Pro Check
 
 목적:
-- multicam project 를 single-source 로 명시적으로 되돌린다.
+- 실제 편집기에서 결과가 자연스러운지 본다.
 
-명령:
+우선 볼 것:
+
+- connected clip 이 붙는지
+- manual offset 이 어긋나지 않는지
+- human eval 로 keep/cut 한 부분이 기대대로 보이는지
+- adjusted SRT 와 cut 결과가 크게 어긋나지 않는지
+
+### 9. Optional Cleanup Path
+
+목적:
+- multicam 을 붙였다가 다시 single-source 로 되돌리는 명시적 경로를 본다.
 
 ```bash
 avid-cli clear-extra-sources \
-  --project-json samples/test_multisource/main_live.podcast.avid.json \
-  --output-project-json "$TMP_DIR/main_live.cleared.avid.json" \
+  --project-json "$TMP_DIR/05_multicam/main_live.multicam.avid.json" \
+  --output-project-json "$TMP_DIR/07_cleared/main_live.cleared.avid.json" \
   --json
 ```
 
-기대 결과:
+이건 기본 workflow 가 아니라 maintenance path 로 본다.
 
-- `stats.stripped_extra_sources` 가 `1` 이상
-- 결과 project JSON 에 extra source 가 남지 않음
-
-### 7. Deprecated `reexport`
+### 10. Compatibility Only: `reexport`
 
 목적:
-- compatibility wrapper 가 아직 동작하는지 본다.
-
-명령:
+- legacy wrapper 가 아직 동작하는지만 본다.
 
 ```bash
 avid-cli reexport \
-  --project-json samples/test_multisource/main_live.podcast.avid.json \
-  --output-dir "$TMP_DIR/reexported" \
-  --content-mode disabled \
+  --project-json "$TMP_DIR/03_cut/main_live.podcast.avid.json" \
+  --evaluation apps/backend/manual-fixtures/text/main_live_eval_override.json \
+  --source samples/test_multisource/main_live.mp4 \
+  --extra-source samples/test_multisource/cam_sony.mp4 \
+  --offset 0 \
+  --output-dir "$TMP_DIR/08_reexport" \
+  --content-mode cut \
   --json
 ```
 
 기대 결과:
 
 - stderr 에 deprecated warning
-- `project_json`, `fcpxml`, `srt` artifact 가 생성됨
-- legacy wrapper 이지만 split 명령과 같은 결과 계열을 유지함
-
-### 8. `transcribe`, `transcript-overview`, `subtitle-cut`, `podcast-cut`
-
-목적:
-- live dependency 가 실제로 동작하는지 본다.
-
-권장 순서:
-
-```bash
-avid-cli transcribe samples/sample_10min.m4a -d "$TMP_DIR/transcribe" --json
-avid-cli transcript-overview apps/backend/manual-fixtures/text/e2e_source.srt --provider claude --json
-avid-cli subtitle-cut samples/C1718_compressed.mp4 --srt apps/backend/manual-fixtures/text/c1718_compressed.srt --provider claude --json
-avid-cli podcast-cut samples/sample_10min.m4a --srt apps/backend/manual-fixtures/historical/20260207_192336/source.srt --provider codex --json
-```
-
-기대 결과:
-
-- 각 명령이 `artifacts.*` 를 남김
-- 실패 시 stderr 에 dependency 또는 provider 원인이 드러남
-
-### 9. FCPXML 수동 검토
-
-목적:
-- 생성된 FCPXML 을 실제 편집기에서 열어 구조를 확인한다.
-
-우선 확인할 것:
-
-- single-source 에서 lane 이 과하게 생기지 않는지
-- multicam 에서 connected clip 이 붙는지
-- manual offset 을 준 source 가 시각적으로 맞는지
-- adjusted SRT 와 cut 결과가 크게 어긋나지 않는지
+- split workflow 와 같은 계열의 artifact 생성
+- **주 워크플로우 검증은 이 명령으로 하지 않는다**
 
 ## 실패 시 먼저 볼 것
 
@@ -257,11 +277,12 @@ avid-cli podcast-cut samples/sample_10min.m4a --srt apps/backend/manual-fixtures
 
 ## 완료 기준
 
-- [ ] fast doctor 통과
-- [ ] deep doctor 통과
-- [ ] `apply-evaluation` 산출물 확인
-- [ ] `export-project` 산출물 확인
-- [ ] `rebuild-multicam` 산출물 확인
-- [ ] `clear-extra-sources` 산출물 확인
-- [ ] deprecated `reexport` 동작 확인
-- [ ] 최소 1개 FCPXML 을 Final Cut Pro 에서 열어 확인
+- [ ] preflight doctor 통과
+- [ ] `transcribe` 통과
+- [ ] `transcript-overview` 통과
+- [ ] initial `podcast-cut` 또는 `subtitle-cut` 통과
+- [ ] `apply-evaluation` 통과
+- [ ] `rebuild-multicam` 통과
+- [ ] `export-project` 통과
+- [ ] 최종 FCPXML 을 Final Cut Pro 에서 열어 확인
+- [ ] deprecated `reexport` 는 compatibility 용으로만 확인

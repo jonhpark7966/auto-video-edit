@@ -7,6 +7,19 @@
 Provider model/effort 설정 표면은 [PROVIDER_RUNTIME_SPEC.md](PROVIDER_RUNTIME_SPEC.md) 에서 관리한다.
 Multicam and FCPXML stability are tracked in the same test-spec document.
 
+## 주 워크플로우
+
+주 워크플로우는 아래 순서다.
+
+1. `transcribe`
+2. `transcript-overview`
+3. `subtitle-cut` 또는 `podcast-cut`
+4. `apply-evaluation`
+5. `rebuild-multicam`
+6. `export-project`
+
+`reexport` 는 compatibility 용 deprecated wrapper 로만 본다.
+
 ## 범위
 
 이 문서는 아래에만 안정성을 약속한다.
@@ -69,9 +82,14 @@ avid-cli <command> ...
 | `doctor` | 실행 환경 진단 | `checks` |
 | `transcribe` | 소스에서 SRT 생성 | `artifacts.srt` |
 | `transcript-overview` | SRT에서 storyline 생성 | `artifacts.storyline` |
-| `subtitle-cut` | 강의/설명형 편집 | `artifacts.project_json`, `fcpxml`, `report`, `srt?` |
-| `podcast-cut` | 팟캐스트/인터뷰 편집 | `artifacts.project_json`, `fcpxml`, `report`, `srt?` |
-| `reexport` | 기존 project JSON 재-export | `artifacts.project_json`, `fcpxml`, `srt?` |
+| `subtitle-cut` | 강의/설명형 initial edit 생성 | `artifacts.project_json`, `fcpxml`, `report`, `srt?` |
+| `podcast-cut` | 팟캐스트/인터뷰 initial edit 생성 | `artifacts.project_json`, `fcpxml`, `report`, `srt?` |
+| `review-segments` | project JSON 에서 engine-native review payload 생성 | `schema_version`, `segments[]` |
+| `apply-evaluation` | 사람 평가를 project JSON 에 반영 | `artifacts.project_json` |
+| `rebuild-multicam` | extra source 를 붙여 project JSON 재구성 | `artifacts.project_json` |
+| `clear-extra-sources` | extra source 제거 | `artifacts.project_json` |
+| `export-project` | 준비된 project JSON 을 최종 export | `artifacts.fcpxml`, `srt?` |
+| `reexport` | deprecated compatibility wrapper | `artifacts.project_json`, `fcpxml`, `srt?` |
 
 ## Provider Runtime 표면
 
@@ -232,7 +250,7 @@ avid-cli podcast-cut podcast.mp4 --srt podcast.srt --context podcast.storyline.j
 
 상태:
 - 현재 구현되어 있다
-- `reexport` 분해의 1차 명령으로 본다
+- 주 workflow 에서는 initial cut 다음 단계다
 - 상위 통합은 evaluation-only 재처리에서 이 명령을 우선 사용하도록 수렴한다
 
 최소 artifact:
@@ -241,6 +259,52 @@ avid-cli podcast-cut podcast.mp4 --srt podcast.srt --context podcast.storyline.j
 최소 stats:
 - `stats.applied_evaluation_segments`
 - `stats.applied_changes`
+
+### `avid-cli review-segments`
+
+용도:
+- `avid` 엔진이 직접 review payload 를 생성
+- 다른 UI 가 별도 overlap merge 없이 그대로 소비 가능
+- `eogum` 저장 payload 와 `apply-evaluation` 입력 shape 를 맞추기 위한 기준 표면
+
+최소 출력:
+- `schema_version`
+- `project_json`
+- `review_scope`
+- `join_strategy`
+- `segments`
+
+`segments[]` 최소 shape:
+
+```json
+{
+  "index": 12,
+  "start_ms": 32199,
+  "end_ms": 36959,
+  "text": "....",
+  "ai": {
+    "action": "cut",
+    "reason": "dragging",
+    "confidence": 0.9,
+    "note": "...",
+    "edit_type": "mute",
+    "origin_kind": "content_segment",
+    "source_segment_index": 12
+  },
+  "human": null
+}
+```
+
+규칙:
+- 새 project JSON 에서는 `join_strategy=source_segment_index`
+- old project JSON 에서 identity 가 없으면 `join_strategy=legacy_overlap`
+- `silence_gap` decision 은 기본적으로 review row 로 승격하지 않는다
+
+예시:
+
+```bash
+avid-cli review-segments --project-json /tmp/out/main_live.podcast.avid.json --json
+```
 
 예시:
 
@@ -265,7 +329,7 @@ avid-cli apply-evaluation \
 
 상태:
 - 현재 구현되어 있다
-- `reexport` 분해의 2차 명령으로 본다
+- 주 workflow 에서는 마지막 최종 export 단계다
 - 상위 통합은 단계별 project JSON 을 만든 뒤 이 명령으로 산출물만 생성하도록 수렴한다
 
 최소 artifact:
@@ -283,7 +347,7 @@ avid-cli export-project \
 ```
 
 보조 규칙:
-- `--output` 이 없으면 primary source 이름 기준으로 `<base>_subtitle_cut.fcpxml` 을 생성한다
+- `--output` 이 없으면 project 유형을 추론해 `<base>_podcast_cut.fcpxml` 또는 `<base>_subtitle_cut.fcpxml` 을 생성한다
 - `report` 는 생성하지 않는다
 - `silence-mode`, `content-mode` 만 export 방식에 영향 준다
 
@@ -295,7 +359,7 @@ avid-cli export-project \
 
 상태:
 - 현재 구현되어 있다
-- `reexport` 분해의 3차 명령으로 본다
+- 주 workflow 에서는 human eval 다음 multicam 단계다
 - 상위 통합은 manual offset 을 포함해 multicam 재구성을 이 명령으로 호출하도록 수렴한다
 
 최소 artifact:
@@ -330,7 +394,7 @@ avid-cli rebuild-multicam \
 
 상태:
 - 현재 구현되어 있다
-- `reexport` 분해의 4차 명령으로 본다
+- 주 workflow 가 아니라 maintenance path 로 본다
 - strip-only 는 이 명령으로만 수행한다
 
 최소 artifact:

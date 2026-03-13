@@ -2,6 +2,7 @@
 
 > Stable CLI boundary: [apps/backend/CLI_INTERFACE.md](apps/backend/CLI_INTERFACE.md)
 > Testing plan: [apps/backend/TESTING.md](apps/backend/TESTING.md)
+> Last updated: 2026-03-13
 
 
 ## 시스템 개요
@@ -9,14 +10,16 @@
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                        CLI (avid-cli)                         │
-│ transcribe │ transcript-overview │ subtitle-cut │ podcast-cut │ reexport │ version │ doctor │
+│ transcribe │ transcript-overview │ subtitle-cut │ podcast-cut │
+│ review-segments │ apply-evaluation │ rebuild-multicam │ clear-extra-sources │ export-project │
+│ reexport (deprecated) │ version │ doctor │
 └──────┬───────────────┬──────────────────┬────────────────┬───┘
        │               │                  │                │
        ▼               ▼                  ▼                ▼
 ┌──────────────────────────────────────────────────────────────┐
 │                     Service Layer                             │
 │  ChalnaTranscription │ TranscriptOverview │ SubtitleCut      │
-│  PodcastCut │ Media                                          │
+│  PodcastCut │ AudioSync │ ProjectPatch │ Export │ Media      │
 └──────┬───────────────┬──────────────────┬────────────────┬───┘
        │               │                  │                │
        ▼               ▼                  ▼                ▼
@@ -40,9 +43,10 @@
 
 ```
 apps/backend/src/avid/
-├── cli.py                  # CLI 진입점 (7개 명령어 + JSON/manifest output)
+├── cli.py                  # CLI 진입점 (초기 처리 + 후처리 + 운영 명령)
 ├── main.py                 # FastAPI 앱 (현재 /health만)
 ├── config.py               # 설정 (host, port, dirs)
+├── provider_runtime.py     # Claude/Codex 기본 모델/effort 및 probe 로직
 ├── services/               # 비즈니스 로직
 │   ├── transcription.py    # ChalnaTranscriptionService
 │   ├── transcript_overview.py  # TranscriptOverviewService
@@ -146,20 +150,26 @@ result = subprocess.run(
 스킬 내부에서 AI CLI 호출:
 ```python
 # skills/_common/cli_utils.py
-def call_claude(prompt, timeout=120):
-    result = subprocess.run(
-        ["claude", "-p", prompt, "--output-format", "text"],
-        capture_output=True, text=True, timeout=timeout,
+def call_claude(prompt, timeout=300, model=None, effort=None):
+    return run_provider_prompt(
+        "claude",
+        prompt,
+        timeout=timeout,
+        model=model,
+        effort=effort,
     )
-    return result.stdout
 
-def call_codex(prompt, timeout=120):
-    result = subprocess.run(
-        ["codex", "--quiet", "--approval-mode", "full-auto", "-p", prompt],
-        capture_output=True, text=True, timeout=timeout,
+def call_codex(prompt, timeout=300, model=None, effort=None):
+    return run_provider_prompt(
+        "codex",
+        prompt,
+        timeout=timeout,
+        model=model,
+        effort=effort,
     )
-    return result.stdout
 ```
+
+provider 기본 프로필과 `doctor --probe-providers` 동작은 `apps/backend/PROVIDER_RUNTIME_SPEC.md`를 기준으로 한다.
 
 ---
 
@@ -184,10 +194,37 @@ segments ──→ [chunk 분할 (overlap 포함)] ──→ ThreadPoolExecutor 
 
 ---
 
-## Two-Pass 아키텍처
+## 실제 End-to-End 워크플로우
+
+`avid` 의 실제 운영 경로는 아래 순서를 따른다.
 
 ```
-SRT ──→ [Pass 1: transcript-overview] ──storyline.json──→ [Pass 2: subtitle-cut / podcast-cut] ──→ FCPXML
+source media
+  └─→ transcribe
+        └─→ transcript-overview
+              └─→ subtitle-cut / podcast-cut
+                    └─→ review-segments
+                          └─→ apply-evaluation
+                                └─→ rebuild-multicam
+                                      └─→ export-project
+                                            └─→ FCPXML + adjusted SRT
+```
+
+의미:
+- `transcribe` 부터 `subtitle-cut` / `podcast-cut` 까지가 초기 편집 단계다.
+- `review-segments` 는 엔진이 직접 review payload 를 만들어 다른 UI 도 같은 shape 를 그대로 쓸 수 있게 한다.
+- `apply-evaluation` 은 사람이 평가한 keep/cut 결정을 기존 `edit_decisions` 위에 덮어쓴다.
+- `rebuild-multicam` 은 기존 extra source 를 다시 구성한다.
+- `clear-extra-sources` 는 유지보수용 명령이며, 기본 workflow 단계는 아니다.
+- `export-project` 가 최종 FCPXML / adjusted SRT 생성을 담당한다.
+- `reexport` 는 위 단계를 한 번에 감싼 deprecated compatibility command 다.
+
+---
+
+## Two-Pass 초기 편집 단계
+
+```
+SRT ──→ [Pass 1: transcript-overview] ──storyline.json──→ [Pass 2: subtitle-cut / podcast-cut] ──→ Project
 ```
 
 **Pass 1** — 전체 자막을 읽고 스토리 구조 분석:
@@ -204,6 +241,7 @@ SRT ──→ [Pass 1: transcript-overview] ──storyline.json──→ [Pass 
 - Q&A 쌍 분리 방지
 
 > `--context`는 선택 파라미터. Pass 2는 단독 실행도 가능 (하위 호환).
+> FCPXML 최종 생성은 이제 `subtitle-cut` / `podcast-cut` 내부 출력만이 아니라 `export-project` 단계까지 포함한 broader workflow 로 이해하는 것이 맞다.
 
 ---
 
@@ -219,7 +257,7 @@ video + srt ──→ SubtitleCutService
                   │    └─ [>150] 병렬 chunk 처리 (2단계 프롬프트)
                   ├─ SRT 갭에서 무음 감지
                   ├─ content + silence → EditDecision 병합
-                  └─ Project + FCPXML + SRT 출력
+                  └─ Project + 초기 FCPXML + SRT 출력
 ```
 
 ### podcast-cut (팟캐스트)
@@ -233,8 +271,24 @@ audio [+ srt] ──→ PodcastCutService
                     │    └─ [>80] 병렬 chunk 처리
                     ├─ SRT 갭에서 무음 감지
                     ├─ content + silence → EditDecision 병합
-                    └─ Project + FCPXML + SRT + Report 출력
+                    └─ Project + 초기 FCPXML + SRT + Report 출력
 ```
+
+### 후처리 데이터 흐름
+
+```
+project.avid.json
+  ├─→ apply-evaluation → eval-applied.project.avid.json
+  ├─→ rebuild-multicam → multicam.project.avid.json
+  ├─→ clear-extra-sources → cleared.project.avid.json
+  └─→ export-project → final FCPXML + adjusted SRT
+```
+
+후처리 명령의 역할:
+- `apply-evaluation`: human keep/cut override 를 기존 `edit_decisions` 에 반영
+- `rebuild-multicam`: 기존 extra source 를 제거한 뒤 새 extra source / manual offset 을 project 에 반영
+- `clear-extra-sources`: 기존 extra source 제거만 수행
+- `export-project`: 저장된 project JSON 기준으로 최종 산출물 생성
 
 ### 멀티소스 데이터 흐름
 
@@ -272,7 +326,7 @@ FCPXML 구조:
 
 CONTENT_REASONS (content_mode 적용 대상):
 - 강의: DUPLICATE, FILLER, INCOMPLETE, FUMBLE
-- 팟캐스트: BORING, TANGENT, REPETITIVE, LONG_PAUSE, CROSSTALK, IRRELEVANT, DRAGGING
+- 팟캐스트: BORING, TANGENT, REPETITIVE, LONG_PAUSE, CROSSTALK, IRRELEVANT, DRAGGING, META_COMMENT
 
 `merge_short_gaps_ms` (기본 500ms): disabled 구간 사이의 짧은 갭도 disabled로 병합.
 

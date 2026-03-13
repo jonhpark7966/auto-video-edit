@@ -1,6 +1,6 @@
 # AVID Manual Verification Specs
 
-> 목적: 사람이 직접 어떤 표면을 어떤 순서와 기준으로 확인해야 하는지 정리한다.
+> 목적: 실제 작업 순서대로 무엇을 확인해야 하는지 정리한다.
 > 범위: `avid-cli` 표면과 현재 FastAPI route 표면.
 
 ## 1. Source Of Truth
@@ -12,22 +12,21 @@
 - [../../SPEC.md](../../SPEC.md)
 - [../../ARCHITECTURE.md](../../ARCHITECTURE.md)
 
-## 2. 검증 대상
+## 2. 주 워크플로우
 
-먼저 보는 것은 `avid-cli` 이고, HTTP API 는 그 다음이다.
+주 검증 순서는 아래다.
 
-1. `avid-cli version`
-2. `avid-cli doctor`
-3. `avid-cli apply-evaluation`
-4. `avid-cli export-project`
-5. `avid-cli rebuild-multicam`
-6. `avid-cli clear-extra-sources`
-7. deprecated `avid-cli reexport`
-8. `avid-cli transcribe`
-9. `avid-cli transcript-overview`
-10. `avid-cli subtitle-cut`
-11. `avid-cli podcast-cut`
-12. FastAPI HTTP routes
+1. preflight `doctor`
+2. `transcribe`
+3. `transcript-overview`
+4. `subtitle-cut` 또는 `podcast-cut`
+5. `review-segments`
+6. `apply-evaluation`
+7. `rebuild-multicam`
+8. `export-project`
+9. Final Cut Pro 에서 FCPXML 확인
+
+`reexport` 는 주 워크플로우가 아니라 compatibility 확인용이다.
 
 ## 3. 공통 확인 항목
 
@@ -39,123 +38,127 @@
 - `--manifest-out` 사용 시 파일과 stdout 이 일치하는지
 - 실제 artifact 파일이 생성됐는지
 
-## 4. 명령별 수동 검증 포인트
+## 4. 단계별 수동 검증 포인트
 
-### 4.1 `version`
+### 4.1 Preflight: `doctor`
 
-입력:
-- 없음
-
-성공 기준:
-- exit code `0`
-- `command == "version"`
-- `status == "ok"`
-- `avid_version`, `package_version` 존재
-
-### 4.2 `doctor`
-
-입력:
-- 선택: `--provider`
-- 선택: `--probe-providers`
-- 선택: `--provider-model`
-- 선택: `--provider-effort`
-- 선택: `--chalna-url`
+목적:
+- source 처리 전에 runtime 이 살아 있는지 본다.
 
 성공 기준:
+
 - 기본 `doctor --json` 은 빠르게 끝난다
-- 기본 doctor 는 binary/runtime 중심으로만 본다
 - `doctor --probe-providers --json` 은 실제 Claude/Codex 호출을 수행한다
 - resolved `provider/model/effort` 가 payload 에 남는다
 
-실패 기준:
-- provider CLI 없음
-- provider auth/model/effort 오류
-- Chalna 비가동
+### 4.2 Source -> SRT: `transcribe`
 
-### 4.3 `apply-evaluation`
-
-입력:
-- `--project-json`
-- `--evaluation`
-- `--output-project-json`
+목적:
+- 원본 소스에서 자막이 생성되는지 본다.
 
 성공 기준:
+
+- `artifacts.srt` 생성
+- 생성된 SRT 가 사람이 읽을 수 있는 형태
+- main workflow sample 기준으로 `main_live.srt` 와 같은 종류의 출력
+
+### 4.3 SRT -> Storyline: `transcript-overview`
+
+목적:
+- SRT 를 기반으로 story analysis 가 만들어지는지 본다.
+
+성공 기준:
+
+- `artifacts.storyline` 생성
+- chapter / dependency / key moment 존재
+- provider/model/effort 설정이 실제 실행에 반영됨
+
+### 4.4 Storyline -> Initial Edit Decisions: `subtitle-cut` / `podcast-cut`
+
+목적:
+- source + srt + storyline 를 기반으로 initial edit decision 이 만들어지는지 본다.
+
+성공 기준:
+
+- `artifacts.project_json` 생성
+- `artifacts.fcpxml`, `artifacts.report`, `artifacts.srt` 도 생성될 수 있음
+- 여기서 주로 볼 것은 **initial project JSON / edit decisions**
+
+주의:
+
+- 이 단계의 FCPXML 은 편의 출력일 수 있다
+- 사람이 평가하고 multicam 을 붙인 뒤 최종 export 를 다시 보는 것이 주 workflow 다
+
+### 4.5 Review Payload: `review-segments`
+
+목적:
+- 엔진이 직접 review payload 를 내보내는지 본다.
+
+성공 기준:
+
+- `schema_version=review-segments/v1`
+- `segments[]` 가 transcription segment 기준으로 채워짐
+- 새 project JSON 에서는 `join_strategy=source_segment_index`
+- old project JSON 에서는 필요 시 `join_strategy=legacy_overlap`
+- `ai.origin_kind`, `ai.source_segment_index` 가 포함됨
+
+### 4.6 Human Eval Override: `apply-evaluation`
+
+목적:
+- 사람이 판단한 keep/cut 이 initial decision 을 덮어쓰는지 본다.
+
+성공 기준:
+
 - `artifacts.project_json` 생성
 - `stats.applied_evaluation_segments` 존재
-- 결과 JSON 의 cut decision 이 바뀐다
+- 결과 JSON 에 override 반영
 
-### 4.4 `export-project`
+### 4.7 Multicam Add: `rebuild-multicam`
 
-입력:
-- `--project-json`
-- `--output-dir`
-- 선택: `--output`
-- 선택: `--content-mode`
-- 선택: `--silence-mode`
+목적:
+- 사람 평가가 반영된 project JSON 에 extra source 를 붙인다.
 
 성공 기준:
-- `artifacts.fcpxml` 생성
-- transcription 이 있으면 `artifacts.srt` 생성
-- `report` 는 생성하지 않는다
 
-### 4.5 `rebuild-multicam`
-
-입력:
-- `--project-json`
-- `--source`
-- `--extra-source` repeated
-- `--offset` repeated
-- `--output-project-json`
-
-성공 기준:
-- 기존 extra source strip 후 새 source 가 붙는다
-- manual offset 이 결과 JSON 에 반영된다
+- secondary source 와 track 이 추가됨
 - `stats.extra_sources`, `stats.stripped_extra_sources` 존재
 
 실패 기준:
+
 - `--extra-source` 만 있고 `--source` 없음
 - offset 개수와 extra source 개수 불일치
 
-### 4.6 `clear-extra-sources`
+### 4.8 Final Export: `export-project`
 
-입력:
-- `--project-json`
-- `--output-project-json`
+목적:
+- human eval + multicam 이 반영된 최종 project JSON 에서 delivery artifact 를 만든다.
 
 성공 기준:
+
+- `artifacts.fcpxml` 생성
+- transcription 이 있으면 `artifacts.srt` 생성
+- `report` 는 생성하지 않는다
+- **이 단계의 FCPXML 이 최종 검토 대상**
+
+### 4.9 Optional Maintenance: `clear-extra-sources`
+
+목적:
+- multicam 을 붙였다가 explicit 하게 제거하는 maintenance path
+
+성공 기준:
+
 - extra source 가 제거된 project JSON 생성
 - `stats.stripped_extra_sources` 존재
 
-### 4.7 Deprecated `reexport`
+### 4.10 Compatibility Only: deprecated `reexport`
 
-입력:
-- legacy 표면 유지
+목적:
+- legacy wrapper 가 아직 동작하는지만 본다.
 
 성공 기준:
+
 - stderr 에 deprecated warning
 - split 명령 조합과 같은 계열의 artifact 생성
-
-### 4.8 `transcribe`
-
-성공 기준:
-- `artifacts.srt` 생성
-- 작은 media 로도 끝까지 돈다
-
-필수 준비물:
-- Chalna
-- small media source
-
-### 4.9 `transcript-overview`
-
-성공 기준:
-- `artifacts.storyline` 생성
-- provider/model/effort 설정이 실제 실행에 반영된다
-
-### 4.10 `subtitle-cut`, `podcast-cut`
-
-성공 기준:
-- `project_json`, `fcpxml`, `report`, `srt` artifact 존재
-- provider failure 시 stderr 에 원인이 보인다
 
 ## 5. HTTP 수동 검증 포인트
 
@@ -193,24 +196,31 @@
 - Chalna
 - `audio-offset-finder`
 
-데이터:
+주 workflow 데이터:
 
-- `apps/backend/manual-fixtures/text/`
+- `samples/test_multisource/main_live.mp4`
+- `samples/test_multisource/cam_sony.mp4`
+- `apps/backend/manual-fixtures/text/main_live_eval_override.json`
+- `samples/test_multisource/main_live.srt`
+- `samples/test_multisource/main_live.storyline.json`
+- `samples/test_multisource/main_live.podcast.avid.json`
+
+보조 reference 데이터:
+
 - `apps/backend/manual-fixtures/historical/20260207_192336/`
-- `samples/test_multisource/`
 - `samples/sample_10min.m4a`
 - `samples/C1718_compressed.mp4`
 
 ## 7. 권장 검증 단계
 
-1. fast doctor
-2. deep doctor
-3. `apply-evaluation`
-4. `export-project`
-5. `rebuild-multicam`
-6. `clear-extra-sources`
-7. deprecated `reexport`
-8. `transcribe`
-9. `transcript-overview`
-10. `subtitle-cut` / `podcast-cut`
-11. HTTP API 수동 검증
+1. preflight `doctor`
+2. `transcribe`
+3. `transcript-overview`
+4. initial `subtitle-cut` / `podcast-cut`
+5. `review-segments`
+6. `apply-evaluation`
+7. `rebuild-multicam`
+8. `export-project`
+9. Final Cut Pro review
+10. optional `clear-extra-sources`
+11. compatibility-only `reexport`

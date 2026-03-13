@@ -5,6 +5,7 @@ Usage:
     avid-cli transcript-overview <srt> [-o storyline.json] [--provider codex] [--content-type auto]
     avid-cli subtitle-cut <video> --srt sub.srt [--provider codex] [--context storyline.json] [-o output.fcpxml]
     avid-cli podcast-cut <audio> [--srt sub.srt] [--provider codex] [--context storyline.json] [-d output_dir]
+    avid-cli review-segments --project-json project.avid.json
     avid-cli apply-evaluation --project-json project.avid.json --evaluation evaluation.json --output-project-json out.avid.json
     avid-cli reexport --project-json project.avid.json --output-dir out
 """
@@ -642,6 +643,105 @@ def _resolve_source_path_or_exit(source_path: str) -> Path:
     return resolved_path
 
 
+def _segment_identity(segment: Any, position: int) -> int:
+    return int(segment.index) if getattr(segment, "index", None) is not None else position + 1
+
+
+def _review_ai_payload(decision: Any) -> dict[str, Any]:
+    action = "cut" if decision.edit_type.value in ("cut", "mute") else "keep"
+    return {
+        "action": action,
+        "reason": decision.reason.value,
+        "confidence": decision.confidence,
+        "note": decision.note,
+        "edit_type": decision.edit_type.value,
+        "origin_kind": decision.origin_kind.value if decision.origin_kind else None,
+        "source_segment_index": decision.source_segment_index,
+    }
+
+
+def _select_review_decision(candidates: list[Any]) -> Any | None:
+    if not candidates:
+        return None
+
+    from avid.models.timeline import EditOriginKind
+
+    origin_priority = {
+        EditOriginKind.MANUAL_OVERRIDE: 0,
+        EditOriginKind.CONTENT_SEGMENT: 1,
+        EditOriginKind.SILENCE_GAP: 2,
+        None: 9,
+    }
+    ranked = sorted(
+        candidates,
+        key=lambda decision: (
+            origin_priority.get(decision.origin_kind, 9),
+            decision.range.start_ms,
+            decision.range.end_ms,
+        ),
+    )
+    return ranked[0]
+
+
+def _match_overlap_review_decision(project: Any, seg_start: int, seg_end: int) -> Any | None:
+    candidates = []
+    for decision in project.edit_decisions:
+        if decision.range.start_ms < seg_end and decision.range.end_ms > seg_start:
+            candidates.append(decision)
+    return _select_review_decision(candidates)
+
+
+def _build_review_segments_payload(project_json_path: Path, project: Any) -> dict[str, Any]:
+    if not project.transcription or not project.transcription.segments:
+        raise RuntimeError("review-segments requires transcription.segments in project JSON")
+
+    indexed_decisions: dict[int, list[Any]] = {}
+    for decision in project.edit_decisions:
+        if decision.source_segment_index is None:
+            continue
+        indexed_decisions.setdefault(int(decision.source_segment_index), []).append(decision)
+
+    legacy_overlap_fallback = not indexed_decisions
+    review_segments = []
+    for position, segment in enumerate(project.transcription.segments):
+        segment_index = _segment_identity(segment, position)
+        decision = None
+        if legacy_overlap_fallback:
+            decision = _match_overlap_review_decision(project, segment.start_ms, segment.end_ms)
+        else:
+            decision = _select_review_decision(indexed_decisions.get(segment_index, []))
+
+        review_segments.append({
+            "index": segment_index,
+            "start_ms": segment.start_ms,
+            "end_ms": segment.end_ms,
+            "text": segment.text,
+            "ai": _review_ai_payload(decision) if decision else None,
+            "human": None,
+        })
+
+    return _payload(
+        "review-segments",
+        stats={
+            "segments": len(review_segments),
+            "indexed_decisions": sum(len(items) for items in indexed_decisions.values()),
+            "legacy_overlap_fallback": legacy_overlap_fallback,
+        },
+        schema_version="review-segments/v1",
+        project_json=str(project_json_path),
+        review_scope="content_segments",
+        join_strategy="legacy_overlap" if legacy_overlap_fallback else "source_segment_index",
+        segments=review_segments,
+    )
+
+
+def cmd_review_segments(args: argparse.Namespace) -> dict[str, Any]:
+    project_json_path, project = _load_project_or_exit(args.project_json)
+    payload = _build_review_segments_payload(project_json_path, project)
+    print(f"리뷰 세그먼트 생성 완료: {payload['stats']['segments']}개")
+    return payload
+
+
 async def _export_project_artifacts(
     project,
     project_json_path: Path,
@@ -1017,6 +1117,10 @@ def main() -> None:
     p_podcast.add_argument("--offset", action="append", default=[], help="수동 오프셋 ms (--extra-source 순서 대응)")
     _add_machine_output_flags(p_podcast)
 
+    p_review_segments = subparsers.add_parser("review-segments", help="project JSON 에서 review payload 생성")
+    p_review_segments.add_argument("--project-json", required=True, type=str, help="입력 avid project JSON")
+    _add_machine_output_flags(p_review_segments)
+
     p_apply_eval = subparsers.add_parser("apply-evaluation", help="기존 avid project에 human evaluation override 적용")
     p_apply_eval.add_argument("--project-json", required=True, type=str, help="입력 avid project JSON")
     p_apply_eval.add_argument("--evaluation", required=True, type=str, help="evaluation JSON 파일")
@@ -1082,6 +1186,8 @@ def main() -> None:
             payload = _run_handler(args, cmd_subtitle_cut, is_async=True)
         elif args.command == "podcast-cut":
             payload = _run_handler(args, cmd_podcast_cut, is_async=True)
+        elif args.command == "review-segments":
+            payload = _run_handler(args, cmd_review_segments, is_async=False)
         elif args.command == "apply-evaluation":
             payload = _run_handler(args, cmd_apply_evaluation, is_async=False)
         elif args.command == "export-project":
