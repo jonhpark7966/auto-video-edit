@@ -322,6 +322,36 @@ avid-cli rebuild-multicam \
 - `--offset` 은 `--extra-source` 순서에 대응한다
 - implicit strip-only 는 하지 않는다
 
+### `avid-cli clear-extra-sources`
+
+용도:
+- 기존 `.avid.json` 에서 extra source 를 명시적으로 제거
+- export 없이 project JSON 만 갱신
+
+상태:
+- 현재 구현되어 있다
+- `reexport` 분해의 4차 명령으로 본다
+- strip-only 는 이 명령으로만 수행한다
+
+최소 artifact:
+- `artifacts.project_json`
+
+최소 stats:
+- `stats.stripped_extra_sources`
+
+예시:
+
+```bash
+avid-cli clear-extra-sources \
+  --project-json /tmp/in/project.avid.json \
+  --output-project-json /tmp/out/project.avid.json \
+  --json
+```
+
+보조 규칙:
+- extra source 가 없어도 no-op 으로 성공할 수 있다
+- primary source 와 그 track 은 유지한다
+
 ### `avid-cli reexport`
 
 용도:
@@ -332,7 +362,7 @@ avid-cli rebuild-multicam \
 상태:
 - 현재 구현은 유지한다
 - 하지만 이 명령은 여러 책임을 한 번에 수행하므로 deprecated wrapper 로 전환할 예정이다
-- `apply-evaluation`, `export-project`, `rebuild-multicam` 는 이미 구현되었고, 나머지 `clear-extra-sources` 로 계속 분리한다
+- `apply-evaluation`, `export-project`, `rebuild-multicam`, `clear-extra-sources` 는 모두 구현되었고, 남은 작업은 wrapper 내부 마이그레이션과 상위 통합 교체다
 - 분해 계획은 [REEXPORT_SPLIT_PLAN.md](REEXPORT_SPLIT_PLAN.md) 를 본다
 
 최소 artifact:

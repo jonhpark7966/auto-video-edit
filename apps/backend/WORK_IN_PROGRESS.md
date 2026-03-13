@@ -29,7 +29,7 @@
 - [x] `apply-evaluation` contract
 - [x] `export-project` contract
 - [x] `rebuild-multicam` contract
-- [ ] `clear-extra-sources` contract
+- [x] `clear-extra-sources` contract
 - [ ] deprecated `reexport` parity contract
 - [ ] `transcribe` live smoke
 - [ ] legacy unit test 정리
@@ -68,7 +68,7 @@
 - [x] `rebuild-multicam`
   - extra source strip / add / offset 담당
   - evaluation 적용과 분리
-- [ ] `clear-extra-sources`
+- [x] `clear-extra-sources`
   - extra source 제거만 담당
   - strip-only 용도의 명시적 명령
 - [ ] deprecated `reexport`
@@ -81,4 +81,4 @@
 
 - 테스트 source of truth 는 이 저장소다.
 - `eogum`은 여기의 `avid-cli` 표면만 소비한다.
-- 다음 실제 작업은 `clear-extra-sources` 부터 시작한다.
+- 다음 실제 작업은 deprecated `reexport` parity 정리다.

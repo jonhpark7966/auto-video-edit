@@ -713,6 +713,23 @@ async def cmd_rebuild_multicam(args: argparse.Namespace) -> dict[str, Any]:
     )
 
 
+def cmd_clear_extra_sources(args: argparse.Namespace) -> dict[str, Any]:
+    _, project = _load_project_or_exit(args.project_json)
+    output_project_json = Path(args.output_project_json).resolve()
+    output_project_json.parent.mkdir(parents=True, exist_ok=True)
+
+    stripped_sources = _strip_extra_sources(project)
+    saved_project_json = project.save(output_project_json)
+
+    print(f"추가 소스 제거 완료: {saved_project_json}")
+
+    return _payload(
+        "clear-extra-sources",
+        artifacts={"project_json": str(saved_project_json)},
+        stats={"stripped_extra_sources": stripped_sources},
+    )
+
+
 async def cmd_reexport(args: argparse.Namespace) -> dict[str, Any]:
     from avid.services.audio_sync import AudioSyncService
 
@@ -994,6 +1011,11 @@ def main() -> None:
     p_rebuild_multicam.add_argument("--output-project-json", required=True, type=str, help="재구성 후 저장할 avid project JSON")
     _add_machine_output_flags(p_rebuild_multicam)
 
+    p_clear_extra_sources = subparsers.add_parser("clear-extra-sources", help="기존 avid project의 extra source 를 명시적으로 제거")
+    p_clear_extra_sources.add_argument("--project-json", required=True, type=str, help="입력 avid project JSON")
+    p_clear_extra_sources.add_argument("--output-project-json", required=True, type=str, help="제거 후 저장할 avid project JSON")
+    _add_machine_output_flags(p_clear_extra_sources)
+
     p_reexport = subparsers.add_parser("reexport", help="기존 avid project를 재-export")
     p_reexport.add_argument("--project-json", required=True, type=str, help="입력 avid project JSON")
     p_reexport.add_argument("--output-dir", required=True, type=str, help="출력 디렉토리")
@@ -1038,6 +1060,8 @@ def main() -> None:
             payload = _run_handler(args, cmd_export_project, is_async=True)
         elif args.command == "rebuild-multicam":
             payload = _run_handler(args, cmd_rebuild_multicam, is_async=True)
+        elif args.command == "clear-extra-sources":
+            payload = _run_handler(args, cmd_clear_extra_sources, is_async=False)
         elif args.command == "reexport":
             payload = _run_handler(args, cmd_reexport, is_async=True)
         elif args.command == "version":

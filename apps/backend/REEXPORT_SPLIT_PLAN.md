@@ -147,7 +147,9 @@
 
 ### Phase 4: `clear-extra-sources`
 
-- unit + integration
+- 구현 완료
+- unit test 추가 완료
+- real sample strip-only smoke 확인 완료
 - explicit clear path 가 strip-only 역할을 대신하는지 확인
 
 ### Phase 5: deprecated `reexport`
