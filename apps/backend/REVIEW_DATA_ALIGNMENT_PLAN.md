@@ -188,12 +188,12 @@ legacy 규칙:
 
 할 일:
 
-- [ ] `apply-evaluation` 기본 경로를 `segment index` patch 로 변경
-- [ ] `keep` 는 동일 segment content/manual decision 만 제거
-- [ ] `cut` 은 동일 segment range 에 manual override upsert
-- [ ] silence decision 보호
-- [ ] legacy overlap fallback 추가
-- [ ] fallback 사용 시 deprecated warning 추가
+- [x] `apply-evaluation` 기본 경로를 `segment index` patch 로 변경
+- [x] `keep` 는 동일 segment content/manual decision 만 제거
+- [x] `cut` 은 동일 segment range 에 manual override upsert
+- [x] silence decision 보호
+- [x] legacy overlap fallback 추가
+- [x] fallback 사용 시 deprecated warning 추가
 
 완료 기준:
 

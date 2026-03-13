@@ -111,7 +111,13 @@
 
 - `artifacts.project_json` 생성
 - `stats.applied_evaluation_segments` 존재
+- `stats.join_strategy=source_segment_index`
 - 결과 JSON 에 override 반영
+
+legacy 기준:
+
+- old project 에서는 `stats.join_strategy=legacy_overlap`
+- stderr 에 deprecated warning 이 남아야 함
 
 ### 4.7 Multicam Add: `rebuild-multicam`
 

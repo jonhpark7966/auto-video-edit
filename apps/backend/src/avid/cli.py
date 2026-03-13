@@ -504,18 +504,104 @@ def _load_evaluation_segments(path: Path) -> list[dict[str, Any]]:
     raise RuntimeError("evaluation JSON must be a list or an object with 'segments'")
 
 
-def _apply_evaluation_to_project(project, eval_segments: list[dict[str, Any]]) -> tuple[int, int]:
+def _project_supports_index_patch(project: Any) -> bool:
+    reviewable_decisions = [
+        decision
+        for decision in project.edit_decisions
+        if decision.reason.value != "silence"
+    ]
+    return all(decision.source_segment_index is not None for decision in reviewable_decisions)
+
+
+def _transcription_segment_lookup(project: Any) -> dict[int, Any]:
+    if not project.transcription or not project.transcription.segments:
+        return {}
+    return {
+        _segment_identity(segment, position): segment
+        for position, segment in enumerate(project.transcription.segments)
+    }
+
+
+def _apply_evaluation_index_patch(project: Any, eval_segments: list[dict[str, Any]]) -> tuple[int, int, str]:
     from avid.models.timeline import EditDecision, EditOriginKind, EditReason, EditType, TimeRange
 
     video_tracks = project.get_video_tracks()
     primary_video_track_id = video_tracks[0].id if video_tracks else None
     audio_tracks = project.get_audio_tracks()
-    primary_audio_track_ids = None
+    primary_audio_track_ids: list[str] = []
     if video_tracks:
         primary_source_id = video_tracks[0].source_file_id
         primary_audio_track_ids = [
             t.id for t in audio_tracks if t.source_file_id == primary_source_id
         ]
+    elif audio_tracks:
+        primary_audio_track_ids = [t.id for t in audio_tracks]
+
+    segment_lookup = _transcription_segment_lookup(project)
+    human_overrides = []
+    for seg in eval_segments:
+        human = seg.get("human")
+        if human:
+            seg_index = seg.get("index")
+            if seg_index is None:
+                continue
+            human_overrides.append((int(seg_index), human["action"], seg.get("start_ms"), seg.get("end_ms")))
+
+    if not human_overrides:
+        return 0, 0, "source_segment_index"
+
+    original_count = len(project.edit_decisions)
+    override_indices = {seg_index for seg_index, _, _, _ in human_overrides}
+
+    new_decisions = []
+    for ed in project.edit_decisions:
+        if ed.reason == EditReason.SILENCE:
+            new_decisions.append(ed)
+            continue
+        if ed.source_segment_index in override_indices:
+            continue
+        new_decisions.append(ed)
+
+    cuts_added = 0
+    for seg_index, action, fallback_start, fallback_end in human_overrides:
+        if action == "cut":
+            segment = segment_lookup.get(seg_index)
+            start_ms = segment.start_ms if segment is not None else int(fallback_start)
+            end_ms = segment.end_ms if segment is not None else int(fallback_end)
+            new_decisions.append(EditDecision(
+                range=TimeRange(start_ms=start_ms, end_ms=end_ms),
+                edit_type=EditType.CUT,
+                reason=EditReason.MANUAL,
+                confidence=1.0,
+                note="human evaluation override",
+                active_video_track_id=primary_video_track_id,
+                active_audio_track_ids=primary_audio_track_ids,
+                origin_kind=EditOriginKind.MANUAL_OVERRIDE,
+                source_segment_index=seg_index,
+            ))
+            cuts_added += 1
+
+    new_decisions.sort(key=lambda ed: ed.range.start_ms)
+    project.edit_decisions = new_decisions
+
+    changes = abs(original_count - len(new_decisions)) + cuts_added
+    return len(human_overrides), changes, "source_segment_index"
+
+
+def _apply_evaluation_overlap_patch(project: Any, eval_segments: list[dict[str, Any]]) -> tuple[int, int, str]:
+    from avid.models.timeline import EditDecision, EditOriginKind, EditReason, EditType, TimeRange
+
+    video_tracks = project.get_video_tracks()
+    primary_video_track_id = video_tracks[0].id if video_tracks else None
+    audio_tracks = project.get_audio_tracks()
+    primary_audio_track_ids: list[str] = []
+    if video_tracks:
+        primary_source_id = video_tracks[0].source_file_id
+        primary_audio_track_ids = [
+            t.id for t in audio_tracks if t.source_file_id == primary_source_id
+        ]
+    elif audio_tracks:
+        primary_audio_track_ids = [t.id for t in audio_tracks]
 
     human_overrides = []
     for seg in eval_segments:
@@ -524,7 +610,7 @@ def _apply_evaluation_to_project(project, eval_segments: list[dict[str, Any]]) -
             human_overrides.append((seg["start_ms"], seg["end_ms"], human["action"]))
 
     if not human_overrides:
-        return 0, 0
+        return 0, 0, "legacy_overlap"
 
     original_count = len(project.edit_decisions)
 
@@ -561,10 +647,16 @@ def _apply_evaluation_to_project(project, eval_segments: list[dict[str, Any]]) -
     project.edit_decisions = new_decisions
 
     changes = abs(original_count - len(new_decisions)) + cuts_added
-    return len(human_overrides), changes
+    return len(human_overrides), changes, "legacy_overlap"
 
 
-def _apply_evaluation_from_path(project, evaluation_path: Path) -> tuple[int, int]:
+def _apply_evaluation_to_project(project, eval_segments: list[dict[str, Any]]) -> tuple[int, int, str]:
+    if _project_supports_index_patch(project):
+        return _apply_evaluation_index_patch(project, eval_segments)
+    return _apply_evaluation_overlap_patch(project, eval_segments)
+
+
+def _apply_evaluation_from_path(project, evaluation_path: Path) -> tuple[int, int, str]:
     if not evaluation_path.exists():
         print(f"오류: evaluation JSON을 찾을 수 없습니다: {evaluation_path}", file=sys.stderr)
         sys.exit(1)
@@ -783,9 +875,15 @@ def cmd_apply_evaluation(args: argparse.Namespace) -> dict[str, Any]:
     output_project_json = Path(args.output_project_json).resolve()
     output_project_json.parent.mkdir(parents=True, exist_ok=True)
 
-    override_count, changes_applied = _apply_evaluation_from_path(project, evaluation_path)
+    override_count, changes_applied, join_strategy = _apply_evaluation_from_path(project, evaluation_path)
     saved_project_json = project.save(output_project_json)
 
+    if join_strategy == "legacy_overlap":
+        print(
+            "경고: apply-evaluation 이 legacy overlap fallback 으로 동작했습니다. "
+            "review-segments/v1 payload 로 마이그레이션하세요.",
+            file=sys.stderr,
+        )
     print(f"평가 적용 완료: {saved_project_json}")
 
     return _payload(
@@ -794,6 +892,7 @@ def cmd_apply_evaluation(args: argparse.Namespace) -> dict[str, Any]:
         stats={
             "applied_evaluation_segments": override_count,
             "applied_changes": changes_applied,
+            "join_strategy": join_strategy,
         },
     )
 
@@ -877,9 +976,10 @@ async def cmd_reexport(args: argparse.Namespace) -> dict[str, Any]:
 
     override_count = 0
     changes_applied = 0
+    join_strategy = None
     if args.evaluation:
         evaluation_path = Path(args.evaluation).resolve()
-        override_count, changes_applied = _apply_evaluation_from_path(project, evaluation_path)
+        override_count, changes_applied, join_strategy = _apply_evaluation_from_path(project, evaluation_path)
 
     stripped_sources = _strip_extra_sources(project)
     extra_sources, extra_offsets = _parse_extra_sources(args)
@@ -924,6 +1024,7 @@ async def cmd_reexport(args: argparse.Namespace) -> dict[str, Any]:
             "applied_changes": changes_applied,
             "extra_sources": len(extra_sources or []),
             "stripped_extra_sources": stripped_sources,
+            "join_strategy": join_strategy,
         },
     )
 

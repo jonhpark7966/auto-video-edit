@@ -177,7 +177,13 @@ avid-cli apply-evaluation \
 
 - `artifacts.project_json` 생성
 - `stats.applied_evaluation_segments` 존재
+- `stats.join_strategy=source_segment_index`
 - keep/cut override 가 실제로 반영됨
+
+legacy 확인:
+
+- old sample project 에 대해서는 `stats.join_strategy=legacy_overlap`
+- stderr 에 deprecated warning 이 보여야 함
 
 ### 6. Multicam Add
 

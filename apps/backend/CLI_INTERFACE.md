@@ -252,6 +252,8 @@ avid-cli podcast-cut podcast.mp4 --srt podcast.srt --context podcast.storyline.j
 - 현재 구현되어 있다
 - 주 workflow 에서는 initial cut 다음 단계다
 - 상위 통합은 evaluation-only 재처리에서 이 명령을 우선 사용하도록 수렴한다
+- 새 기본 동작은 `review-segments/v1` payload 의 `segment index` 기준 patch 다
+- old project / old evaluation 에 대해서만 `legacy_overlap` fallback 을 허용한다
 
 최소 artifact:
 - `artifacts.project_json`
@@ -259,6 +261,13 @@ avid-cli podcast-cut podcast.mp4 --srt podcast.srt --context podcast.storyline.j
 최소 stats:
 - `stats.applied_evaluation_segments`
 - `stats.applied_changes`
+- `stats.join_strategy`
+
+규칙:
+- `keep`: 동일 `source_segment_index` 의 content/manual decision 만 제거
+- `cut`: 동일 segment range 에 manual override decision upsert
+- `silence_gap` decision 은 유지
+- legacy fallback 사용 시 stderr 에 deprecated warning 출력
 
 ### `avid-cli review-segments`
 
