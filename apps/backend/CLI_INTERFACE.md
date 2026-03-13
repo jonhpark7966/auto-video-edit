@@ -231,6 +231,12 @@ avid-cli podcast-cut podcast.mp4 --srt podcast.srt --context podcast.storyline.j
 - 기존 `.avid.json` 에 extra source 를 다시 붙여 재-export
 - 상위 시스템은 이 명령으로 direct import 없이 재-export 한다
 
+상태:
+- 현재 구현은 유지한다
+- 하지만 이 명령은 여러 책임을 한 번에 수행하므로 deprecated wrapper 로 전환할 예정이다
+- 장기적으로는 `apply-evaluation` + `rebuild-multicam` + `export-project` 로 분리한다
+- 분해 계획은 [REEXPORT_SPLIT_PLAN.md](REEXPORT_SPLIT_PLAN.md) 를 본다
+
 최소 artifact:
 - `artifacts.project_json`
 - `artifacts.fcpxml`
@@ -252,6 +258,7 @@ avid-cli reexport \
 - `--extra-source` 를 쓰면 `--source` 가 필요하다
 - 평가 JSON 은 list 자체이거나 `{ "segments": [...] }` 형태를 허용한다
 - 기존 extra source 가 이미 프로젝트에 있으면 먼저 벗겨내고 다시 구성한다
+- 새 통합은 가능하면 `reexport` 대신 분리된 명령으로 수렴해야 한다
 
 ## Artifact key 규칙
 

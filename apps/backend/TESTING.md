@@ -98,6 +98,13 @@ apps/backend/tests/
 
 ## 우선순위별 테스트 목록
 
+## `reexport` 분해 메모
+
+- 현재 `reexport` 는 compatibility wrapper 로 유지한다.
+- 다음 리팩터링의 1차 목표는 `apply-evaluation`, `rebuild-multicam`, `export-project` 를 별도 명령으로 고정하는 것이다.
+- 새 테스트는 가능하면 분리된 명령을 우선 대상으로 하고, `reexport` 는 parity / deprecation coverage 로 남긴다.
+- 자세한 계획은 [REEXPORT_SPLIT_PLAN.md](REEXPORT_SPLIT_PLAN.md) 를 본다.
+
 ### P0: 상위 통합 전에 반드시 있어야 하는 것
 
 - `version --json` 이 유효한 JSON 을 반환하고 핵심 필드를 포함한다
@@ -162,6 +169,13 @@ import pytest
 
 pytestmark = [pytest.mark.integration]
 ```
+
+## 분해 후 우선 테스트 순서
+
+1. `tests/unit/cli/test_apply_evaluation.py`
+2. `tests/integration/cli/test_export_project_contract.py`
+3. `tests/integration/cli/test_rebuild_multicam_contract.py`
+4. `tests/integration/cli/test_cli_reexport_compat.py`
 
 ## 실행 명령 제안
 

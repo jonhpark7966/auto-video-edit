@@ -6,6 +6,7 @@
 ## 문서 우선순위
 
 - [CLI_INTERFACE.md](CLI_INTERFACE.md): 외부 통합에서 기대해도 되는 CLI 표면과 JSON/manifest 규칙
+- [REEXPORT_SPLIT_PLAN.md](REEXPORT_SPLIT_PLAN.md): `reexport` 분해 계획, deprecated 전략, eogum 마이그레이션 순서
 - [TEST_API_SPECS.md](TEST_API_SPECS.md): CLI/HTTP 테스트 대상 스펙, 준비물, dependency 목록
 - [PROVIDER_RUNTIME_SPEC.md](PROVIDER_RUNTIME_SPEC.md): Claude/Codex model/effort 설정 표면, 기본 프로필, smoke/test 계획
 - [TEST_DATA_GUIDE.md](TEST_DATA_GUIDE.md): 현재 테스트 데이터 분류, canonical fixture 기준, 리뷰 순서

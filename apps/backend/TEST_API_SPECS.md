@@ -338,6 +338,12 @@
 - 기존 `.avid.json` 에 extra source 재구성
 - 상위 시스템 direct import 제거의 핵심 명령
 
+상태:
+- 현재 구현은 compatibility wrapper 로 유지
+- 신규 테스트의 1차 목표는 이 명령 자체보다 분리 예정인 `apply-evaluation`, `rebuild-multicam`, `export-project` 의 계약을 먼저 고정하는 것이다
+- `reexport` 테스트는 최종적으로 parity / backward-compatibility 확인 용도로 남긴다
+- 자세한 분해 계획은 [REEXPORT_SPLIT_PLAN.md](REEXPORT_SPLIT_PLAN.md) 를 본다
+
 입력:
 - `--project-json`
 - `--output-dir`
