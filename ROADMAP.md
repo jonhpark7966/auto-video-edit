@@ -29,7 +29,7 @@
 
 ### podcast-cut 품질 개선
 
-> 평가 리포트: `tests/e2e/data/20260207_192336/EVAL_REPORT.md`
+> 평가 리포트: `apps/backend/manual-fixtures/historical/20260207_192336/EVAL_REPORT.md`
 > 현재 수치 — Duration Precision 21.6%, Recall 50.2%, F1 30.2%
 
 #### Precision 개선 (과잉 편집 줄이기)

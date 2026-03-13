@@ -260,7 +260,7 @@ AI 관련 명령의 `--json` 결과에는 resolved provider config 를 넣는다
 - `subtitle-cut`
 - `podcast-cut`
 
-단위 테스트에서는 provider call 을 monkeypatch 하고, 전달된 `provider/model/effort` 조합만 검증한다.
+수동 검증에서는 single-provider deep probe 를 직접 돌려, 전달된 `provider/model/effort` 조합이 실제 응답까지 도달하는지 본다.
 
 ### P4: optional compatibility matrix
 

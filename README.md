@@ -228,42 +228,31 @@ skills/
 | FFmpeg / FFprobe | 오디오 추출, 미디어 분석 | 필수 |
 | `audio-offset-finder` | 멀티소스 오디오 싱크 | `--extra-source` 사용 시 (`pip install 'avid[sync]'`) |
 
-## 테스트
+## 검증
 
-### 유닛 테스트
+자동화된 테스트 스위트는 유지하지 않는다.
+현재 검증 방식은 `avid-cli` 를 직접 돌려서 입력, 산출물, 오류 처리를 눈으로 확인하는 수동 시나리오 중심이다.
+
+가장 먼저 볼 문서:
+
+- [apps/backend/TESTING.md](apps/backend/TESTING.md)
+- [apps/backend/TEST_API_SPECS.md](apps/backend/TEST_API_SPECS.md)
+- [apps/backend/TEST_DATA_GUIDE.md](apps/backend/TEST_DATA_GUIDE.md)
+
+빠른 시작:
 
 ```bash
 cd apps/backend
-pip install -e '.[dev]'
-PYTHONPATH=src pytest tests/unit/ -v
+pip install -e '.[sync]'
+avid-cli version --json
+avid-cli doctor --json
+avid-cli doctor --probe-providers --json
 ```
 
-또는 프로젝트 루트에서:
-```bash
-PYTHONPATH=apps/backend/src python3 -m pytest tests/unit/ -v
-```
+멀티소스와 FCPXML 검증은 아래 source 를 우선 사용한다.
 
-### 멀티소스 테스트 (실제 소스 2개)
-
-```bash
-# 1. audio-offset-finder 설치
-pip install 'avid[sync]'
-
-# 2. 자동 싱크로 멀티소스 편집
-avid-cli podcast-cut main.mp4 --srt main.srt \
-  --extra-source cam2.mp4
-
-# 3. FCPXML을 Final Cut Pro에서 열어서 lane 확인
-#    - 메인 타임라인 위에 cam2가 connected clip으로 표시되는지 확인
-#    - 오디오 파형이 정렬되어 있는지 확인
-```
-
-### E2E 테스트
-
-```bash
-# AVID API 서버 + Chalna API 필요
-python tests/e2e/test_podcast_e2e.py
-```
+- `samples/test_multisource/`
+- `apps/backend/manual-fixtures/historical/20260207_192336/`
 
 ## 문서
 

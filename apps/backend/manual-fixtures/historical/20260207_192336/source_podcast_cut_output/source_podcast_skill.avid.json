@@ -1,0 +1,4851 @@
+{
+  "name": "Podcast Analysis - source",
+  "created_at": "2026-02-07T20:10:47.527715",
+  "updated_at": "2026-02-07T20:10:47.527723",
+  "source_files": [
+    {
+      "id": "f4551ae1-8fde-54b5-8ee2-756484a93993",
+      "path": "/home/jonhpark/workspace/auto-video-edit/apps/backend/manual-fixtures/historical/20260207_192336/source.mp4",
+      "original_name": "source.mp4",
+      "info": {
+        "duration_ms": 1802033,
+        "width": 640,
+        "height": 360,
+        "fps": 30.0,
+        "sample_rate": 44100
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "source_file_id": "f4551ae1-8fde-54b5-8ee2-756484a93993",
+      "track_type": "video",
+      "offset_ms": 0
+    },
+    {
+      "id": "f4551ae1-8fde-54b5-8ee2-756484a93993_audio",
+      "source_file_id": "f4551ae1-8fde-54b5-8ee2-756484a93993",
+      "track_type": "audio",
+      "offset_ms": 0
+    }
+  ],
+  "transcription": null,
+  "edit_decisions": [
+    {
+      "range": {
+        "start_ms": 3699,
+        "end_ms": 5060
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 의미 없는 리액션 한 마디로 정보/재미 모두 약함. 템포만 느려짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 13030,
+        "end_ms": 14030
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 감사 인사는 무난하지만 반복 리액션 구간이 길어짐. 핵심 웃음 포인트(개꿀잼)는 이미 확보.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 15150,
+        "end_ms": 15550
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] \"개꿀잼\" 반복이 추가 임팩트를 주지 못함. 리듬만 늘어짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 16230,
+        "end_ms": 16950
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 당연한 맞장구라 새 정보/웃음 없음. 본편 들어가기 전 군더더기.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 20600,
+        "end_ms": 20920
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] \"다음 거\" 큐 자체는 기능적이지만 뒤에 시작 지점 안내(11)로 충분히 대체 가능.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 22870,
+        "end_ms": 23270
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 9번과 동일한 반복. 템포만 끊김.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 24470,
+        "end_ms": 26010
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 말 더듬/중복 안내. 바로 다음(13)에서 핵심 합의가 더 깔끔하게 나옴.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 26570,
+        "end_ms": 29210
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 단순 동의 리액션. 13에서 이미 합의가 완료되어 불필요.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 35730,
+        "end_ms": 37290
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] \"대본부터\"는 내부 진행 방식 TMI에 가깝고 시청자 효용 낮음. 핵심 데모 분석에 바로 들어가는 게 더 좋음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 39550,
+        "end_ms": 41230
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 상황 설명이 애매하고 에너지 낮음. 논지 전개에 직접 기여하지 않음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 42760,
+        "end_ms": 43080
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 짧은 추임새. 흐름만 끊김.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 45640,
+        "end_ms": 47240
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 자료 찾는 혼선 느낌이라 시청자가 따라가기 어려움. 본편 핵심(홀바디 가치)과 무관.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 47240,
+        "end_ms": 47480
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 단답 추임새로 정보/웃음 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 68520,
+        "end_ms": 69720
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 영상 길이(24시간?) 디테일은 핵심 비교(상체 vs 전신)에 필요 없음. 불필요한 숫자 논쟁으로 늘어짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 69760,
+        "end_ms": 70240
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 25와 같은 맥락의 길이 혼선 반복. 웃음 포인트로도 약함.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 70240,
+        "end_ms": 70960
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 길이 확인 반복으로 템포 저하. 시청자 입장에선 의미 없는 디테일.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 77210,
+        "end_ms": 77710
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 단순 동의. 30의 임팩트를 살리고 바로 설명(32)로 가는 게 더 타이트함.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 84720,
+        "end_ms": 86160
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 추임새만 남아 흐름이 느슨해짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 90480,
+        "end_ms": 93040
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 산수/수치 계산은 결론(난도 높음)을 이미 전달했고 이해를 오히려 흐림. 하이라이트에서는 과감히 삭제.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 93040,
+        "end_ms": 95680
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 자유도 디테일을 더 늘리지만 명확한 포인트 추가 없음. 지루해질 위험.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 96610,
+        "end_ms": 97410
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 수치 혼선 리액션은 소소하지만 본편 핵심(홀바디 의미)에서 멀어짐. 템포 유지 위해 컷.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 97410,
+        "end_ms": 98850
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 39의 연장 반응. 웃음/정보 둘 다 약해서 하이라이트 가치 낮음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 99310,
+        "end_ms": 102590
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 말을 돌리며 얼버무리는 구간. 명확한 정보 전달이 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 102990,
+        "end_ms": 105390
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] DoF 숫자 추정이 계속 바뀌며 혼란만 증가. 핵심 메시지(상체도 어렵다)는 36에서 충분.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 106869,
+        "end_ms": 108789
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 전신으로 확장된다는 말을 길게 끌기보다, 바로 구체 장면(44)로 들어가는 게 더 강함.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 114470,
+        "end_ms": 117669
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 무난한 맞장구. 44의 생생함을 살리고 다음 논리(47)로 바로 가는 편이 좋음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 118869,
+        "end_ms": 119509
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 5/10] \"개고수\" 칭찬은 짧지만 메시지 중복. 뒤의 '왜 의미 있나'(47)로 빠르게 넘어가는 게 더 몰입감 있음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 139950,
+        "end_ms": 140110
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 단답 맞장구. 54의 핵심 선언 직전에 불필요한 완급.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 147549,
+        "end_ms": 150030
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 바퀴/다리 논쟁은 흥미는 약간 있으나 본 하이라이트(홀바디 시연의 의미) 흐름을 분산.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 150370,
+        "end_ms": 150930
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 짧은 동의. 논점 전개 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 150930,
+        "end_ms": 151650
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 단답 연속으로 템포 저하.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 155250,
+        "end_ms": 156210
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 골반 찾기/포인터 같은 내부 시청 상황 설명. 시청자가 장면을 못 보면 이해가 어려워짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 157310,
+        "end_ms": 158670
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 58의 연장으로 산만함만 커짐. 핵심은 61에서 훨씬 명확하게 나옴.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 159710,
+        "end_ms": 163150
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 추임새/이어 말하기. 의미 없는 연결.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 176609,
+        "end_ms": 181530
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] \"방금 봤죠?\" 같은 진행 멘트. 바로 동작 설명(65)으로 들어가는 게 더 타이트.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 182570,
+        "end_ms": 182970
+      },
+      "edit_type": "mute",
+      "reason": "irrelevant",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] \"제로투\" 밈/편집 얘기는 웃음은 약간 있으나 메인 흐름(홀바디 데모 분석)을 끊음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 184179,
+        "end_ms": 186019
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 편집 아쉬움 메타 토크가 길어짐. 다음 핵심 장면(69)으로 바로 가는 게 더 강한 구성.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 186019,
+        "end_ms": 186739
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 짧은 맞장구. 하이라이트 템포를 늘리는 요소.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 193329,
+        "end_ms": 196450
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] \"대단한 게 뭐냐면\" 식의 예열 문장. 핵심 설명(73, 75~76)만 남기는 게 더 몰입됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 197089,
+        "end_ms": 198290
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 동작을 다시 풀어 말하는 반복. 이미 69~70에서 장면은 전달됐고, 바로 난도 포인트(73)로 가면 됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 203329,
+        "end_ms": 204049
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 짧은 확인 질문. 75~76의 결론을 바로 치는 게 더 강한 임팩트.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 222640,
+        "end_ms": 223519
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 짧은 맞장구라 정보/웃음 추가 없음. 템포만 끊김.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 223600,
+        "end_ms": 224760
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 동일한 맞장구 반복. 80의 임팩트를 희석.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 229269,
+        "end_ms": 229590
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘글쎄’ 단답. 흐름에 기여 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 230310,
+        "end_ms": 232510
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘근데 이거는’로 말 이어가려다 끊기는 느낌. 86으로 바로 점프가 더 깔끔.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 234829,
+        "end_ms": 238109
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 예시 나열로 길어질 조짐. 핵심 프레임(89)만 남기면 충분.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 242810,
+        "end_ms": 244090
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 89를 다시 말함. 압축 편집에선 중복.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 244170,
+        "end_ms": 247770
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 설명은 맞지만 92-93에서 더 직관적으로 이어져서 굳이 길게 갈 필요 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 260220,
+        "end_ms": 261020
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 단어만 던지고 끊김. 97에 더 명확히 나와서 삭제.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 261170,
+        "end_ms": 261790
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 말 더듬/수정 구간. 전달력만 떨어짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 265550,
+        "end_ms": 268030
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 전개 연결용 문장인데 길게 늘어질 수 있음. 바로 99-101로 들어가도 이해 가능.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 276610,
+        "end_ms": 280130
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] UI 클릭 안 되는 얘기. 본 주제(구조/통찰)에서 이탈.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 280700,
+        "end_ms": 281260
+      },
+      "edit_type": "mute",
+      "reason": "irrelevant",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘뭘 원해요?’ 진행상 잡담. 시청자에게 정보 가치 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 281659,
+        "end_ms": 286299
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 화면 확대 욕구 설명. 편집에선 불필요한 제작 로그.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 289140,
+        "end_ms": 290160
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] ‘일단 요즘’으로 말 끌기. 의미 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 290400,
+        "end_ms": 291040
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] ‘일단 이렇게 하자’ 진행 멘트. 정보/웃음 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 291680,
+        "end_ms": 295560
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 설명 들어가기 전 빙빙 도는 구간. 핵심(108)로 바로 점프.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 298580,
+        "end_ms": 301940
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 109-111로 길어질 설명 중 핵심은 110에 있음. 압축을 위해 제거.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 306500,
+        "end_ms": 307620
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 110의 반복/완충 문장. 템포만 늘어짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 312490,
+        "end_ms": 314610
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 112를 다시 풀어쓴 느낌. 핵심 전달은 이미 됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 319210,
+        "end_ms": 320890
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 세부 수치로 들어가며 템포가 급격히 늘어질 구간. 하이라이트에선 114만으로 충분.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 320910,
+        "end_ms": 321460
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 숫자(칠비) 디테일은 정보는 있으나 재미/필수성 대비 길이 손해. 과감히 삭제.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 321460,
+        "end_ms": 322820
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 모델 사이즈 나열이 이어져 지루해짐. 핵심은 ‘계층마다 다르다(114)’로 이미 전달.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 323400,
+        "end_ms": 323720
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘팔십 엠’ 수치 강조지만 하이라이트 목적(재미+핵심 논리)엔 과잉 디테일.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 323980,
+        "end_ms": 324460
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 118 반복. 완전 중복.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 324620,
+        "end_ms": 325820
+      },
+      "edit_type": "mute",
+      "reason": "irrelevant",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘잘 안 보이네’ 화면 상황. 시청자에게 가치 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 326540,
+        "end_ms": 326780
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 짧은 동의/반응만 있음. 흐름 방해.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 327180,
+        "end_ms": 327900
+      },
+      "edit_type": "mute",
+      "reason": "irrelevant",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 개인 기억 언급. 핵심 구조 이해에 불필요.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 328490,
+        "end_ms": 329450
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 114에서 이미 ‘주파수 다르다’ 말함. 반복.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 331770,
+        "end_ms": 334170
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 화면 읽기(‘뭐라 써 있냐’) 메타. 126만 남겨도 의미 전달됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 339570,
+        "end_ms": 341169
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘있다고 하네’ 반응만 추가. 정보는 126에서 끝.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 341169,
+        "end_ms": 342609
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 파라미터 질문은 129로 바로 가면 됨. 중간 질문은 템포 저하.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 344370,
+        "end_ms": 344930
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 129를 영어로 반복. 중복.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 346830,
+        "end_ms": 348110
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 131의 반복. 더 짧게 가는 게 좋음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 350070,
+        "end_ms": 351830
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 주파수(200Hz) 디테일은 좋지만 하이라이트에선 과잉. 핵심은 ‘경량+안정화(126,129,131)’로 충분.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 352570,
+        "end_ms": 352810
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘네’ 단답. 정보/재미 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 364920,
+        "end_ms": 367720
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 감상(새로운 것 같다)만 남아 에너지 떨어짐. 다음 질문(139)로 바로 가는 게 더 흡입력 있음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 379290,
+        "end_ms": 382090
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 142 이후 설명이 길어질 신호. 핵심 난이도 포인트(145,149)로 직행이 더 좋음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 382370,
+        "end_ms": 384450
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 145로 넘어가기 위한 완충 문장. 하이라이트에선 군더더기.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 388380,
+        "end_ms": 389020
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 짧은 동의만 있음. 정보 추가 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 390070,
+        "end_ms": 391349
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 145를 반복하며 길어짐. 149의 ‘보정’ 포인트만 남기는 게 더 강함.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 391349,
+        "end_ms": 394950
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 몸체가 틀어지는 설명은 좋지만 길어지기 쉬움. 149 한 줄로 핵심(보정)만 가져가자.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 406940,
+        "end_ms": 409020
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 153을 다시 확인하는 반복. 엔딩은 더 짧을수록 강함.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 409020,
+        "end_ms": 411419
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 다음 설명으로 넘어가며 다시 늘어질 시작점. 하이라이트는 153에서 깔끔 컷이 가장 좋음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 415850,
+        "end_ms": 416730
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 156을 한 번 더 확인하는 문장. 핵심은 이미 전달됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 420450,
+        "end_ms": 423290
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘그래서 일단 이 정도’로 흐름을 멈춘다. 하이라이트에선 불필요한 완충.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 432560,
+        "end_ms": 432800
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] 단답 리액션. 템포만 끊는다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 436880,
+        "end_ms": 438640
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘당연하겠죠’ 수준의 일반론. 정보 가치 낮음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 438720,
+        "end_ms": 441360
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 166-167의 데모 예시로 바로 가면 된다. 중간 설명이 늘어진다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 451630,
+        "end_ms": 453950
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 용어 확인 Q&A인데 재미 포인트가 약하고, 핵심(센서가 도움)은 이미 전달됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 454200,
+        "end_ms": 455840
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 168의 연장선. 하이라이트에서는 과감히 생략 가능.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 455840,
+        "end_ms": 457880
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 팜캠 추정으로 분기되며 본선(센서 효과/시스템0)에서 잠깐 이탈.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 458219,
+        "end_ms": 462219
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘원래 썼다고 가정?’ 논쟁은 재미가 크지 않고 흐름을 끊는다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 462260,
+        "end_ms": 463720
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘당연히’ 단답. 정보 밀도 낮음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 463720,
+        "end_ms": 465560
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘정확히 안 읽어서…’로 다시 느슨해진다. 핵심은 160/180에서 이미 처리.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 465610,
+        "end_ms": 466550
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] 단답 리액션.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 495160,
+        "end_ms": 495640
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘모르겠어’는 리액션이지만 바로 180에서 더 강하게 정리된다. 중복 느낌.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 497400,
+        "end_ms": 497719
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] 짧은 맞장구. 흐름만 분절.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 498260,
+        "end_ms": 500099
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘아무튼 데모’로 정리하는 완충 문장. 183 티저로 바로 점프하는 게 더 타이트하다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 503940,
+        "end_ms": 507380
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘사람들이 신기해했다’는 일반 반응 요약. 정보/재미가 약함.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 518470,
+        "end_ms": 519510
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 짧은 네비게이션/중복 느낌. 핵심 전개에 불필요.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 519510,
+        "end_ms": 520630
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘그래서 우리가 사실’은 의미 없는 도입. 191로 바로 가면 템포가 산다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 524710,
+        "end_ms": 525990
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘그때 말 많이 했잖아요’는 내부 맥락. 신규 시청자에겐 정보가 없다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 529430,
+        "end_ms": 533829
+      },
+      "edit_type": "mute",
+      "reason": "irrelevant",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 약어/이름 나열로 TMI. 하이라이트에선 이 구체 출처가 중요하지 않다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 533989,
+        "end_ms": 538550
+      },
+      "edit_type": "mute",
+      "reason": "irrelevant",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 기관/협업 이야기 계속. 본론(홀바디 텔레옵 개념)과 거리 있음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 540870,
+        "end_ms": 542630
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 화면 가리키는 네비게이션 멘트. 오디오만 보면 의미가 약함.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 543050,
+        "end_ms": 543689
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] 짧은 맞장구/확인.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 546569,
+        "end_ms": 547370
+      },
+      "edit_type": "mute",
+      "reason": "irrelevant",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘확대해 줄래요’는 화면 조작 요청. 내용 전개에 불필요.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 547370,
+        "end_ms": 548650
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘된 건가요?’ 확인 질문. 곧바로 204에서 개념 정의로 가는 게 더 좋다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 548930,
+        "end_ms": 549490
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘이게 된 거예요’ 반복 확인. 하이라이트 밀도 낮춤.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 557920,
+        "end_ms": 558025
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] 짧은 맞장구.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 558130,
+        "end_ms": 558940
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] 단답 확인.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 583010,
+        "end_ms": 583170
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] 짧은 맞장구.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 592590,
+        "end_ms": 597390
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 5/10] 오버레이 칭찬은 좋지만 218에서 더 명확히 설명된다. 하이라이트에선 중복.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 597550,
+        "end_ms": 597709
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] 짧은 리액션.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 603740,
+        "end_ms": 605339
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘둔해 보인다’ 감상평. 핵심(안정화가 되는가)에서 초점이 흐려진다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 605339,
+        "end_ms": 605819
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 219와 같은 포인트 반복(느려 보임). 템포만 늘어짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 605819,
+        "end_ms": 608140
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 짧은 동의. 정보 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 608680,
+        "end_ms": 608920
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] 리액션만 있는 구간.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 624140,
+        "end_ms": 624699
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 225의 감탄을 반복 확인하는 문장. 하이라이트는 225에서 끊는 게 더 임팩트.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 628459,
+        "end_ms": 632300
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 5/10] 227을 풀어쓰는 설명. 가능하면 압축해서 템포를 살리는 편이 좋다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 633260,
+        "end_ms": 636620
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘여긴 VR 아닐 것’ 추정이 본 포인트(안정화/뉴턴역학)에서 살짝 샌다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 642460,
+        "end_ms": 642620
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘알고리즘이 있겠죠’는 230의 반복/마무리 성격. 다음 MPC로 바로 가는 편이 밀도 높음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 644199,
+        "end_ms": 644639
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 확인 질문이지만 임팩트가 약함. 232의 확정 톤을 유지하는 게 더 좋음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 644639,
+        "end_ms": 645640
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘MPC구나’는 232를 다시 말하는 수준. 템포만 늘어짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 645719,
+        "end_ms": 646199
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 리액션성 추임새. 하이라이트에선 과감히 제거.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 652099,
+        "end_ms": 653020
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 주어만 던지고 정보 없음. 238로 바로 점프 가능.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 660680,
+        "end_ms": 662519
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 5/10] ‘뉴럴넷 아니에요?’는 흥미롭지만 이 구간에선 확답/근거가 없어서 산만해짐. 뒤의 큰 비유(247)만 남기는 편이 응집력 있음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 663430,
+        "end_ms": 664069
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 불확실한 되묻기. 하이라이트에선 확실한 문장들만 남기는 게 좋음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 664069,
+        "end_ms": 664709
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 단답으로 흐름만 끊김.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 665030,
+        "end_ms": 665670
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘제대로 안 봤어’는 정보가 아니라 후퇴. 텐션 저하.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 666660,
+        "end_ms": 669939
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘코드 제거’ 서사는 247-248에서 더 명확하고 재미있게 재등장. 여기선 미리 길게 깔 필요 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 670040,
+        "end_ms": 670440
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 맞장구 반복. 하이라이트 밀도 떨어짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 670460,
+        "end_ms": 671340
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 244와 동일한 맞장구. 과감히 제거.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 671360,
+        "end_ms": 671760
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 맞장구 3연타는 템포만 죽임.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 686990,
+        "end_ms": 687950
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘그렇게 얘기를 한다’는 맥 빠지는 마무리. 252의 랩업으로 바로 가는 게 깔끔.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 700730,
+        "end_ms": 702810
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘누가 만든 거예요?’는 답이 이 범위에 없어서 던지고 끝나는 질문이 됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 703640,
+        "end_ms": 704440
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 진행 멘트. 정보/웃음 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 706600,
+        "end_ms": 707240
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 257과 동일 반응 반복. 한 번만 남겨도 충분.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 710340,
+        "end_ms": 710820
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 소리/오디오 체크로 주제에서 벗어남. 데모 포인트(스펙/안정성)로 빨리 가는 게 좋음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 711120,
+        "end_ms": 711520
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 오디오 대화 지속. 하이라이트에선 군더더기.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 712320,
+        "end_ms": 712800
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 오디오 관련 잡담. 재미 포인트가 약함.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 713040,
+        "end_ms": 713760
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 259-261의 연장. 템포 저하.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 713860,
+        "end_ms": 714260
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 추임새 정리. 정보 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 716040,
+        "end_ms": 717599
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘로봇 보여주는 거고’는 당연한 설명. 바로 작은 폼팩터 평가(265-266)로 들어가도 무리 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 722060,
+        "end_ms": 722780
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 키 질문은 좋지만, 이 범위 내에서 바로 수치로 이어지지 않아 흐름이 느려짐. 285에서 크기 기준점은 확보됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 723390,
+        "end_ms": 724030
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘이따 보여줄게요’는 약속만 하고 넘어감. 하이라이트에선 생략.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 724060,
+        "end_ms": 724459
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 짧은 리액션. 필수 아님.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 741119,
+        "end_ms": 742240
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 귀엽다는 반응 반복. 257만으로도 톤 유지 가능.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 744599,
+        "end_ms": 745160
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘모르겠어’는 설명 공백만 만들고 정보가 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 745160,
+        "end_ms": 746839
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 고무줄/부품 추정은 근거 없이 옆길로 샘. 핵심 데모(보행/안정성)로 빨리 가는 게 좋음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 749139,
+        "end_ms": 749699
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 277의 연장선. 펀치 없는 추정이라 하이라이트 가치 낮음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 749939,
+        "end_ms": 750739
+      },
+      "edit_type": "mute",
+      "reason": "irrelevant",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 색깔/TMI는 정보 가치 낮고 흐름 분산.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 761500,
+        "end_ms": 762540
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 장면 넘기는 진행 멘트. 과감히 삭제.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 769660,
+        "end_ms": 771060
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 281을 한 번 더 말함. 한 줄로 압축해서 템포 유지.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 771060,
+        "end_ms": 772380
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘키가 작아요’는 285에서 더 구체적으로 처리 가능.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 772460,
+        "end_ms": 775579
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 비유가 길어지며 템포 저하. 285의 ‘1m 조금 넘는’이 더 명확한 기준점.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 783930,
+        "end_ms": 784410
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘지원 역할’ 반복 확인. 정보 추가 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 784410,
+        "end_ms": 784690
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 짧은 되받아치기지만 중복. 286 한 줄이면 충분.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 784690,
+        "end_ms": 785130
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 추임새. 하이라이트 밀도 떨어짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 785210,
+        "end_ms": 785530
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 맞장구. 제거.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 785699,
+        "end_ms": 786500
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 연구용 재확인. 286에서 이미 핵심 전달.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 786540,
+        "end_ms": 788780
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 291 반복. 템포만 늘어짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 788780,
+        "end_ms": 789260
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 5/10] ‘아기 사이즈’는 귀엽지만 이미 257/265/266/285로 충분히 구축됨. 비중 줄이기.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 792460,
+        "end_ms": 795500
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 스펀지 언급은 271에서 이미 했음. 반복이라 삭제.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 799820,
+        "end_ms": 800540
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 5/10] 296에서 이미 핵심이 나왔고 298이 결론(안 자빠짐). 중간 설명은 과감히 압축.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 812459,
+        "end_ms": 814219
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 5/10] ‘요새 좋아졌죠’로 상대를 완화하며 힘이 빠짐. 하이라이트에선 대비를 유지하는 편이 좋음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 827260,
+        "end_ms": 828220
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 질문만 던지고 답/전개가 이 범위에 없어 끊긴 느낌. 다음 클립에 답이 있으면 그때 묶어서 살리는 게 맞음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 828220,
+        "end_ms": 829020
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘그건 아닌가?’ 추측성 단답. 앞뒤 의미 연결이 약해 하이라이트에 불필요.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 829450,
+        "end_ms": 829850
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘몰라요’만 남기면 공백처럼 느껴짐. 질문 라인(305)과 함께 통으로 제거가 깔끔.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 839680,
+        "end_ms": 840080
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘그러게요’는 리액션이 약하고 중복. 311/313만 남겨도 감탄 톤 유지됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 851280,
+        "end_ms": 855200
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘지금 알려지진 않았어요’는 반복 설명. 314(날짜) + 316(괜찮더라)로 더 빠르게 전달 가능.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 861600,
+        "end_ms": 862920
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘제대로 안 봤어’는 318과 같은 의미 반복. 정보량 없이 리듬만 처짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 863600,
+        "end_ms": 867120
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 케이블 추정은 재미/확실성 둘 다 약하고 이후로 추측이 길어짐. 하이라이트에선 과감히 제거.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 867120,
+        "end_ms": 868240
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘잘 모르겠네’ 자체가 정보 공백. 321과 함께 잘라야 템포가 살아남.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 870040,
+        "end_ms": 871879
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘전선이지 않을까’ 추정 반복. 확정 스펙(무게/키/배터리) 파트로 빨리 가는 게 낫다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 872170,
+        "end_ms": 872569
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘그런가?’ 반응만 있고 진행이 느려짐. 케이블 파트는 통으로 컷이 정답.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 872770,
+        "end_ms": 875970
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 길게 추측하며 늘어짐. 시청자 입장에선 ‘모른다’ 결론이라 스트레스만 줌.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 890000,
+        "end_ms": 893280
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘정확한 정보는 여기 있는데’ 뒤가 화면 확대/확인 난장으로 이어져 리듬 망가짐. 결론 스펙만 남기자.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 894240,
+        "end_ms": 896120
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 카메라 모델 추정은 중요도 낮고 바로 ‘안 보여요’로 넘어감. 시청자에겐 답답한 구간.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 896120,
+        "end_ms": 898320
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘잘 안 보여요’는 화면 조작 실패를 길게 끄는 신호. 하이라이트에 최악의 템포.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 898320,
+        "end_ms": 898880
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘잠깐만’은 순수 필러. 이어지는 줌 요청들과 함께 통컷.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 898880,
+        "end_ms": 901030
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 줌/당겨달라는 요청은 시청자 입장에서 기다림만 생김. 정보가 안 나온다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 901189,
+        "end_ms": 901990
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 화면 조작 대화 지속. 핵심(무게/키/배터리/포지셔닝)으로 바로 점프 필요.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 904880,
+        "end_ms": 906479
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘하나만 키면 되는 게 아닌데’는 작업 과정 TMI. 하이라이트는 결과만.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 906890,
+        "end_ms": 907209
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘아, 그래?’ 반응만 있고 진전 없음. 길어지는 조작 구간을 더 늘림.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 907610,
+        "end_ms": 908250
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘그러면은’로 이어지지만 결론 없이 계속 헤맴. 컷.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 910329,
+        "end_ms": 911290
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘그냥 당겨봐’는 작업 지시 반복. 영상 편집에서 가장 지루한 타입.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 917390,
+        "end_ms": 918430
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘별로 할 얘기 없다’는 자기부정. 다음 핵심 스펙(341)로 바로 붙이는 게 정답.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 918750,
+        "end_ms": 918910
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘응’만 있는 공백. 339과 함께 제거해 템포 회복.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 922920,
+        "end_ms": 923560
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 무게 재확인 질문은 정보 반복. 341만으로 충분히 전달됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 923569,
+        "end_ms": 924285
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘응 그리고’는 연결어일 뿐. 바로 다음 핵심 스펙(345)로 점프.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 924285,
+        "end_ms": 925240
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘그렇게 무겁지 않네’는 22.7kg에서 자연히 따라오는 감상이라 중복.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 930440,
+        "end_ms": 933119
+      },
+      "edit_type": "mute",
+      "reason": "irrelevant",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 스피커 언급은 핵심 가치(안전/연구 플랫폼/텔레옵/RL) 대비 중요도 낮음. 흐름만 분산.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 936660,
+        "end_ms": 938100
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘어떻게 만드는지’는 348의 보충이지만 350(이따가)로 티징이 완성되므로 중간은 덜어도 됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 942270,
+        "end_ms": 942910
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 이름 반복 리액션만이라 정보 증가 없음. 템포 위해 제거.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 947410,
+        "end_ms": 950250
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 친근하다는 감상은 좋지만 355(귀여워요) 한 방이 더 강함. 중복 감상은 정리.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 973640,
+        "end_ms": 976160
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘회사는 설립은…’ 말문 트는 구간. 바로 360의 핵심 정보로 붙이면 훨씬 타이트.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 983040,
+        "end_ms": 983880
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘지금 공개가’는 361의 문장 마무리 수준. 정보 추가가 없어 리듬만 느려짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 987780,
+        "end_ms": 990780
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 361~363과 동일 내용 반복이라 늘어짐. 하이라이트는 한 번만 강하게.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 990780,
+        "end_ms": 992500
+      },
+      "edit_type": "mute",
+      "reason": "irrelevant",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘선데이처럼’은 내부 맥락 없으면 이해/재미 둘 다 약한 레퍼런스. 주제 집중 위해 제거.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 997180,
+        "end_ms": 1000260
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘정확히 잘 모르겠어요’는 신뢰도는 솔직하지만 텐션이 꺼짐. 필요한 확정 정보만 남기자.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1002280,
+        "end_ms": 1013560
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 딥마인드 라인이 말 더듬/늘어짐이 과도해 시청 경험을 해친다. 368만 살리고 필요하면 자막/그래픽으로 보강하는 편이 낫다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1016319,
+        "end_ms": 1016959
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘아, 그래요’는 의미는 있으나 템포 상 생략 가능. 370~371만으로도 문답이 완결됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1021159,
+        "end_ms": 1021439
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘네’ 단답은 박자만 끊김. 373→375로 바로 가면 더 타이트.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1022719,
+        "end_ms": 1023920
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 또 ‘네’로 이어져 리듬만 느려짐. 필요한 반응은 375로 충분.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1027200,
+        "end_ms": 1029599
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘많이 안 봤어요’는 에너지 다운 + 정보 공백. 하이라이트는 자신감 있는 정보만 남기는 게 좋다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1029679,
+        "end_ms": 1031839
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 시청자에게 떠넘기는 마무리 톤이라 재미/정보 모두 약함. 377~378에서 깔끔하게 끝내는 게 더 좋다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1032280,
+        "end_ms": 1035879
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] NYU/Red Paint 추정은 맥락 TMI. 여기선 투자/스펙/현실적 포지셔닝이 더 중요.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1042940,
+        "end_ms": 1045020
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘생각보다 크진’ 코멘트는 톤만 흐리고 다음 스펙/비교로 가는 추진력을 떨어뜨림.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1045230,
+        "end_ms": 1047950
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘이 시즌’ 같은 모호한 말로 정보가 정리되지 않음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1061590,
+        "end_ms": 1063510
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 홀바디 컨트롤 재언급으로 387의 임팩트만 희석. 한 번만 강하게 치고 넘어가는 게 좋음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1070330,
+        "end_ms": 1071290
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 390과 동일 내용 반복. 템포만 늘어짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1079379,
+        "end_ms": 1081659
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 홈페이지에 논문 있다는 반복 설명. 393만으로 전환 충분.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1081979,
+        "end_ms": 1086779
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘구성이 보여준다’는 일반론. 실제로 ‘테크니컬 리포트로 들어가자’가 더 빠름.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1087179,
+        "end_ms": 1088779
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 화면 잘 보이냐는 진행 멘트. 하이라이트에서 불필요.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1091190,
+        "end_ms": 1093230
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘잘 안 보인다’는 상황 설명으로 흐름만 끊김.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1093230,
+        "end_ms": 1095990
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] PDF 켜자는 절차적 대화. 핵심은 ‘리포트로 들어가서 구조 해석’이라 단계 축약.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1095990,
+        "end_ms": 1097470
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 피규어 보자는 제안은 여기 구간의 주제(파우나/리포트 구조)와 직접 관련 약함.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1097470,
+        "end_ms": 1098470
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘확대해서’ 같은 진행 디테일은 편집으로 제거.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1102669,
+        "end_ms": 1106940
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 확인/맞장구 중심. 재미나 인사이트로 바로 가는 게 좋음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1108909,
+        "end_ms": 1112429
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 탭 찾는 장면은 지루한 ‘화면 조작’ 구간.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1123040,
+        "end_ms": 1124560
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 404와 결이 같은 칭찬 반복. 리액션은 한 방만 남기는 게 더 세련됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1132180,
+        "end_ms": 1133780
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘나도 자세히 안 봤다’는 신뢰도/정보 둘 다 약화. 딥다이브의 추진력 저해.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1140940,
+        "end_ms": 1141180
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] 단답 리액션. 컷 편집에 적합.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1145320,
+        "end_ms": 1146440
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘별건 없는데’로 기대를 낮추는 말. 바로 핵심 구조(RL/스테이트)로 가는 게 좋음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1148980,
+        "end_ms": 1151860
+      },
+      "edit_type": "mute",
+      "reason": "irrelevant",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] CPU 유틸 같은 디테일은 맥락 없이 나오면 지루하고 핵심(아키텍처)에서 벗어남.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1157780,
+        "end_ms": 1159460
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 412의 설명을 길게 풀어 말하는 단계. 414로 바로 붙이면 더 타이트.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1164980,
+        "end_ms": 1165540
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 확인성 맞장구. 흐름만 늘어짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1171440,
+        "end_ms": 1173680
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 5/10] 417의 예시(기어가기)를 반복 설명. 419로 요약 연결이 더 깔끔.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1179720,
+        "end_ms": 1181280
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 동의/맞장구만으로 새 정보가 없음. 템포를 위해 제거.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1185170,
+        "end_ms": 1186050
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 짧은 감탄이지만 424-425가 더 명확한 리액션/요약이라 중복.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1190750,
+        "end_ms": 1193629
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 비유가 불명확하고 알아듣기 어려워 몰입을 깸. 핵심 아키텍처 흐름 유지가 우선.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1196810,
+        "end_ms": 1197130
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘오케이’ 진행용 추임새.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1199970,
+        "end_ms": 1201490
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 5/10] 428 반복. 리액션은 이어지는 질문/놀람으로 충분.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1204990,
+        "end_ms": 1206510
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 오픈소스 Q 자체는 좋지만 답이 ‘모르겠다’라 재미/정보가 약함. 바로 운용 스택(VR/SLAM)으로 가는 게 낫다.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1206830,
+        "end_ms": 1207390
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘모르겠어요’ 단답. 임팩트 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1208270,
+        "end_ms": 1209149
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 추정 답변이지만 근거/재미가 약하고 흐름만 늘어짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1229230,
+        "end_ms": 1230430
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘응 뭐…’ 식 보조 멘트. 정보 추가 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1237370,
+        "end_ms": 1238729
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘궁금한 사람’ 안내 멘트는 하이라이트 흐름을 꺾음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1238810,
+        "end_ms": 1241049
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 시청자에게 맡기는 마무리 멘트. 클립 가치 낮음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1241049,
+        "end_ms": 1243850
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 407과 같은 ‘자세히 공개’ 반복. 이미 충분히 전달됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1243850,
+        "end_ms": 1247530
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘리치 포지션’은 흥미는 있지만 여기선 메인 아키텍처/운용 스택 흐름에서 벗어남.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1247649,
+        "end_ms": 1249769
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘감정적인 로봇’ 드리프트. 웃기게 터지지도 않고 주제 분산.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1250010,
+        "end_ms": 1251129
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 맞장구. 정보/재미 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1251660,
+        "end_ms": 1255180
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 익스프레션 이야기로 빠지며 핵심(제어/정책/스택)에서 이탈.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1257350,
+        "end_ms": 1258550
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 추가 디테일 없이 흘러가 지루해질 위험.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1259450,
+        "end_ms": 1260010
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 단답 추임새.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1268240,
+        "end_ms": 1269840
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘다시 돌아가면’ 진행 멘트. 컷 편집 포인트.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1286330,
+        "end_ms": 1286890
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 짧은 동의. 450-452 흐름을 방해하진 않지만 굳이 남길 가치가 크진 않음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1291650,
+        "end_ms": 1293210
+      },
+      "edit_type": "mute",
+      "reason": "irrelevant",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘휴먼 로봇 인터랙션’ 단어만 던지고 확장 없음. 맥락 없이 넣으면 산만.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1300780,
+        "end_ms": 1302540
+      },
+      "edit_type": "mute",
+      "reason": "irrelevant",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘에이젝스 올인’이 무엇인지 설명이 없어 시청자가 못 따라옴. 하이라이트에선 컷.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1302840,
+        "end_ms": 1304120
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 확인 반응만 남아 의미가 약함. 452에서 이미 포인트 마무리됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1306159,
+        "end_ms": 1308360
+      },
+      "edit_type": "mute",
+      "reason": "irrelevant",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] CPU 유틸 언급은 이번 챕터 핵심(정책 분리/스테이트/MCP/텔레옵/SLAM)과 거리가 멂.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1308360,
+        "end_ms": 1312679
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘다 나눠서 잘 돌아간다’는 추측성 설명이 길어지고 핵심 포인트로 못 감.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1316399,
+        "end_ms": 1317199
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 맞장구만 있고 정보는 458에서 이미 끝.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1318020,
+        "end_ms": 1318180
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘오케이’ 반응만으로 편집상 불필요.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1319970,
+        "end_ms": 1320210
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 동의 추임새. 461만으로 충분.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1328720,
+        "end_ms": 1328960
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 짧은 맞장구. 463의 임팩트를 살리려면 제거.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1329520,
+        "end_ms": 1329760
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] 말 잇기용. 편집상 제거.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1333879,
+        "end_ms": 1334120
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 동의 리액션만. 흐름 유지 위해 컷.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1350279,
+        "end_ms": 1351719
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘코스트 뭐지’로 길게 헤매는 구간 시작. 핵심과 무관하게 늘어짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1351719,
+        "end_ms": 1352999
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 모르는데 계속 언급. 시청자 입장에서도 얻는 게 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1353350,
+        "end_ms": 1353750
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘몰라요’ 단답. 흐름만 끊김.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1354149,
+        "end_ms": 1355590
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 컨트롤러 추측은 결론 없이 끝나서 정보 가치 낮음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1355590,
+        "end_ms": 1356550
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 맞장구만. 불필요.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1357110,
+        "end_ms": 1357750
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘처음 알았어요’ 감상만. 핵심(구조/평가)로 못 감.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1357990,
+        "end_ms": 1359030
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 478 반복. 편집상 과감히 제거.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1364990,
+        "end_ms": 1367430
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] HRI 콜백만 하고 추가 설명이 약함. 여기선 네비게이션/플래닝 쪽이 더 중요.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1401370,
+        "end_ms": 1402009
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘소프트웨어 아키텍처’ 라벨링만 하고 내용은 487-491에서 이미 전달됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1403129,
+        "end_ms": 1405449
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 유저 인풋 나열은 뻔하고 구체성이 약함. 템포만 느려짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1405529,
+        "end_ms": 1410569
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 텔레옵/인스트럭션 추측 반복. 이미 468-472에서 텔레옵 디테일 충분.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1415390,
+        "end_ms": 1415710
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] ‘오케이’로 끊김. 제거.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1426700,
+        "end_ms": 1427260
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘오케이’ 확인은 498-499로 이미 충분. 하나 더는 군더더기.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1430899,
+        "end_ms": 1434580
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘천천히 보면서…’ 메타 발언으로 템포 급락. 하이라이트에선 제거.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1441660,
+        "end_ms": 1443820
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 약점/매니퓰레이션 언급은 확장 없이 스쳐가서 핵심 흐름을 분산.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1445480,
+        "end_ms": 1447240
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘당연한 거’로 닫아버려 정보가 남지 않음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1450310,
+        "end_ms": 1453270
+      },
+      "edit_type": "mute",
+      "reason": "boring",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘정리가 되긴’은 총평인데 이미 앞에서 구조 설명을 완료함.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1466245,
+        "end_ms": 1468800
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 509와 같은 패턴 반복이라 한 번 더는 과함. 하이라이트는 압축.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1472960,
+        "end_ms": 1474199
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 512를 같은 의미로 반복. 한 문장으로 충분.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1477720,
+        "end_ms": 1478040
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘오케이’ 반복. 템포만 늘어짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1478040,
+        "end_ms": 1478840
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 말잇기 ‘근데’. 다음 하이라이트(517)로 바로 점프.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1499030,
+        "end_ms": 1503030
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 525를 ‘로코/로코모션’ 반복으로 늘어뜨림. 한 번이면 충분.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1508150,
+        "end_ms": 1509350
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] ‘조금만 무거워도…’로 디테일 설명이 길어질 신호인데, 여기선 결론 없이 끊겨 템포 저하.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1510150,
+        "end_ms": 1511190
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 동작 묘사만 이어지고 포인트가 아직 안 나옴. 다음 발화가 없으니 과감히 컷.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1512000,
+        "end_ms": 1513440
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 무게중심 포인트는 좋지만, 다음 핵심 결론(번들링 중요)로 바로 가는 게 하이라이트 리듬에 더 맞음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1513740,
+        "end_ms": 1514780
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] 짧은 맞장구만 있고 정보/웃음 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1531699,
+        "end_ms": 1532100
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘좋은데’는 535와 기능이 겹치고 추가 웃음/정보 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1535100,
+        "end_ms": 1535820
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 가격 얘기는 뒤에 ‘나도 몰라’가 더 웃기게 치고 나가서 여기 문장은 템포만 늘림.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1541159,
+        "end_ms": 1542759
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] 문장 시작만 하고 내용 없는 연결어. 바로 다음 반박으로 점프 가능.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1551719,
+        "end_ms": 1553600
+      },
+      "edit_type": "mute",
+      "reason": "irrelevant",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 사례 언급은 정보성은 있으나 구체명이 오히려 TMI로 들릴 수 있음. 핵심은 ‘혼합 모델 가능’이라 축약.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1560480,
+        "end_ms": 1563679
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 앞 질문(547)을 다시 풀어 말하는 느낌. 다음 ‘그다음 얘기’로 바로 넘어가도 흐름 유지됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1563679,
+        "end_ms": 1564720
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘그 판매가’로 문장만 반복. 의미 전달이 없음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1570250,
+        "end_ms": 1570730
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 감탄/동의만 있고 정보나 웃음이 약함.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1581529,
+        "end_ms": 1584529
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 구체 투자 밸류 얘기로 들어가면 숫자 나열로 지루해질 위험이 큼. 하이라이트 목적과 거리.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1584990,
+        "end_ms": 1585230
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] 짧은 맞장구만 있음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1587510,
+        "end_ms": 1587830
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 문장 완결 없이 끊기는 느낌. 앞에서 이미 비즈니스 현실감은 확보됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1594090,
+        "end_ms": 1594409
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] ‘오케이’로 흐름만 끊김. 다음 파트(결론 요약)로 점프하는 게 더 좋음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1595290,
+        "end_ms": 1595530
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 엔딩 메타가 길어질 조짐. 여기서 끌면 결론 하이라이트(568~)의 추진력이 떨어짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1595610,
+        "end_ms": 1596649
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] 짧은 동의 반복.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1603040,
+        "end_ms": 1603360
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘마무리?’ 재확인은 563~564와 기능이 겹침. 결론으로 바로 진입하는 게 더 깔끔.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1604240,
+        "end_ms": 1607840
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 감상 멘트가 이어지며 결론 하이라이트를 늦춤. 핵심은 568 이후의 스택 정리.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1609040,
+        "end_ms": 1610639
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘어떻게 되려나’는 분위기만 있고 정보/웃음이 약함. 결론으로 점프.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1613730,
+        "end_ms": 1616930
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 핵심어 반복(홀바디 로코 매니퓰레이션)만 있고 실제 구조 설명은 다음 문장들에서 나옴.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1622400,
+        "end_ms": 1623360
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 맞장구가 길게 들어오면 템포가 느려짐. 결론 파트는 단단하게 몰아가는 게 유리.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1626800,
+        "end_ms": 1630320
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 말 잇기용. 바로 575의 근거 문장으로 가도 의미 동일.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1632320,
+        "end_ms": 1632320
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] ‘어쩌면은’ 반복. 리듬 저하.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1646240,
+        "end_ms": 1646800
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘모델이든’은 579를 반복/완화하는 표현. 핵심 명료성을 떨어뜨림.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1646840,
+        "end_ms": 1648180
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 열거 시작이 길어지며 늘어짐. 584의 질문(클라이맥스)을 빨리 가져가는 게 더 재밌음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1648180,
+        "end_ms": 1649220
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 열거 반복. 정보 밀도 낮음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1649940,
+        "end_ms": 1652100
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘결국 학습시킨 모델은…’로 끌다가 584에서 본론이 나오므로, 584로 바로 점프하는 편이 더 타이트.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1659810,
+        "end_ms": 1660610
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] 용어를 꺼내다 멈추는 연결부. 다음 문장이 설명을 시작하므로 삭제해도 이해됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1664770,
+        "end_ms": 1668450
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘데이터 다 모아 학습’은 당연한 연결 설명이라 길게 들림. 590의 ‘규정 알고리즘’으로 바로 가도 됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1669810,
+        "end_ms": 1673650
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘최종 디플로이 모델에 RL 베이스드’는 이미 앞에서 RL 언급(579)이 있어 중복 느낌.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1680810,
+        "end_ms": 1683290
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 질문을 다시 길게 묻는 부분. 이미 584에서 문제 제기했고 592가 바로 답이라 템포 위해 축약.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1693830,
+        "end_ms": 1694390
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 2/10] ‘오케이’ 반복은 템포만 끊음. 비유 설명(598~)로 바로 가는 게 좋음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1703400,
+        "end_ms": 1704840
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 599와 의미가 겹치는 반복 설명. 한 번만 말해도 충분히 전달됨.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1710080,
+        "end_ms": 1713919
+      },
+      "edit_type": "mute",
+      "reason": "tangent",
+      "confidence": 0.9,
+      "note": "[Score: 4/10] 여기부터는 LLM/VLM 아키텍처 대비로 새 축을 여는 setup인데, 제공된 범위에 payoff(607~)가 없어 ‘setup만 남는’ 위험.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1713919,
+        "end_ms": 1716639
+      },
+      "edit_type": "mute",
+      "reason": "repetitive",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] 602를 설명만 하고 결론이 이 클립 안에서 나오지 않음. 하이라이트 목적상 과감히 삭제.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1716780,
+        "end_ms": 1717100
+      },
+      "edit_type": "mute",
+      "reason": "filler",
+      "confidence": 0.9,
+      "note": "[Score: 1/10] 짧은 동의만 있음.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    },
+    {
+      "range": {
+        "start_ms": 1717100,
+        "end_ms": 1718220
+      },
+      "edit_type": "mute",
+      "reason": "manual",
+      "confidence": 0.9,
+      "note": "[Score: 3/10] ‘엔드 투 엔드’로 넘어가며 다음 논쟁을 예고하지만, 이 구간만 남기면 맥락이 끊긴 채 끝나 지루하게 느껴짐.",
+      "active_video_track_id": "f4551ae1-8fde-54b5-8ee2-756484a93993_video",
+      "active_audio_track_ids": [
+        "f4551ae1-8fde-54b5-8ee2-756484a93993_audio"
+      ],
+      "speed_factor": 1.0
+    }
+  ]
+}

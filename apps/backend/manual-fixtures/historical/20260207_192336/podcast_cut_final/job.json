@@ -1,0 +1,50 @@
+{
+  "job_id": "07e9da64-f42c-486c-8a14-d31537b1fdc7",
+  "type": "podcast_cut",
+  "status": "completed",
+  "progress": 100,
+  "message": "Complete",
+  "result": {
+    "output_files": {
+      "project": "/home/jonhpark/workspace/auto-video-edit/apps/backend/manual-fixtures/historical/20260207_192336/source_podcast_cut_output/source.podcast.avid.json",
+      "fcpxml": "/home/jonhpark/workspace/auto-video-edit/apps/backend/manual-fixtures/historical/20260207_192336/source_podcast_cut_output/source.final.fcpxml",
+      "srt_adjusted": "/home/jonhpark/workspace/auto-video-edit/apps/backend/manual-fixtures/historical/20260207_192336/source_podcast_cut_output/source.final.srt"
+    },
+    "summary": {
+      "total_decisions": 560,
+      "by_reason": {
+        "silence": {
+          "count": 240,
+          "duration_ms": 496423
+        },
+        "filler": {
+          "count": 102,
+          "duration_ms": 101907
+        },
+        "repetitive": {
+          "count": 55,
+          "duration_ms": 75895
+        },
+        "tangent": {
+          "count": 29,
+          "duration_ms": 63717
+        },
+        "boring": {
+          "count": 49,
+          "duration_ms": 70450
+        },
+        "manual": {
+          "count": 70,
+          "duration_ms": 160949
+        },
+        "irrelevant": {
+          "count": 15,
+          "duration_ms": 28122
+        }
+      }
+    }
+  },
+  "error": null,
+  "created_at": "2026-02-07T11:05:34.575779Z",
+  "completed_at": "2026-02-07T11:10:47.617506Z"
+}

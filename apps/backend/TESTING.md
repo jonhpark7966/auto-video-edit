@@ -1,7 +1,7 @@
-# AVID Backend Testing Strategy
+# AVID Backend Manual Verification
 
-> 목표: `avid-cli` 표면을 먼저 고정하고, 그 다음 서비스/내보내기/live dependency 테스트를 쌓는다.
-> 원칙: `eogum` 연결 전에 `auto-video-edit` 자체 테스트가 먼저 돌아야 한다.
+> 목표: `avid-cli` 표면을 사람이 직접 확인하면서 깨지는 지점을 빠르게 찾는다.
+> 원칙: 외부 통합 전에 CLI 입력, 산출물, 오류 처리를 눈으로 검증한다.
 
 ## 관련 문서
 
@@ -9,254 +9,259 @@
 - [TEST_API_SPECS.md](TEST_API_SPECS.md)
 - [TEST_DATA_GUIDE.md](TEST_DATA_GUIDE.md)
 - [PROVIDER_RUNTIME_SPEC.md](PROVIDER_RUNTIME_SPEC.md)
+- [REEXPORT_SPLIT_PLAN.md](REEXPORT_SPLIT_PLAN.md)
 
-## 왜 CLI부터 테스트하나
+## 기본 원칙
 
-지금 상위 시스템이 의존하는 것은 `avid` 내부 Python 객체가 아니라 `avid-cli` 표면이다.
-따라서 가장 먼저 검증해야 하는 것은 아래다.
+- 자동화된 테스트 스위트는 유지하지 않는다.
+- 검증은 실제 `avid-cli` 명령을 직접 돌려서 본다.
+- 결과 확인은 세 가지로 한다.
+  - stdout/stderr
+  - `--json` 또는 `--manifest-out` payload
+  - 실제 생성된 산출물 파일
 
-- 명령이 존재하는가
-- 옵션 이름이 고정돼 있는가
-- `--json` / `--manifest-out` 결과 shape 가 안정적인가
-- 결과물 artifact key 가 일정한가
-- 실패 시 exit/stderr 규칙이 예측 가능한가
+## 준비
 
-## 테스트 계층
-
-### 1. Unit
-
-범위:
-- pure helper 함수
-- provider config resolution
-- provider argv mapping
-- evaluation override 적용
-- extra source stripping
-- JSON payload 생성 규칙
-- manifest 파일 기록 규칙
-
-특징:
-- ffmpeg 불필요
-- Chalna 불필요
-- provider CLI 불필요
-- 빠르게 돌아야 함
-
-### 2. CLI Integration
-
-범위:
-- 실제 `avid-cli` subprocess 실행
-- 샘플 fixture 입력으로 artifact key / 파일 생성 확인
-- `--json` stdout 과 `--manifest-out` 파일의 일치 확인
-
-특징:
-- 가능한 한 외부 네트워크 없이
-- 필요한 부분은 monkeypatch / fixture file 사용
-- 상위 시스템이 실제로 보는 표면을 검증
-
-### 3. Live Smoke
-
-범위:
-- `doctor` 로 실제 환경 진단
-- live Chalna 로 `transcribe`
-- live provider 로 `transcript-overview` / `subtitle-cut` / `podcast-cut`
-- provider smoke 는 가능한 한 짧은 prompt 와 저비용 설정으로 실행한다
-- `audio-offset-finder` 가 설치된 상태의 sync smoke
-
-특징:
-- 느리고 flaky 할 수 있음
-- 기본 test run 에서 분리
-- opt-in marker 로만 실행
-
-## 권장 테스트 디렉터리 구조
-
-```text
-apps/backend/tests/
-  unit/
-    cli/
-      test_version.py
-      test_doctor.py
-      test_provider_resolution.py
-      test_provider_argv.py
-      test_manifest_output.py
-      test_apply_evaluation.py
-      test_export_project.py
-      test_rebuild_multicam.py
-      test_clear_extra_sources.py
-      test_reexport_logic.py
-      test_multicam_contract.py
-    export/
-      test_fcpxml_modes.py
-      test_fcpxml_multicam.py
-      test_adjusted_srt_consistency.py
-    services/
-      test_audio_sync_offsets.py
-  integration/
-    cli/
-      test_cli_contract.py
-      test_cli_reexport_contract.py
-  live/
-    test_doctor_live.py
-    test_provider_profiles_live.py
-    test_transcribe_live.py
-    test_sync_live.py
+```bash
+REPO_ROOT=/home/jonhpark/workspace/auto-video-edit
+cd "$REPO_ROOT/apps/backend"
+pip install -e '.[sync]'
+cd "$REPO_ROOT"
 ```
 
-## 우선순위별 테스트 목록
+필수 의존성:
 
-## `reexport` 분해 메모
-
-- 현재 `reexport` 는 compatibility wrapper 로 유지한다.
-- `apply-evaluation`, `export-project`, `rebuild-multicam`, `clear-extra-sources`, deprecated `reexport` parity 는 구현 완료, 다음 목표는 상위 통합 교체다.
-- 새 테스트는 가능하면 분리된 명령을 우선 대상으로 하고, `reexport` 는 parity / deprecation coverage 로 남긴다.
-- 자세한 계획은 [REEXPORT_SPLIT_PLAN.md](REEXPORT_SPLIT_PLAN.md) 를 본다.
-
-### P0: 상위 통합 전에 반드시 있어야 하는 것
-
-- `version --json` 이 유효한 JSON 을 반환하고 핵심 필드를 포함한다
-- `doctor --json` 이 `checks.python/ffmpeg/ffprobe/chalna/provider` 를 반환한다
-- 기본 `doctor --json` 은 provider binary 존재만 검사하고 `provider_probes` 는 비워 둔다
-- `doctor --probe-providers --json` 의 provider check 가 실제 작은 `claude`/`codex` 호출을 수행한다
-- `doctor --json` 결과에 resolved `provider/model/effort` 가 single-provider에서는 `provider_config`, multi-provider에서는 `provider_configs` 로 남는다
-- 기본 doctor 출력에는 정밀체크 안내 hint 가 포함된다
-- `doctor --json` 결과에 provider smoke 에 사용한 `model` 과 `reasoning_effort` 또는 동등 옵션 정보가 남는다
-- AI 명령들이 CLI flag > env > default 우선순위로 같은 provider config 를 해석한다
-- `--manifest-out` 이 stdout JSON 과 같은 payload 를 기록한다
-- `apply-evaluation --json` 이 `project_json` artifact 와 `applied_evaluation_segments/applied_changes` stats 를 반환한다
-- `export-project --json` 이 `fcpxml/srt?` artifact 를 반환한다
-- `rebuild-multicam --json` 이 `project_json` artifact 와 `extra_sources/stripped_extra_sources` stats 를 반환한다
-- `clear-extra-sources --json` 이 `project_json` artifact 와 `stripped_extra_sources` stats 를 반환한다
-- deprecated `reexport` 가 stderr warning 을 남기고 split 명령들과 동일한 핵심 stats/artifact 계약을 유지한다
-- `transcribe --json` 이 `artifacts.srt` 를 반환한다
-- `transcript-overview --json` 이 `artifacts.storyline` 을 반환한다
-- `subtitle-cut --json` 이 `project_json/fcpxml/report/srt` key 를 반환한다
-- `podcast-cut --json` 이 `project_json/fcpxml/report/srt` key 를 반환한다
-- `reexport --json` 이 `project_json/fcpxml/srt?` key 를 반환한다
-- `reexport` 에서 `--extra-source` 사용 시 `--source` 가 없으면 실패한다
-- 잘못된 입력 파일 경로에서 exit code 가 non-zero 이고 stderr 로 실패 이유를 남긴다
-
-### P1: 구현 회귀를 막기 위한 것
-
-- Claude argv 가 `--model` / `--effort` 를 포함해 생성된다
-- Codex argv 가 `-m` / `-c model_reasoning_effort=...` 를 포함해 생성된다
-- provider-specific env 가 올바르게 해석된다
-- evaluation override 가 기존 overlapping decision 을 제거하고 human cut 을 다시 추가한다
-- `reexport` 가 기존 extra source 를 제거한 뒤 새 extra source 를 다시 붙인다
-- multicam case 에서 auto sync 와 manual offset 둘 다 기대대로 반영된다
-- review/final 모드에 따라 `content_mode` 가 기대대로 반영된다
-- subtitle/podcast cut 에서 report artifact 가 항상 생긴다
-- 모든 핵심 경로에서 `fcpxml` artifact 가 생성되고 XML 파싱 가능하다
-- transcription 이 있는 project 를 reexport 하면 adjusted SRT 가 같이 나온다
-- adjusted SRT 와 FCPXML cut 결과가 시간적으로 일관된다
-
-### P2: live dependency 검증
-
-- `doctor` 가 실제 설치 환경을 통과한다
-- 기본 `doctor --json` 실행이 `claude` 와 `codex` binary 를 둘 다 확인한다
-- `doctor --probe-providers --json` 실행이 실제 Claude/Codex 호출까지 수행한다
-- provider live smoke 가 실제 API/auth/model/reasoning 옵션 조합으로 통과한다
-- baseline profile 은 `claude-opus-4-6 + medium`, `gpt-5.4 + medium` 으로 1회 이상 검증한다
-- TODO: Chalna 가 deep health/test API 를 제공하면 doctor live smoke 에 실제 transcription probe 를 추가한다
-- 작은 fixture 로 `transcribe` live smoke 가 통과한다
-- 작은 fixture 로 `transcript-overview` live smoke 가 통과한다
-- 작은 fixture 로 `subtitle-cut` 또는 `podcast-cut` live smoke 가 통과한다
-- sample pair 로 audio sync smoke 가 통과한다
-- multicam export 결과를 수동으로 열어 connected clip 구조를 spot-check 한다
-
-## 추천 pytest marker
-
-- `unit`
-- `integration`
-- `live`
 - `ffmpeg`
-- `chalna`
-- `provider`
-- `sync`
+- `ffprobe`
+- `git`
 
-예시:
+선택 의존성:
 
-```python
-import pytest
+- `claude`
+- `codex`
+- Chalna
+- `audio-offset-finder`
 
-pytestmark = [pytest.mark.integration]
-```
+## 검증 순서
 
-## 분해 후 우선 테스트 순서
+### 1. Fast doctor
 
-1. `tests/unit/cli/test_apply_evaluation.py`
-2. `tests/integration/cli/test_export_project_contract.py`
-3. `tests/integration/cli/test_rebuild_multicam_contract.py`
-4. `tests/integration/cli/test_cli_reexport_compat.py`
+목적:
+- 바이너리와 기본 런타임이 즉시 살아 있는지 본다.
 
-## 실행 명령 제안
-
-초기 세팅:
+명령:
 
 ```bash
-cd apps/backend
-pip install -e '.[dev,sync]'
+avid-cli doctor --json
 ```
 
-기본 unit run:
+기대 결과:
+
+- exit code `0`
+- `checks.python`, `checks.ffmpeg`, `checks.ffprobe`, `checks.provider` 존재
+- `provider_probe_requested` 는 `false`
+- `provider_probes` 는 비어 있음
+- deep probe 안내 hint 가 출력에 포함됨
+
+### 2. Deep doctor
+
+목적:
+- Claude/Codex API 인증과 실제 짧은 호출이 되는지 본다.
+
+명령:
 
 ```bash
-PYTHONPATH=src pytest tests/unit -q
+avid-cli doctor --probe-providers --json
 ```
 
-CLI integration run:
+단일 provider override:
 
 ```bash
-PYTHONPATH=src pytest tests/integration/cli -q
+avid-cli doctor --provider claude --probe-providers --provider-model claude-opus-4-6 --provider-effort medium --json
+avid-cli doctor --provider codex --probe-providers --provider-model gpt-5.4 --provider-effort medium --json
 ```
 
-live smoke run:
+기대 결과:
+
+- `provider_configs` 또는 `provider_config` 에 resolved `provider/model/effort` 가 남음
+- `provider_probes` 또는 `provider_probe` 에 실제 응답 요약이 남음
+- 실패 시 어떤 provider/model/effort 조합에서 실패했는지 바로 보임
+
+### 3. `apply-evaluation`
+
+목적:
+- 기존 `.avid.json` 의 cut decision 이 사람 평가로 patch 되는지 본다.
+
+준비:
 
 ```bash
-PYTHONPATH=src pytest tests/live -m live -q
+TMP_DIR=/tmp/avid-manual
+mkdir -p "$TMP_DIR"
+cat > "$TMP_DIR/evaluation.json" <<'EOF'
+{
+  "segments": [
+    {
+      "start_ms": 2720,
+      "end_ms": 3699,
+      "human": {"action": "keep"}
+    },
+    {
+      "start_ms": 16000,
+      "end_ms": 17000,
+      "human": {"action": "cut"}
+    }
+  ]
+}
+EOF
 ```
 
-전체 coverage run:
+명령:
 
 ```bash
-PYTHONPATH=src pytest --cov=src/avid --cov-report=term-missing
+avid-cli apply-evaluation \
+  --project-json apps/backend/manual-fixtures/historical/20260207_192336/podcast_cut_final/source.podcast.avid.json \
+  --evaluation "$TMP_DIR/evaluation.json" \
+  --output-project-json "$TMP_DIR/source.eval.avid.json" \
+  --json
 ```
 
-## Fixture 전략
+기대 결과:
 
-가장 먼저 준비할 fixture 는 아래다.
+- `artifacts.project_json` 생성
+- `stats.applied_evaluation_segments` 가 `2`
+- `stats.applied_changes` 가 `1` 이상
+- 결과 project JSON 에서 `2720-3699` 구간 기존 cut overlap 이 줄어들거나 사라짐
 
-- 아주 짧은 `sample.srt`
-- 최소 구조의 `storyline.json`
-- transcription 과 edit decision 이 들어 있는 작은 `sample.avid.json`
-- human override 가 2~3개 들어 있는 `evaluation.json`
-- live test 에만 쓸 아주 짧은 미디어 fixture
+### 4. `export-project`
 
-원칙:
-- unit/integration 은 최대한 텍스트 기반 fixture 로 끝낸다
-- 무거운 미디어 fixture 는 live test 에만 둔다
-- provider/chalna 의 실제 호출은 opt-in 으로만 돌린다
+목적:
+- project JSON 만으로 FCPXML/SRT 산출물이 다시 생성되는지 본다.
 
-## 구현 순서 제안
+명령:
 
-1. `tests/unit/cli/test_version.py`
-2. `tests/unit/cli/test_provider_resolution.py`
-3. `tests/unit/cli/test_provider_argv.py`
-4. `tests/unit/cli/test_doctor.py`
-5. `tests/unit/cli/test_manifest_output.py`
-6. `tests/unit/cli/test_apply_evaluation.py`
-7. `tests/unit/cli/test_export_project.py`
-8. `tests/unit/cli/test_rebuild_multicam.py`
-9. `tests/unit/cli/test_clear_extra_sources.py`
-10. `tests/unit/cli/test_reexport_logic.py`
-11. `tests/integration/cli/test_cli_contract.py`
-12. `tests/integration/cli/test_cli_reexport_contract.py`
-13. `tests/unit/export/test_fcpxml_multicam.py`
-14. `tests/unit/export/test_adjusted_srt_consistency.py`
-15. 마지막으로 `tests/live/*`
+```bash
+avid-cli export-project \
+  --project-json "$TMP_DIR/source.eval.avid.json" \
+  --output-dir "$TMP_DIR/exported" \
+  --content-mode cut \
+  --json
+```
 
-## eogum 연결 전 완료 기준
+기대 결과:
 
-- [ ] `CLI_INTERFACE.md` 가 현재 구현과 일치
-- [ ] P0 테스트가 모두 green
-- [ ] `reexport` 포함 모든 핵심 명령이 `--json` 지원
-- [ ] `--manifest-out` contract 확인 완료
-- [ ] live smoke 는 최소 1회 수동 통과
-- [ ] 그 다음에만 `eogum` 통합 수정
+- `artifacts.fcpxml` 생성
+- transcription 이 있으면 `artifacts.srt` 생성
+- `report` 는 생성하지 않음
+
+### 5. `rebuild-multicam`
+
+목적:
+- extra source strip 후 재구성, manual offset 반영을 본다.
+
+명령:
+
+```bash
+avid-cli rebuild-multicam \
+  --project-json samples/test_multisource/main_live.podcast.avid.json \
+  --source samples/test_multisource/main_live.mp4 \
+  --extra-source samples/test_multisource/cam_sony.mp4 \
+  --offset 0 \
+  --output-project-json "$TMP_DIR/main_live.multicam.avid.json" \
+  --json
+```
+
+기대 결과:
+
+- `stats.extra_sources` 가 `1`
+- `stats.stripped_extra_sources` 가 `1` 이상
+- 결과 project JSON 의 source/tracks 에 secondary source 가 들어감
+
+### 6. `clear-extra-sources`
+
+목적:
+- multicam project 를 single-source 로 명시적으로 되돌린다.
+
+명령:
+
+```bash
+avid-cli clear-extra-sources \
+  --project-json samples/test_multisource/main_live.podcast.avid.json \
+  --output-project-json "$TMP_DIR/main_live.cleared.avid.json" \
+  --json
+```
+
+기대 결과:
+
+- `stats.stripped_extra_sources` 가 `1` 이상
+- 결과 project JSON 에 extra source 가 남지 않음
+
+### 7. Deprecated `reexport`
+
+목적:
+- compatibility wrapper 가 아직 동작하는지 본다.
+
+명령:
+
+```bash
+avid-cli reexport \
+  --project-json samples/test_multisource/main_live.podcast.avid.json \
+  --output-dir "$TMP_DIR/reexported" \
+  --content-mode disabled \
+  --json
+```
+
+기대 결과:
+
+- stderr 에 deprecated warning
+- `project_json`, `fcpxml`, `srt` artifact 가 생성됨
+- legacy wrapper 이지만 split 명령과 같은 결과 계열을 유지함
+
+### 8. `transcribe`, `transcript-overview`, `subtitle-cut`, `podcast-cut`
+
+목적:
+- live dependency 가 실제로 동작하는지 본다.
+
+권장 순서:
+
+```bash
+avid-cli transcribe samples/sample_10min.m4a -d "$TMP_DIR/transcribe" --json
+avid-cli transcript-overview apps/backend/manual-fixtures/text/e2e_source.srt --provider claude --json
+avid-cli subtitle-cut samples/C1718_compressed.mp4 --srt apps/backend/manual-fixtures/text/c1718_compressed.srt --provider claude --json
+avid-cli podcast-cut samples/sample_10min.m4a --srt apps/backend/manual-fixtures/historical/20260207_192336/source.srt --provider codex --json
+```
+
+기대 결과:
+
+- 각 명령이 `artifacts.*` 를 남김
+- 실패 시 stderr 에 dependency 또는 provider 원인이 드러남
+
+### 9. FCPXML 수동 검토
+
+목적:
+- 생성된 FCPXML 을 실제 편집기에서 열어 구조를 확인한다.
+
+우선 확인할 것:
+
+- single-source 에서 lane 이 과하게 생기지 않는지
+- multicam 에서 connected clip 이 붙는지
+- manual offset 을 준 source 가 시각적으로 맞는지
+- adjusted SRT 와 cut 결과가 크게 어긋나지 않는지
+
+## 실패 시 먼저 볼 것
+
+- `doctor --json`
+- `doctor --probe-providers --json`
+- 입력 경로 오타
+- `AVID_*`, `CLAUDE_*`, `CODEX_*`, `CHALNA_*` 환경 변수
+- `ffmpeg`, `ffprobe`, `audio-offset-finder` 설치 여부
+
+## 완료 기준
+
+- [ ] fast doctor 통과
+- [ ] deep doctor 통과
+- [ ] `apply-evaluation` 산출물 확인
+- [ ] `export-project` 산출물 확인
+- [ ] `rebuild-multicam` 산출물 확인
+- [ ] `clear-extra-sources` 산출물 확인
+- [ ] deprecated `reexport` 동작 확인
+- [ ] 최소 1개 FCPXML 을 Final Cut Pro 에서 열어 확인

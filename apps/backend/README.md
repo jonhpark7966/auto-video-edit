@@ -7,10 +7,10 @@
 
 - [CLI_INTERFACE.md](CLI_INTERFACE.md): 외부 통합에서 기대해도 되는 CLI 표면과 JSON/manifest 규칙
 - [REEXPORT_SPLIT_PLAN.md](REEXPORT_SPLIT_PLAN.md): `reexport` 분해 계획, deprecated 전략, eogum 마이그레이션 순서
-- [TEST_API_SPECS.md](TEST_API_SPECS.md): CLI/HTTP 테스트 대상 스펙, 준비물, dependency 목록
+- [TEST_API_SPECS.md](TEST_API_SPECS.md): CLI/HTTP 수동 검증 대상 스펙, 준비물, dependency 목록
 - [PROVIDER_RUNTIME_SPEC.md](PROVIDER_RUNTIME_SPEC.md): Claude/Codex model/effort 설정 표면, 기본 프로필, smoke/test 계획
-- [TEST_DATA_GUIDE.md](TEST_DATA_GUIDE.md): 현재 테스트 데이터 분류, canonical fixture 기준, 리뷰 순서
-- [TESTING.md](TESTING.md): 어떤 테스트를 어떤 순서로 만들고 어떻게 실행할지
+- [TEST_DATA_GUIDE.md](TEST_DATA_GUIDE.md): 수동 검증용 fixture 분류, canonical source, 리뷰 순서
+- [TESTING.md](TESTING.md): 어떤 순서로 직접 검증할지, 명령별 기대 결과가 무엇인지
 - [../../SPEC.md](../../SPEC.md): 제품/도메인 수준 스펙
 - [../../ARCHITECTURE.md](../../ARCHITECTURE.md): 서비스 계층과 데이터 흐름
 
@@ -18,7 +18,7 @@
 
 ```bash
 cd apps/backend
-pip install -e '.[dev,sync]'
+pip install -e '.[sync]'
 avid-cli version --json
 avid-cli doctor --json
 avid-cli doctor --probe-providers --json
@@ -39,6 +39,6 @@ avid-cli clear-extra-sources --project-json /tmp/in.avid.json --output-project-j
 ## 현재 우선순위
 
 1. CLI 표면 고정
-2. CLI 테스트 추가
-3. live dependency 를 분리한 smoke test 확립
+2. 수동 검증 시나리오 정리
+3. live dependency 를 분리한 smoke 절차 확립
 4. 그 다음 상위 시스템 통합

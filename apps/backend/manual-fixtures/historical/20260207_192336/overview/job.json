@@ -1,0 +1,24 @@
+{
+  "job_id": "b3cbe461-d9cf-4f9b-8805-c11436931fca",
+  "type": "transcript_overview",
+  "status": "completed",
+  "progress": 100,
+  "message": "Complete",
+  "result": {
+    "output_files": {
+      "storyline": "/home/jonhpark/workspace/auto-video-edit/apps/backend/manual-fixtures/historical/20260207_192336/source.storyline.json"
+    },
+    "summary": {
+      "chapters": 8,
+      "narrative_arc": {
+        "type": "lecture",
+        "summary": "\ud5ec\ub9ad\uc2a4 01 \ub370\ubaa8\ub97c \ud1b5\ud574 \ud640\ubc14\ub514 \uc81c\uc5b4\uac00 \uc65c \uc911\uc694\ud55c\uc9c0 \uc124\uba85\ud55c \ub4a4, \uc720\uc0ac\ud55c \ubc29\ud5a5\uc758 \uc2e0\uc0dd \ub85c\ubd07(\ud30c\uc6b0\ub098) \uc0ac\ub840\ub85c \uae30\uc220 \uc2a4\ud0dd\uacfc \uc0b0\uc5c5 \ud750\ub984\uc744 \uc815\ub9ac\ud55c\ub2e4.",
+        "flow": "\uc624\ud504\ub2dd \u2192 \ud5ec\ub9ad\uc2a4 01 \ub370\ubaa8 \u2192 \uae30\uc220 \uad6c\uc870(\uc2dc\uc2a4\ud15c0/1/2) \u2192 \ud154\ub808\uc635 \uc0ac\ub840 \u2192 \ud30c\uc6b0\ub098 \ub85c\ubd07 \uc18c\uac1c \u2192 \ub9ac\ud3ec\ud2b8 \ub525\ub2e4\uc774\ube0c \u2192 \uacb0\ub860/\uc804\ub9dd",
+        "tone": "educational"
+      }
+    }
+  },
+  "error": null,
+  "created_at": "2026-02-07T10:53:23.933368Z",
+  "completed_at": "2026-02-07T10:59:39.558253Z"
+}

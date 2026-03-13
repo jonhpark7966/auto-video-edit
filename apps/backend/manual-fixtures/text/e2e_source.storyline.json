@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "source_srt": "/home/jonhpark/workspace/auto-video-edit/tests/e2e/data/20260207_192336/source.srt",
+  "source_srt": "/home/jonhpark/workspace/auto-video-edit/apps/backend/manual-fixtures/historical/20260207_192336/source.srt",
   "total_segments": 633,
   "total_duration_ms": 1789690,
   "narrative_arc": {
