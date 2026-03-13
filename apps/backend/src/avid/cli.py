@@ -5,6 +5,7 @@ Usage:
     avid-cli transcript-overview <srt> [-o storyline.json] [--provider codex] [--content-type auto]
     avid-cli subtitle-cut <video> --srt sub.srt [--provider codex] [--context storyline.json] [-o output.fcpxml]
     avid-cli podcast-cut <audio> [--srt sub.srt] [--provider codex] [--context storyline.json] [-d output_dir]
+    avid-cli apply-evaluation --project-json project.avid.json --evaluation evaluation.json --output-project-json out.avid.json
     avid-cli reexport --project-json project.avid.json --output-dir out
 """
 
@@ -576,6 +577,39 @@ def _strip_extra_sources(project) -> int:
     return removed
 
 
+def cmd_apply_evaluation(args: argparse.Namespace) -> dict[str, Any]:
+    from avid.models.project import Project
+
+    project_json_path = Path(args.project_json).resolve()
+    if not project_json_path.exists():
+        print(f"오류: 프로젝트 JSON을 찾을 수 없습니다: {project_json_path}", file=sys.stderr)
+        sys.exit(1)
+
+    evaluation_path = Path(args.evaluation).resolve()
+    if not evaluation_path.exists():
+        print(f"오류: evaluation JSON을 찾을 수 없습니다: {evaluation_path}", file=sys.stderr)
+        sys.exit(1)
+
+    output_project_json = Path(args.output_project_json).resolve()
+    output_project_json.parent.mkdir(parents=True, exist_ok=True)
+
+    project = Project.load(project_json_path)
+    eval_segments = _load_evaluation_segments(evaluation_path)
+    override_count, changes_applied = _apply_evaluation_to_project(project, eval_segments)
+    saved_project_json = project.save(output_project_json)
+
+    print(f"평가 적용 완료: {saved_project_json}")
+
+    return _payload(
+        "apply-evaluation",
+        artifacts={"project_json": str(saved_project_json)},
+        stats={
+            "applied_evaluation_segments": override_count,
+            "applied_changes": changes_applied,
+        },
+    )
+
+
 async def cmd_reexport(args: argparse.Namespace) -> dict[str, Any]:
     from avid.models.project import Project
     from avid.services.audio_sync import AudioSyncService
@@ -849,6 +883,12 @@ def main() -> None:
     p_podcast.add_argument("--offset", action="append", default=[], help="수동 오프셋 ms (--extra-source 순서 대응)")
     _add_machine_output_flags(p_podcast)
 
+    p_apply_eval = subparsers.add_parser("apply-evaluation", help="기존 avid project에 human evaluation override 적용")
+    p_apply_eval.add_argument("--project-json", required=True, type=str, help="입력 avid project JSON")
+    p_apply_eval.add_argument("--evaluation", required=True, type=str, help="evaluation JSON 파일")
+    p_apply_eval.add_argument("--output-project-json", required=True, type=str, help="평가 반영 후 저장할 avid project JSON")
+    _add_machine_output_flags(p_apply_eval)
+
     p_reexport = subparsers.add_parser("reexport", help="기존 avid project를 재-export")
     p_reexport.add_argument("--project-json", required=True, type=str, help="입력 avid project JSON")
     p_reexport.add_argument("--output-dir", required=True, type=str, help="출력 디렉토리")
@@ -887,6 +927,8 @@ def main() -> None:
             payload = _run_handler(args, cmd_subtitle_cut, is_async=True)
         elif args.command == "podcast-cut":
             payload = _run_handler(args, cmd_podcast_cut, is_async=True)
+        elif args.command == "apply-evaluation":
+            payload = _run_handler(args, cmd_apply_evaluation, is_async=False)
         elif args.command == "reexport":
             payload = _run_handler(args, cmd_reexport, is_async=True)
         elif args.command == "version":

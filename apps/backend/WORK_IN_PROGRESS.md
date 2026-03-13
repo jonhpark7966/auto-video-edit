@@ -26,7 +26,7 @@
 
 - [x] `doctor` / provider runtime
 - [ ] `reexport` 분해 명세 확정
-- [ ] `apply-evaluation` contract
+- [x] `apply-evaluation` contract
 - [ ] `export-project` contract
 - [ ] `rebuild-multicam` contract
 - [ ] `clear-extra-sources` contract
@@ -59,7 +59,7 @@
 
 ## 분해 후 순서
 
-- [ ] `apply-evaluation`
+- [x] `apply-evaluation`
   - evaluation override 적용만 담당
   - media 파일 없이 project JSON 만 갱신
 - [ ] `export-project`
@@ -81,4 +81,4 @@
 
 - 테스트 source of truth 는 이 저장소다.
 - `eogum`은 여기의 `avid-cli` 표면만 소비한다.
-- 다음 실제 작업은 `reexport` 분해 명세 검토 후 `apply-evaluation` 부터 시작한다.
+- 다음 실제 작업은 `export-project` 부터 시작한다.

@@ -331,6 +331,50 @@
 - integration
 - live smoke
 
+### 3.6a `avid-cli apply-evaluation`
+
+목적:
+- 기존 `.avid.json` 에 human override 만 적용
+- media 없이 project JSON patch 경계를 고정
+
+상태:
+- 현재 구현되어 있다
+- `reexport` 분해의 첫 단계다
+- 상위 통합은 evaluation-only 재처리에서 이 명령을 우선 사용해야 한다
+
+입력:
+- `--project-json`
+- `--evaluation`
+- `--output-project-json`
+- 선택: `--json`
+- 선택: `--manifest-out`
+
+검증할 성공 조건:
+- exit code `0`
+- 필수 artifact key 존재
+  - `project_json`
+- stats key 존재
+  - `applied_evaluation_segments`
+  - `applied_changes`
+- output project JSON 에 manual override 결과가 반영됨
+- `{ "segments": [...] }` 와 list payload 둘 다 허용됨
+
+검증할 실패 조건:
+- project JSON 없음 -> non-zero exit
+- evaluation JSON 없음 -> non-zero exit
+- evaluation JSON 형식 오류 -> non-zero exit
+
+필요 준비물:
+- sample `.avid.json`
+- sample `evaluation.json`
+
+의존성:
+- Python
+
+권장 테스트 계층:
+- unit
+- CLI integration
+
 ### 3.7 `avid-cli reexport`
 
 목적:
@@ -340,7 +384,7 @@
 
 상태:
 - 현재 구현은 compatibility wrapper 로 유지
-- 신규 테스트의 1차 목표는 이 명령 자체보다 분리 예정인 `apply-evaluation`, `rebuild-multicam`, `export-project` 의 계약을 먼저 고정하는 것이다
+- `apply-evaluation` 는 이미 분리되었고, 신규 테스트의 다음 목표는 `rebuild-multicam`, `clear-extra-sources`, `export-project` 의 계약을 고정하는 것이다
 - `reexport` 테스트는 최종적으로 parity / backward-compatibility 확인 용도로 남긴다
 - 자세한 분해 계획은 [REEXPORT_SPLIT_PLAN.md](REEXPORT_SPLIT_PLAN.md) 를 본다
 

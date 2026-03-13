@@ -224,6 +224,39 @@ avid-cli subtitle-cut lecture.mp4 --srt lecture.srt --context lecture.storyline.
 avid-cli podcast-cut podcast.mp4 --srt podcast.srt --context podcast.storyline.json -d /tmp/out --provider codex --provider-model gpt-5.4 --provider-effort medium --json
 ```
 
+### `avid-cli apply-evaluation`
+
+용도:
+- 기존 `.avid.json` 에 human evaluation override 만 적용
+- media 파일 없이 project JSON 만 갱신
+
+상태:
+- 현재 구현되어 있다
+- `reexport` 분해의 1차 명령으로 본다
+- 상위 통합은 evaluation-only 재처리에서 이 명령을 우선 사용하도록 수렴한다
+
+최소 artifact:
+- `artifacts.project_json`
+
+최소 stats:
+- `stats.applied_evaluation_segments`
+- `stats.applied_changes`
+
+예시:
+
+```bash
+avid-cli apply-evaluation \
+  --project-json /tmp/in/project.avid.json \
+  --evaluation /tmp/in/evaluation.json \
+  --output-project-json /tmp/out/project.avid.json \
+  --json
+```
+
+보조 규칙:
+- 평가 JSON 은 list 자체이거나 `{ "segments": [...] }` 형태를 허용한다
+- `human.action == keep` 은 겹치는 기존 cut decision 을 제거하는 방식으로 해석한다
+- `human.action == cut` 은 manual cut decision 추가로 해석한다
+
 ### `avid-cli reexport`
 
 용도:
@@ -234,7 +267,7 @@ avid-cli podcast-cut podcast.mp4 --srt podcast.srt --context podcast.storyline.j
 상태:
 - 현재 구현은 유지한다
 - 하지만 이 명령은 여러 책임을 한 번에 수행하므로 deprecated wrapper 로 전환할 예정이다
-- 장기적으로는 `apply-evaluation` + `rebuild-multicam` + `export-project` 로 분리한다
+- `apply-evaluation` 는 이미 구현되었고, 나머지 `rebuild-multicam` + `clear-extra-sources` + `export-project` 로 계속 분리한다
 - 분해 계획은 [REEXPORT_SPLIT_PLAN.md](REEXPORT_SPLIT_PLAN.md) 를 본다
 
 최소 artifact:

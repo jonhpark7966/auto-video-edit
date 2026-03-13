@@ -126,7 +126,8 @@
 
 ### Phase 1: `apply-evaluation`
 
-- unit test 먼저
+- 구현 완료
+- unit test 추가 완료
 - overlap 제거 / manual cut 추가 / keep semantics 고정
 - media fixture 없이 빠르게 검증
 
