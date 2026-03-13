@@ -24,6 +24,7 @@ avid-cli doctor --json
 avid-cli doctor --probe-providers --json
 avid-cli doctor --provider claude --probe-providers --provider-model claude-opus-4-6 --provider-effort medium --json
 avid-cli apply-evaluation --project-json /tmp/in.avid.json --evaluation /tmp/evaluation.json --output-project-json /tmp/out.avid.json --json
+avid-cli export-project --project-json /tmp/in.avid.json --output-dir /tmp/out --content-mode cut --json
 ```
 
 ## 외부 통합 원칙

@@ -375,6 +375,47 @@
 - unit
 - CLI integration
 
+### 3.6b `avid-cli export-project`
+
+목적:
+- 준비된 `.avid.json` 을 FCPXML / adjusted SRT 로 export
+- project JSON mutation 없이 export 경계 고정
+
+상태:
+- 현재 구현되어 있다
+- `reexport` 분해의 두 번째 단계다
+
+입력:
+- `--project-json`
+- `--output-dir`
+- 선택: `-o/--output`
+- 선택: `--silence-mode`
+- 선택: `--content-mode`
+- 선택: `--json`
+- 선택: `--manifest-out`
+
+검증할 성공 조건:
+- exit code `0`
+- 필수 artifact key 존재
+  - `fcpxml`
+  - `srt` if transcription exists
+- output FCPXML 이 parse 가능함
+- output override 를 주면 그 경로를 따른다
+- report artifact 는 생성하지 않는다
+
+검증할 실패 조건:
+- project JSON 없음 -> non-zero exit
+
+필요 준비물:
+- transcription 이 있는 sample `.avid.json`
+
+의존성:
+- Python
+
+권장 테스트 계층:
+- unit
+- CLI integration
+
 ### 3.7 `avid-cli reexport`
 
 목적:
@@ -384,7 +425,7 @@
 
 상태:
 - 현재 구현은 compatibility wrapper 로 유지
-- `apply-evaluation` 는 이미 분리되었고, 신규 테스트의 다음 목표는 `rebuild-multicam`, `clear-extra-sources`, `export-project` 의 계약을 고정하는 것이다
+- `apply-evaluation`, `export-project` 는 이미 분리되었고, 신규 테스트의 다음 목표는 `rebuild-multicam`, `clear-extra-sources` 의 계약을 고정하는 것이다
 - `reexport` 테스트는 최종적으로 parity / backward-compatibility 확인 용도로 남긴다
 - 자세한 분해 계획은 [REEXPORT_SPLIT_PLAN.md](REEXPORT_SPLIT_PLAN.md) 를 본다
 

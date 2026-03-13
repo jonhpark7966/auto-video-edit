@@ -257,6 +257,36 @@ avid-cli apply-evaluation \
 - `human.action == keep` 은 겹치는 기존 cut decision 을 제거하는 방식으로 해석한다
 - `human.action == cut` 은 manual cut decision 추가로 해석한다
 
+### `avid-cli export-project`
+
+용도:
+- 준비된 `.avid.json` 을 FCPXML / adjusted SRT 로 export
+- project JSON 자체는 수정하지 않는다
+
+상태:
+- 현재 구현되어 있다
+- `reexport` 분해의 2차 명령으로 본다
+- 상위 통합은 단계별 project JSON 을 만든 뒤 이 명령으로 산출물만 생성하도록 수렴한다
+
+최소 artifact:
+- `artifacts.fcpxml`
+- `artifacts.srt` if transcription exists
+
+예시:
+
+```bash
+avid-cli export-project \
+  --project-json /tmp/in/project.avid.json \
+  --output-dir /tmp/out \
+  --content-mode cut \
+  --json
+```
+
+보조 규칙:
+- `--output` 이 없으면 primary source 이름 기준으로 `<base>_subtitle_cut.fcpxml` 을 생성한다
+- `report` 는 생성하지 않는다
+- `silence-mode`, `content-mode` 만 export 방식에 영향 준다
+
 ### `avid-cli reexport`
 
 용도:
@@ -267,7 +297,7 @@ avid-cli apply-evaluation \
 상태:
 - 현재 구현은 유지한다
 - 하지만 이 명령은 여러 책임을 한 번에 수행하므로 deprecated wrapper 로 전환할 예정이다
-- `apply-evaluation` 는 이미 구현되었고, 나머지 `rebuild-multicam` + `clear-extra-sources` + `export-project` 로 계속 분리한다
+- `apply-evaluation`, `export-project` 는 이미 구현되었고, 나머지 `rebuild-multicam` + `clear-extra-sources` 로 계속 분리한다
 - 분해 계획은 [REEXPORT_SPLIT_PLAN.md](REEXPORT_SPLIT_PLAN.md) 를 본다
 
 최소 artifact:

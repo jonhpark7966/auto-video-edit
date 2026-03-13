@@ -133,7 +133,8 @@
 
 ### Phase 2: `export-project`
 
-- integration test 먼저
+- 구현 완료
+- unit test 추가 완료
 - FCPXML / adjusted SRT artifact contract 고정
 - `content-mode`, `silence-mode` matrix 확인
 

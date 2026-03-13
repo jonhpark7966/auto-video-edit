@@ -577,13 +577,56 @@ def _strip_extra_sources(project) -> int:
     return removed
 
 
-def cmd_apply_evaluation(args: argparse.Namespace) -> dict[str, Any]:
+def _load_project_or_exit(project_json_path: str) -> tuple[Path, Any]:
     from avid.models.project import Project
 
-    project_json_path = Path(args.project_json).resolve()
-    if not project_json_path.exists():
-        print(f"오류: 프로젝트 JSON을 찾을 수 없습니다: {project_json_path}", file=sys.stderr)
+    resolved_path = Path(project_json_path).resolve()
+    if not resolved_path.exists():
+        print(f"오류: 프로젝트 JSON을 찾을 수 없습니다: {resolved_path}", file=sys.stderr)
         sys.exit(1)
+
+    return resolved_path, Project.load(resolved_path)
+
+
+def _resolve_export_base_name(project_json_path: Path, project, source_path: Path | None = None) -> str:
+    if source_path is not None:
+        return source_path.stem
+    if project.source_files:
+        return Path(project.source_files[0].original_name).stem
+    return project_json_path.stem
+
+
+async def _export_project_artifacts(
+    project,
+    project_json_path: Path,
+    output_dir: Path,
+    *,
+    output_path: str | None = None,
+    silence_mode: str = "cut",
+    content_mode: str = "disabled",
+    source_path: Path | None = None,
+) -> dict[str, str]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    base_name = _resolve_export_base_name(project_json_path, project, source_path)
+    fcpxml_path = Path(output_path).resolve() if output_path else output_dir / f"{base_name}_subtitle_cut.fcpxml"
+
+    exporter = FCPXMLExporter()
+    fcpxml_result, srt_result = await exporter.export(
+        project,
+        fcpxml_path,
+        silence_mode=silence_mode,
+        content_mode=content_mode,
+    )
+
+    artifacts: dict[str, str] = {"fcpxml": str(fcpxml_result)}
+    if srt_result:
+        artifacts["srt"] = str(srt_result)
+    return artifacts
+
+
+def cmd_apply_evaluation(args: argparse.Namespace) -> dict[str, Any]:
+    project_json_path, project = _load_project_or_exit(args.project_json)
 
     evaluation_path = Path(args.evaluation).resolve()
     if not evaluation_path.exists():
@@ -593,7 +636,6 @@ def cmd_apply_evaluation(args: argparse.Namespace) -> dict[str, Any]:
     output_project_json = Path(args.output_project_json).resolve()
     output_project_json.parent.mkdir(parents=True, exist_ok=True)
 
-    project = Project.load(project_json_path)
     eval_segments = _load_evaluation_segments(evaluation_path)
     override_count, changes_applied = _apply_evaluation_to_project(project, eval_segments)
     saved_project_json = project.save(output_project_json)
@@ -610,18 +652,35 @@ def cmd_apply_evaluation(args: argparse.Namespace) -> dict[str, Any]:
     )
 
 
+async def cmd_export_project(args: argparse.Namespace) -> dict[str, Any]:
+    project_json_path, project = _load_project_or_exit(args.project_json)
+    output_dir = Path(args.output_dir).resolve()
+
+    artifacts = await _export_project_artifacts(
+        project,
+        project_json_path,
+        output_dir,
+        output_path=args.output,
+        silence_mode=args.silence_mode,
+        content_mode=args.content_mode,
+    )
+
+    print(f"프로젝트 export 완료: {artifacts['fcpxml']}")
+
+    return _payload("export-project", artifacts=artifacts)
+
+
 async def cmd_reexport(args: argparse.Namespace) -> dict[str, Any]:
-    from avid.models.project import Project
     from avid.services.audio_sync import AudioSyncService
 
-    project_json_path = Path(args.project_json).resolve()
-    if not project_json_path.exists():
-        print(f"오류: 프로젝트 JSON을 찾을 수 없습니다: {project_json_path}", file=sys.stderr)
-        sys.exit(1)
-
+    project_json_path, project = _load_project_or_exit(args.project_json)
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    project = Project.load(project_json_path)
+    print(
+        "경고: 'reexport' 는 deprecated 입니다. "
+        "'apply-evaluation', 'rebuild-multicam', 'clear-extra-sources', 'export-project' 로 마이그레이션하세요.",
+        file=sys.stderr,
+    )
 
     override_count = 0
     changes_applied = 0
@@ -657,30 +716,20 @@ async def cmd_reexport(args: argparse.Namespace) -> dict[str, Any]:
 
     updated_json_path = output_dir / project_json_path.name
     project.save(updated_json_path)
-
-    base_name = project_json_path.stem
-    if source_path is not None:
-        base_name = source_path.stem
-    elif project.source_files:
-        base_name = Path(project.source_files[0].original_name).stem
-
-    fcpxml_path = Path(args.output).resolve() if args.output else output_dir / f"{base_name}_subtitle_cut.fcpxml"
-    exporter = FCPXMLExporter()
-    fcpxml_result, srt_result = await exporter.export(
-        project,
-        fcpxml_path,
-        silence_mode=args.silence_mode,
-        content_mode=args.content_mode,
-    )
-
-    artifacts: dict[str, str] = {
+    artifacts = {
         "project_json": str(updated_json_path),
-        "fcpxml": str(fcpxml_result),
+        **(await _export_project_artifacts(
+            project,
+            project_json_path,
+            output_dir,
+            output_path=args.output,
+            silence_mode=args.silence_mode,
+            content_mode=args.content_mode,
+            source_path=source_path,
+        )),
     }
-    if srt_result:
-        artifacts["srt"] = str(srt_result)
 
-    print(f"재-export 완료: {fcpxml_result}")
+    print(f"재-export 완료: {artifacts['fcpxml']}")
 
     return _payload(
         "reexport",
@@ -889,6 +938,14 @@ def main() -> None:
     p_apply_eval.add_argument("--output-project-json", required=True, type=str, help="평가 반영 후 저장할 avid project JSON")
     _add_machine_output_flags(p_apply_eval)
 
+    p_export_project = subparsers.add_parser("export-project", help="준비된 avid project를 FCPXML/SRT 로 export")
+    p_export_project.add_argument("--project-json", required=True, type=str, help="입력 avid project JSON")
+    p_export_project.add_argument("--output-dir", required=True, type=str, help="출력 디렉토리")
+    p_export_project.add_argument("-o", "--output", type=str, help="출력 FCPXML 경로")
+    p_export_project.add_argument("--silence-mode", choices=["cut", "disabled"], default="cut", help="무음 처리 방식")
+    p_export_project.add_argument("--content-mode", choices=["cut", "disabled"], default="disabled", help="콘텐츠 컷 처리 방식")
+    _add_machine_output_flags(p_export_project)
+
     p_reexport = subparsers.add_parser("reexport", help="기존 avid project를 재-export")
     p_reexport.add_argument("--project-json", required=True, type=str, help="입력 avid project JSON")
     p_reexport.add_argument("--output-dir", required=True, type=str, help="출력 디렉토리")
@@ -929,6 +986,8 @@ def main() -> None:
             payload = _run_handler(args, cmd_podcast_cut, is_async=True)
         elif args.command == "apply-evaluation":
             payload = _run_handler(args, cmd_apply_evaluation, is_async=False)
+        elif args.command == "export-project":
+            payload = _run_handler(args, cmd_export_project, is_async=True)
         elif args.command == "reexport":
             payload = _run_handler(args, cmd_reexport, is_async=True)
         elif args.command == "version":
