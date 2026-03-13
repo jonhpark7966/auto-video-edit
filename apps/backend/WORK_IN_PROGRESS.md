@@ -28,7 +28,7 @@
 - [ ] `reexport` 분해 명세 확정
 - [x] `apply-evaluation` contract
 - [x] `export-project` contract
-- [ ] `rebuild-multicam` contract
+- [x] `rebuild-multicam` contract
 - [ ] `clear-extra-sources` contract
 - [ ] deprecated `reexport` parity contract
 - [ ] `transcribe` live smoke
@@ -65,7 +65,7 @@
 - [x] `export-project`
   - project JSON 으로 FCPXML / SRT 산출물 생성
   - `content-mode`, `silence-mode` 만 담당
-- [ ] `rebuild-multicam`
+- [x] `rebuild-multicam`
   - extra source strip / add / offset 담당
   - evaluation 적용과 분리
 - [ ] `clear-extra-sources`
@@ -81,4 +81,4 @@
 
 - 테스트 source of truth 는 이 저장소다.
 - `eogum`은 여기의 `avid-cli` 표면만 소비한다.
-- 다음 실제 작업은 `rebuild-multicam` 부터 시작한다.
+- 다음 실제 작업은 `clear-extra-sources` 부터 시작한다.

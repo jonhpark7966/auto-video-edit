@@ -416,6 +416,55 @@
 - unit
 - CLI integration
 
+### 3.6c `avid-cli rebuild-multicam`
+
+목적:
+- 기존 `.avid.json` 의 extra source 를 재구성
+- export 없이 multicam patch 경계를 고정
+
+상태:
+- 현재 구현되어 있다
+- `reexport` 분해의 세 번째 단계다
+
+입력:
+- `--project-json`
+- `--source`
+- `--extra-source` repeatable
+- 선택: `--offset` repeatable
+- `--output-project-json`
+- 선택: `--json`
+- 선택: `--manifest-out`
+
+검증할 성공 조건:
+- exit code `0`
+- 필수 artifact key 존재
+  - `project_json`
+- stats key 존재
+  - `extra_sources`
+  - `stripped_extra_sources`
+- output project JSON 의 source_files / tracks 가 새 extra source 기준으로 갱신됨
+- manual offset 이 track offset 에 반영됨
+
+검증할 실패 조건:
+- project JSON 없음 -> non-zero exit
+- source 없음 -> non-zero exit
+- `--extra-source` 없음 -> non-zero exit
+- extra source 파일 없음 -> non-zero exit
+
+필요 준비물:
+- sample `.avid.json`
+- main source media
+- extra source media
+
+의존성:
+- Python
+- `ffprobe` if real media metadata 경로를 검증할 때
+
+권장 테스트 계층:
+- unit
+- CLI integration
+- live smoke for real media path
+
 ### 3.7 `avid-cli reexport`
 
 목적:
@@ -425,7 +474,7 @@
 
 상태:
 - 현재 구현은 compatibility wrapper 로 유지
-- `apply-evaluation`, `export-project` 는 이미 분리되었고, 신규 테스트의 다음 목표는 `rebuild-multicam`, `clear-extra-sources` 의 계약을 고정하는 것이다
+- `apply-evaluation`, `export-project`, `rebuild-multicam` 는 이미 분리되었고, 신규 테스트의 다음 목표는 `clear-extra-sources` 의 계약을 고정하는 것이다
 - `reexport` 테스트는 최종적으로 parity / backward-compatibility 확인 용도로 남긴다
 - 자세한 분해 계획은 [REEXPORT_SPLIT_PLAN.md](REEXPORT_SPLIT_PLAN.md) 를 본다
 

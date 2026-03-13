@@ -596,6 +596,14 @@ def _resolve_export_base_name(project_json_path: Path, project, source_path: Pat
     return project_json_path.stem
 
 
+def _resolve_source_path_or_exit(source_path: str) -> Path:
+    resolved_path = Path(source_path).resolve()
+    if not resolved_path.exists():
+        print(f"오류: 메인 소스 파일을 찾을 수 없습니다: {resolved_path}", file=sys.stderr)
+        sys.exit(1)
+    return resolved_path
+
+
 async def _export_project_artifacts(
     project,
     project_json_path: Path,
@@ -670,6 +678,41 @@ async def cmd_export_project(args: argparse.Namespace) -> dict[str, Any]:
     return _payload("export-project", artifacts=artifacts)
 
 
+async def cmd_rebuild_multicam(args: argparse.Namespace) -> dict[str, Any]:
+    from avid.services.audio_sync import AudioSyncService
+
+    project_json_path, project = _load_project_or_exit(args.project_json)
+    source_path = _resolve_source_path_or_exit(args.source)
+    output_project_json = Path(args.output_project_json).resolve()
+    output_project_json.parent.mkdir(parents=True, exist_ok=True)
+
+    extra_sources, extra_offsets = _parse_extra_sources(args)
+    if not extra_sources:
+        print("오류: rebuild-multicam 에는 최소 한 개 이상의 --extra-source 가 필요합니다", file=sys.stderr)
+        sys.exit(1)
+
+    stripped_sources = _strip_extra_sources(project)
+    sync_service = AudioSyncService()
+    await sync_service.add_extra_sources(
+        project,
+        source_path,
+        extra_sources,
+        extra_offsets or {},
+    )
+    saved_project_json = project.save(output_project_json)
+
+    print(f"멀티캠 재구성 완료: {saved_project_json}")
+
+    return _payload(
+        "rebuild-multicam",
+        artifacts={"project_json": str(saved_project_json)},
+        stats={
+            "extra_sources": len(extra_sources),
+            "stripped_extra_sources": stripped_sources,
+        },
+    )
+
+
 async def cmd_reexport(args: argparse.Namespace) -> dict[str, Any]:
     from avid.services.audio_sync import AudioSyncService
 
@@ -697,10 +740,7 @@ async def cmd_reexport(args: argparse.Namespace) -> dict[str, Any]:
 
     source_path = None
     if args.source:
-        source_path = Path(args.source).resolve()
-        if not source_path.exists():
-            print(f"오류: 메인 소스 파일을 찾을 수 없습니다: {source_path}", file=sys.stderr)
-            sys.exit(1)
+        source_path = _resolve_source_path_or_exit(args.source)
 
     if extra_sources:
         if source_path is None:
@@ -946,6 +986,14 @@ def main() -> None:
     p_export_project.add_argument("--content-mode", choices=["cut", "disabled"], default="disabled", help="콘텐츠 컷 처리 방식")
     _add_machine_output_flags(p_export_project)
 
+    p_rebuild_multicam = subparsers.add_parser("rebuild-multicam", help="기존 avid project의 extra source 를 재구성")
+    p_rebuild_multicam.add_argument("--project-json", required=True, type=str, help="입력 avid project JSON")
+    p_rebuild_multicam.add_argument("--source", required=True, type=str, help="메인 소스 파일 경로")
+    p_rebuild_multicam.add_argument("--extra-source", action="append", default=[], help="추가 소스 파일 (반복 가능)")
+    p_rebuild_multicam.add_argument("--offset", action="append", default=[], help="수동 오프셋 ms (--extra-source 순서 대응)")
+    p_rebuild_multicam.add_argument("--output-project-json", required=True, type=str, help="재구성 후 저장할 avid project JSON")
+    _add_machine_output_flags(p_rebuild_multicam)
+
     p_reexport = subparsers.add_parser("reexport", help="기존 avid project를 재-export")
     p_reexport.add_argument("--project-json", required=True, type=str, help="입력 avid project JSON")
     p_reexport.add_argument("--output-dir", required=True, type=str, help="출력 디렉토리")
@@ -988,6 +1036,8 @@ def main() -> None:
             payload = _run_handler(args, cmd_apply_evaluation, is_async=False)
         elif args.command == "export-project":
             payload = _run_handler(args, cmd_export_project, is_async=True)
+        elif args.command == "rebuild-multicam":
+            payload = _run_handler(args, cmd_rebuild_multicam, is_async=True)
         elif args.command == "reexport":
             payload = _run_handler(args, cmd_reexport, is_async=True)
         elif args.command == "version":

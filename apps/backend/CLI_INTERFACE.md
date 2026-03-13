@@ -287,6 +287,41 @@ avid-cli export-project \
 - `report` 는 생성하지 않는다
 - `silence-mode`, `content-mode` 만 export 방식에 영향 준다
 
+### `avid-cli rebuild-multicam`
+
+용도:
+- 기존 `.avid.json` 의 extra source 를 strip 후 재구성
+- export 없이 project JSON 만 갱신
+
+상태:
+- 현재 구현되어 있다
+- `reexport` 분해의 3차 명령으로 본다
+- 상위 통합은 manual offset 을 포함해 multicam 재구성을 이 명령으로 호출하도록 수렴한다
+
+최소 artifact:
+- `artifacts.project_json`
+
+최소 stats:
+- `stats.extra_sources`
+- `stats.stripped_extra_sources`
+
+예시:
+
+```bash
+avid-cli rebuild-multicam \
+  --project-json /tmp/in/project.avid.json \
+  --source /tmp/in/main.mp4 \
+  --extra-source /tmp/in/cam2.mp4 \
+  --offset 1200 \
+  --output-project-json /tmp/out/project.avid.json \
+  --json
+```
+
+보조 규칙:
+- 최소 한 개 이상의 `--extra-source` 가 있어야 한다
+- `--offset` 은 `--extra-source` 순서에 대응한다
+- implicit strip-only 는 하지 않는다
+
 ### `avid-cli reexport`
 
 용도:
@@ -297,7 +332,7 @@ avid-cli export-project \
 상태:
 - 현재 구현은 유지한다
 - 하지만 이 명령은 여러 책임을 한 번에 수행하므로 deprecated wrapper 로 전환할 예정이다
-- `apply-evaluation`, `export-project` 는 이미 구현되었고, 나머지 `rebuild-multicam` + `clear-extra-sources` 로 계속 분리한다
+- `apply-evaluation`, `export-project`, `rebuild-multicam` 는 이미 구현되었고, 나머지 `clear-extra-sources` 로 계속 분리한다
 - 분해 계획은 [REEXPORT_SPLIT_PLAN.md](REEXPORT_SPLIT_PLAN.md) 를 본다
 
 최소 artifact:

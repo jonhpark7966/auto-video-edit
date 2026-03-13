@@ -79,6 +79,7 @@ apps/backend/tests/
       test_manifest_output.py
       test_apply_evaluation.py
       test_export_project.py
+      test_rebuild_multicam.py
       test_reexport_logic.py
       test_multicam_contract.py
     export/
@@ -103,7 +104,7 @@ apps/backend/tests/
 ## `reexport` 분해 메모
 
 - 현재 `reexport` 는 compatibility wrapper 로 유지한다.
-- `apply-evaluation`, `export-project` 는 구현 완료, 다음 목표는 `rebuild-multicam`, `clear-extra-sources` 를 별도 명령으로 고정하는 것이다.
+- `apply-evaluation`, `export-project`, `rebuild-multicam` 는 구현 완료, 다음 목표는 `clear-extra-sources` 를 별도 명령으로 고정하는 것이다.
 - 새 테스트는 가능하면 분리된 명령을 우선 대상으로 하고, `reexport` 는 parity / deprecation coverage 로 남긴다.
 - 자세한 계획은 [REEXPORT_SPLIT_PLAN.md](REEXPORT_SPLIT_PLAN.md) 를 본다.
 
@@ -120,6 +121,7 @@ apps/backend/tests/
 - `--manifest-out` 이 stdout JSON 과 같은 payload 를 기록한다
 - `apply-evaluation --json` 이 `project_json` artifact 와 `applied_evaluation_segments/applied_changes` stats 를 반환한다
 - `export-project --json` 이 `fcpxml/srt?` artifact 를 반환한다
+- `rebuild-multicam --json` 이 `project_json` artifact 와 `extra_sources/stripped_extra_sources` stats 를 반환한다
 - `transcribe --json` 이 `artifacts.srt` 를 반환한다
 - `transcript-overview --json` 이 `artifacts.storyline` 을 반환한다
 - `subtitle-cut --json` 이 `project_json/fcpxml/report/srt` key 를 반환한다
@@ -238,12 +240,13 @@ PYTHONPATH=src pytest --cov=src/avid --cov-report=term-missing
 5. `tests/unit/cli/test_manifest_output.py`
 6. `tests/unit/cli/test_apply_evaluation.py`
 7. `tests/unit/cli/test_export_project.py`
-8. `tests/unit/cli/test_reexport_logic.py`
-9. `tests/integration/cli/test_cli_contract.py`
-10. `tests/integration/cli/test_cli_reexport_contract.py`
-11. `tests/unit/export/test_fcpxml_multicam.py`
-12. `tests/unit/export/test_adjusted_srt_consistency.py`
-13. 마지막으로 `tests/live/*`
+8. `tests/unit/cli/test_rebuild_multicam.py`
+9. `tests/unit/cli/test_reexport_logic.py`
+10. `tests/integration/cli/test_cli_contract.py`
+11. `tests/integration/cli/test_cli_reexport_contract.py`
+12. `tests/unit/export/test_fcpxml_multicam.py`
+13. `tests/unit/export/test_adjusted_srt_consistency.py`
+14. 마지막으로 `tests/live/*`
 
 ## eogum 연결 전 완료 기준
 

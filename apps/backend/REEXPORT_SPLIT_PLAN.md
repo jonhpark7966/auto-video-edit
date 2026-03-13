@@ -140,7 +140,9 @@
 
 ### Phase 3: `rebuild-multicam`
 
-- integration + live smoke
+- 구현 완료
+- unit test 추가 완료
+- real sample manual-offset smoke 확인 완료
 - auto sync / manual offset / strip-and-replace 정책 확인
 
 ### Phase 4: `clear-extra-sources`
