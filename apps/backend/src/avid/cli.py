@@ -94,6 +94,43 @@ def _write_machine_output(args: argparse.Namespace, payload: dict[str, Any]) -> 
         print(json.dumps(payload, ensure_ascii=False, default=_json_default))
 
 
+def _sync_result_payload(result: Any) -> dict[str, Any]:
+    return {
+        "source_name": getattr(result, "source_name", None),
+        "offset_ms": result.offset_ms,
+        "confidence": result.confidence,
+        "method": result.method,
+        "standard_score": result.standard_score,
+        "diagnostics": getattr(result, "diagnostics", {}),
+    }
+
+
+def _write_sync_diagnostics(
+    output_dir: Path,
+    base_name: str,
+    sync_results: list[Any],
+) -> Path | None:
+    if not sync_results:
+        return None
+
+    payload = {
+        "status": "ok",
+        "sources": [_sync_result_payload(result) for result in sync_results],
+        "warnings": [
+            warning
+            for result in sync_results
+            for warning in getattr(result, "diagnostics", {}).get("warnings", [])
+        ],
+    }
+    diagnostics_path = output_dir / f"{base_name}.sync_diagnostics.json"
+    diagnostics_path.parent.mkdir(parents=True, exist_ok=True)
+    diagnostics_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, default=_json_default),
+        encoding="utf-8",
+    )
+    return diagnostics_path
+
+
 def _run_handler(args: argparse.Namespace, handler, *, is_async: bool) -> dict[str, Any]:
     redirect_stdout = getattr(args, "json", False)
 
@@ -343,7 +380,7 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
     if extra_sources:
         print(f"  추가 소스: {len(extra_sources)}개")
 
-    project, project_path = await service.analyze(
+    project, project_path, sync_results = await service.analyze(
         srt_path=srt_path,
         video_path=video_path,
         output_dir=output_dir,
@@ -391,11 +428,17 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
     }
     if srt_result:
         artifacts["srt"] = str(srt_result)
+    diagnostics_path = _write_sync_diagnostics(output_dir, video_path.stem, sync_results)
+    if diagnostics_path is not None:
+        artifacts["sync_diagnostics"] = str(diagnostics_path)
 
     return _payload(
         "subtitle-cut",
         artifacts=artifacts,
-        stats={"edit_decisions": len(project.edit_decisions)},
+        stats={
+            "edit_decisions": len(project.edit_decisions),
+            "extra_sources": len(sync_results),
+        },
         provider_config=provider_config,
     )
 
@@ -446,7 +489,7 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
     print(f"  출력 디렉토리: {output_dir}")
     print(f"  모드: {export_mode} ({'모든 편집 적용' if export_mode == 'final' else '검토용 disabled'})")
 
-    project, outputs = await service.process(
+    project, outputs, sync_results = await service.process(
         audio_path=audio_path,
         output_dir=output_dir,
         srt_path=srt_path,
@@ -483,11 +526,17 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
         artifacts["srt"] = str(srt_path)
     if raw_srt:
         artifacts["srt_raw"] = str(raw_srt)
+    diagnostics_path = _write_sync_diagnostics(output_dir, audio_path.stem, sync_results)
+    if diagnostics_path is not None:
+        artifacts["sync_diagnostics"] = str(diagnostics_path)
 
     return _payload(
         "podcast-cut",
         artifacts=artifacts,
-        stats={"edit_decisions": len(project.edit_decisions)},
+        stats={
+            "edit_decisions": len(project.edit_decisions),
+            "extra_sources": len(sync_results),
+        },
         provider_config=provider_config,
     )
 
@@ -685,11 +734,11 @@ async def _rebuild_multicam_in_place(
     source_path: Path,
     extra_sources: list[Path],
     extra_offsets: dict[str, int] | None = None,
-) -> None:
+) -> list[Any]:
     from avid.services.audio_sync import AudioSyncService
 
     sync_service = AudioSyncService()
-    await sync_service.add_extra_sources(
+    return await sync_service.add_extra_sources(
         project,
         source_path,
         extra_sources,
@@ -927,19 +976,28 @@ async def cmd_rebuild_multicam(args: argparse.Namespace) -> dict[str, Any]:
         sys.exit(1)
 
     stripped_sources = _strip_extra_sources(project)
-    await _rebuild_multicam_in_place(
+    sync_results = await _rebuild_multicam_in_place(
         project,
         source_path,
         extra_sources,
         extra_offsets or {},
     )
     saved_project_json = project.save(output_project_json)
+    diagnostics_path = _write_sync_diagnostics(
+        output_project_json.parent,
+        output_project_json.stem,
+        sync_results,
+    )
 
     print(f"멀티캠 재구성 완료: {saved_project_json}")
 
+    artifacts = {"project_json": str(saved_project_json)}
+    if diagnostics_path is not None:
+        artifacts["sync_diagnostics"] = str(diagnostics_path)
+
     return _payload(
         "rebuild-multicam",
-        artifacts={"project_json": str(saved_project_json)},
+        artifacts=artifacts,
         stats={
             "extra_sources": len(extra_sources),
             "stripped_extra_sources": stripped_sources,
@@ -992,12 +1050,19 @@ async def cmd_reexport(args: argparse.Namespace) -> dict[str, Any]:
         if source_path is None:
             print("오류: --extra-source 를 사용할 때는 --source 가 필요합니다", file=sys.stderr)
             sys.exit(1)
-        await _rebuild_multicam_in_place(
+        sync_results = await _rebuild_multicam_in_place(
             project,
             source_path,
             extra_sources,
             extra_offsets or {},
         )
+        diagnostics_path = _write_sync_diagnostics(
+            output_dir,
+            project_json_path.stem,
+            sync_results,
+        )
+    else:
+        diagnostics_path = None
 
     updated_json_path = output_dir / project_json_path.name
     project.save(updated_json_path)
@@ -1013,6 +1078,8 @@ async def cmd_reexport(args: argparse.Namespace) -> dict[str, Any]:
             source_path=source_path,
         )),
     }
+    if diagnostics_path is not None:
+        artifacts["sync_diagnostics"] = str(diagnostics_path)
 
     print(f"재-export 완료: {artifacts['fcpxml']}")
 

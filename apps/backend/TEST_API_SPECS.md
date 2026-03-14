@@ -82,6 +82,7 @@
 
 - `artifacts.project_json` 생성
 - `artifacts.fcpxml`, `artifacts.report`, `artifacts.srt` 도 생성될 수 있음
+- `--extra-source` 를 썼다면 `artifacts.sync_diagnostics` 도 생성됨
 - 여기서 주로 볼 것은 **initial project JSON / edit decisions**
 
 주의:
@@ -128,11 +129,18 @@ legacy 기준:
 
 - secondary source 와 track 이 추가됨
 - `stats.extra_sources`, `stats.stripped_extra_sources` 존재
+- `artifacts.sync_diagnostics` 생성
+- diagnostics 에 `selected_offset_ms`, `selected_method`, `warnings[]` 존재
 
 실패 기준:
 
 - `--extra-source` 만 있고 `--source` 없음
 - offset 개수와 extra source 개수 불일치
+
+운영 해석:
+
+- `MFCC` 와 `PCM` 후보가 크게 다르더라도 현재 명세는 자동 실패가 아니다
+- 대신 diagnostics 에 후보값, 차이값, 경고 메시지를 남겨 사람이 원본 소스 상태를 판단할 수 있어야 한다
 
 ### 4.8 Final Export: `export-project`
 

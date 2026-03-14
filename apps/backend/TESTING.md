@@ -134,6 +134,7 @@ avid-cli podcast-cut \
 
 - `artifacts.project_json` 생성
 - `artifacts.fcpxml`, `artifacts.report`, `artifacts.srt` 도 같이 생성될 수 있음
+- `--extra-source` 를 함께 썼다면 `artifacts.sync_diagnostics` 도 생성됨
 - 여기서 중요한 것은 **initial project JSON / edit decisions 가 생겼는지**다
 - final delivery 검증은 아직 하지 않는다
 
@@ -212,6 +213,14 @@ avid-cli rebuild-multicam \
 
 - `stats.extra_sources` 가 `1`
 - 결과 project JSON 에 secondary source 와 track 이 추가됨
+- `artifacts.sync_diagnostics` 생성
+- diagnostics 에 `selected_offset_ms`, `selected_method`, `warnings[]` 가 남음
+
+해석:
+
+- `MFCC` 와 `PCM` 후보가 크게 다르면 stderr 에 경고가 보일 수 있다
+- 이런 경우에도 현재 선택된 offset 은 diagnostics 의 `selected_offset_ms` 를 기준으로 본다
+- diagnostics 의 목적은 “비정상 소스 가능성 안내”이지 자동 실패가 아니다
 
 ### 7. Final Export
 

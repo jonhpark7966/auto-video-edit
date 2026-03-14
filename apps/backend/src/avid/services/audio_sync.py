@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -24,6 +25,8 @@ class SyncResult:
     confidence: float  # 0.0–1.0 (derived from standard_score)
     method: str  # e.g. "mfcc", "pcm_verified"
     standard_score: float  # raw score from audio-offset-finder
+    source_name: str | None = None
+    diagnostics: dict[str, object] = field(default_factory=dict)
 
 
 class AudioSyncService:
@@ -73,22 +76,68 @@ class AudioSyncService:
                 mfcc_result.offset_ms, trim_s,
             )
 
+            diagnostics: dict[str, object] = {
+                "main_path": str(main_path),
+                "extra_path": str(extra_path),
+                "trim_s": trim_s,
+                "mfcc": self._result_payload(mfcc_result),
+                "pcm": self._result_payload(pcm_result) if pcm_result else None,
+                "warnings": [],
+            }
+
             if pcm_result is not None:
                 diff_ms = abs(pcm_result.offset_ms - mfcc_result.offset_ms)
+                diagnostics["difference_ms"] = diff_ms
                 if diff_ms > 1000:
+                    warning = (
+                        f"MFCC({mfcc_result.offset_ms}ms)와 PCM({pcm_result.offset_ms}ms) 결과가 "
+                        f"{diff_ms}ms 차이납니다. 소스에 스킵/불연속이 있을 수 있습니다. "
+                        "현재는 PCM 결과를 사용합니다."
+                    )
                     logger.warning(
                         "MFCC offset (%dms) disagrees with PCM (%dms) "
                         "by %dms — using PCM result",
                         mfcc_result.offset_ms, pcm_result.offset_ms, diff_ms,
                     )
-                    return pcm_result
+                    diagnostics["warnings"] = [warning]
+                    return SyncResult(
+                        offset_ms=pcm_result.offset_ms,
+                        confidence=pcm_result.confidence,
+                        method=pcm_result.method,
+                        standard_score=pcm_result.standard_score,
+                        source_name=extra_path.name,
+                        diagnostics={
+                            **diagnostics,
+                            "selected_method": pcm_result.method,
+                            "selected_offset_ms": pcm_result.offset_ms,
+                        },
+                    )
                 else:
                     logger.info(
                         "MFCC and PCM agree (diff=%dms) — using MFCC",
                         diff_ms,
                     )
+                    diagnostics["selected_method"] = mfcc_result.method
+                    diagnostics["selected_offset_ms"] = mfcc_result.offset_ms
+                    return SyncResult(
+                        offset_ms=mfcc_result.offset_ms,
+                        confidence=mfcc_result.confidence,
+                        method=mfcc_result.method,
+                        standard_score=mfcc_result.standard_score,
+                        source_name=extra_path.name,
+                        diagnostics=diagnostics,
+                    )
 
-            return mfcc_result
+            diagnostics["selected_method"] = mfcc_result.method
+            diagnostics["selected_offset_ms"] = mfcc_result.offset_ms
+            return SyncResult(
+                offset_ms=mfcc_result.offset_ms,
+                confidence=mfcc_result.confidence,
+                method=mfcc_result.method,
+                standard_score=mfcc_result.standard_score,
+                source_name=extra_path.name,
+                diagnostics=diagnostics,
+            )
 
     async def _mfcc_offset(
         self, main_wav: Path, extra_wav: Path, trim_s: int,
@@ -117,6 +166,9 @@ class AudioSyncService:
             confidence=confidence,
             method="mfcc",
             standard_score=score,
+            diagnostics={
+                "trim_s": trim_s,
+            },
         )
 
     def _pcm_multipoint_offset(
@@ -242,6 +294,18 @@ class AudioSyncService:
             confidence=confidence,
             method="pcm_verified",
             standard_score=float(np.mean(np.array(correlations)[inliers])),
+            diagnostics={
+                "initial_offset_ms": initial_offset_ms,
+                "snippet_s": snippet_s,
+                "num_points": num_points,
+                "search_window_s": search_window_s,
+                "candidate_offsets_ms": [int(round(offset * 1000)) for offset in offsets],
+                "median_offset_ms": int(round(median_offset * 1000)),
+                "refined_offset_ms": int(round(refined_offset * 1000)),
+                "inlier_count": inlier_count,
+                "total_points": len(offsets),
+                "inlier_ratio": inlier_ratio,
+            },
         )
 
     async def add_extra_sources(
@@ -283,6 +347,12 @@ class AudioSyncService:
                     confidence=1.0,
                     method="manual",
                     standard_score=0.0,
+                    source_name=extra_path.name,
+                    diagnostics={
+                        "selected_method": "manual",
+                        "selected_offset_ms": offset_ms,
+                        "manual_override": True,
+                    },
                 )
             else:
                 sync_result = await self.find_offset(main_path, extra_path)
@@ -300,8 +370,23 @@ class AudioSyncService:
                 f"  Synced {extra_path.name}: offset={sync_result.offset_ms}ms "
                 f"confidence={sync_result.confidence:.2f} ({sync_result.method})"
             )
+            for warning in sync_result.diagnostics.get("warnings", []):
+                print(f"  Warning {extra_path.name}: {warning}", file=sys.stderr)
 
         return results
+
+    @staticmethod
+    def _result_payload(result: SyncResult | None) -> dict[str, object] | None:
+        if result is None:
+            return None
+        return {
+            "offset_ms": result.offset_ms,
+            "confidence": result.confidence,
+            "method": result.method,
+            "standard_score": result.standard_score,
+            "source_name": result.source_name,
+            "diagnostics": result.diagnostics,
+        }
 
     # ------------------------------------------------------------------
     # Helpers

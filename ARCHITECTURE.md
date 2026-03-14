@@ -290,6 +290,9 @@ project.avid.json
 - `clear-extra-sources`: 기존 extra source 제거만 수행
 - `export-project`: 저장된 project JSON 기준으로 최종 산출물 생성
 
+자동 멀티소스 싱크를 수행한 명령은 `sync_diagnostics.json` 을 함께 남긴다.
+이 파일에는 `MFCC`, `PCM`, 선택 offset, 후보 offset 목록, 불일치 경고가 들어간다.
+
 ### 멀티소스 데이터 흐름
 
 ```
@@ -299,6 +302,7 @@ main.mp4 + cam2.mp4 + mic.wav ──→ PodcastCutService / SubtitleCutService
                                       │    ├─ find_offset(main, cam2) → offset_ms=1500
                                       │    ├─ find_offset(main, mic) → offset_ms=800
                                       │    └─ project.add_source_file() + set_track_offset()
+                                      ├─ sync_diagnostics.json
                                       └─ FCPXMLExporter
                                            ├─ _get_extra_source_tracks() → (track, media, lane) 목록
                                            └─ _add_connected_clips() → 각 asset-clip에 자식 추가

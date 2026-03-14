@@ -22,6 +22,7 @@ from avid.models.media import MediaFile, MediaInfo
 from avid.models.project import Project, Transcription, TranscriptSegment
 from avid.models.timeline import EditDecision, EditOriginKind, EditReason, EditType, TimeRange
 from avid.models.track import Track, TrackType
+from avid.services.audio_sync import AudioSyncService, SyncResult
 from avid.services.provider_env import build_provider_subprocess_env
 
 
@@ -108,7 +109,7 @@ class PodcastCutService:
         provider_effort: str | None = None,
         extra_sources: list[Path] | None = None,
         extra_offsets: dict[str, int] | None = None,
-    ) -> tuple[Project, dict[str, Path]]:
+    ) -> tuple[Project, dict[str, Path], list[SyncResult]]:
         """Process a podcast audio file through the full workflow.
 
         Args:
@@ -125,7 +126,7 @@ class PodcastCutService:
             extra_offsets: Manual offset overrides ``{filename: ms}``.
 
         Returns:
-            Tuple of (Project, dict of output paths)
+            Tuple of (Project, dict of output paths, sync results)
         """
         audio_path = Path(audio_path).resolve()
         if not audio_path.exists():
@@ -137,6 +138,7 @@ class PodcastCutService:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         outputs: dict[str, Path] = {}
+        sync_results: list[SyncResult] = []
 
         # Step 1: Transcription
         if srt_path and srt_path.exists():
@@ -187,11 +189,9 @@ class PodcastCutService:
 
         # Step 5b: Sync extra sources (if any)
         if extra_sources:
-            from avid.services.audio_sync import AudioSyncService
-
             print("Step 5b: Syncing extra sources...")
             sync_service = AudioSyncService()
-            await sync_service.add_extra_sources(
+            sync_results = await sync_service.add_extra_sources(
                 project, audio_path, extra_sources, extra_offsets or {},
             )
 
@@ -228,7 +228,7 @@ class PodcastCutService:
             print(f"  Adjusted SRT: {srt_result}")
 
         print(f"\nComplete: {len(project.edit_decisions)} total edit decisions")
-        return project, outputs
+        return project, outputs, sync_results
 
     async def _run_podcast_cut_skill(
         self,

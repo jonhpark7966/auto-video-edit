@@ -90,6 +90,7 @@ avid-cli subtitle-cut <video> --srt <srt> [--context <storyline.json>] [--provid
 - `{stem}_subtitle_cut.fcpxml` — 초기 편집 타임라인
 - `{stem}_subtitle_cut.srt` — 조정된 자막
 - `{stem}_subtitle_cut.avid.json` — 프로젝트 JSON
+- `{stem}.sync_diagnostics.json` — extra source 자동 싱크를 쓴 경우의 진단 결과
 
 **CUT 이유**: `duplicate`, `incomplete`, `filler`, `fumble`
 **KEEP 이유**: `best_take`, `unique`
@@ -124,6 +125,7 @@ avid-cli podcast-cut <audio|video> [--srt <srt>] [--context <storyline.json>] [-
 - `{stem}_podcast_cut.srt` — 조정된 자막
 - `{stem}.report.md` — 편집 보고서
 - `{stem}_podcast_cut.avid.json` — 프로젝트 JSON
+- `{stem}.sync_diagnostics.json` — extra source 자동 싱크를 쓴 경우의 진단 결과
 
 **CUT 이유**: `boring`, `tangent`, `repetitive`, `long_pause`, `crosstalk`, `irrelevant`, `filler`, `dragging`, `meta_comment`
 **KEEP 이유**: `funny`, `witty`, `chemistry`, `reaction`, `callback`, `climax`, `engaging`, `emotional`
@@ -143,6 +145,10 @@ avid-cli podcast-cut <audio|video> [--srt <srt>] [--context <storyline.json>] [-
 - `avid-cli rebuild-multicam` — 기존 extra source 제거 후 새 extra source / manual offset 재구성
 - `avid-cli clear-extra-sources` — 기존 extra source 제거만 수행
 - `avid-cli export-project` — project JSON 기준 최종 FCPXML / adjusted SRT 생성
+
+`subtitle-cut`, `podcast-cut`, `rebuild-multicam` 에서 extra source 자동 싱크를 수행하면
+`sync_diagnostics.json` 이 함께 생성된다. 여기에는 `MFCC`, `PCM`, 선택 offset,
+후보 offset 목록, 경고 메시지가 남는다.
 
 ### version / doctor / reexport
 

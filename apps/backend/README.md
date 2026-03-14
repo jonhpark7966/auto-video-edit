@@ -35,6 +35,9 @@ avid-cli doctor --probe-providers --json
 7. `rebuild-multicam`
 8. `export-project`
 
+멀티캠 자동 싱크가 개입한 경우에는 `sync_diagnostics.json` 도 함께 확인한다.
+이 파일은 `MFCC`, `PCM`, 최종 선택 offset, 후보 offset 목록, 경고를 남긴다.
+
 즉, `reexport` 나 split command 부터 보지 말고 source input 부터 final export 까지 따라가는 것이 맞다.
 
 ## 외부 통합 원칙

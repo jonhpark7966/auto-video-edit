@@ -15,6 +15,7 @@ from pathlib import Path
 
 from avid.models.project import Project, Transcription, TranscriptSegment
 from avid.models.timeline import EditDecision, EditOriginKind, EditReason, EditType, TimeRange
+from avid.services.audio_sync import AudioSyncService, SyncResult
 from avid.services.provider_env import build_provider_subprocess_env
 
 
@@ -60,7 +61,7 @@ class SubtitleCutService:
         provider_effort: str | None = None,
         extra_sources: list[Path] | None = None,
         extra_offsets: dict[str, int] | None = None,
-    ) -> tuple[Project, Path]:
+    ) -> tuple[Project, Path, list[SyncResult]]:
         """Analyze subtitles and return Project with content + silence decisions.
 
         Args:
@@ -76,7 +77,7 @@ class SubtitleCutService:
             extra_offsets: Manual offset overrides ``{filename: ms}``.
 
         Returns:
-            Tuple of (Project with edit_decisions, path to .avid.json)
+            Tuple of (Project with edit_decisions, path to .avid.json, sync results)
         """
         script = _get_subtitle_cut_script()
         script_dir = script.parent
@@ -140,14 +141,13 @@ class SubtitleCutService:
         project = Project.load(project_output)
         content_count = len(project.edit_decisions)
         print(f"  Content decisions: {content_count}")
+        sync_results: list[SyncResult] = []
 
         # Step 1b: Sync extra sources (if any)
         if extra_sources:
-            from avid.services.audio_sync import AudioSyncService
-
             print("  Step 1b: Syncing extra sources...")
             sync_service = AudioSyncService()
-            await sync_service.add_extra_sources(
+            sync_results = await sync_service.add_extra_sources(
                 project, video_path, extra_sources, extra_offsets or {},
             )
 
@@ -214,7 +214,7 @@ class SubtitleCutService:
         project.save(project_output)
         print(f"  Total: {len(project.edit_decisions)} decisions ({content_count} content + {len(silence_gaps)} silence)")
 
-        return project, project_output
+        return project, project_output, sync_results
 
 
 def _parse_srt(srt_path: Path) -> list[dict]:

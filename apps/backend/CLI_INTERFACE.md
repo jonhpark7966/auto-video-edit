@@ -82,14 +82,17 @@ avid-cli <command> ...
 | `doctor` | 실행 환경 진단 | `checks` |
 | `transcribe` | 소스에서 SRT 생성 | `artifacts.srt` |
 | `transcript-overview` | SRT에서 storyline 생성 | `artifacts.storyline` |
-| `subtitle-cut` | 강의/설명형 initial edit 생성 | `artifacts.project_json`, `fcpxml`, `report`, `srt?` |
-| `podcast-cut` | 팟캐스트/인터뷰 initial edit 생성 | `artifacts.project_json`, `fcpxml`, `report`, `srt?` |
+| `subtitle-cut` | 강의/설명형 initial edit 생성 | `artifacts.project_json`, `fcpxml`, `report`, `srt?`, `sync_diagnostics?` |
+| `podcast-cut` | 팟캐스트/인터뷰 initial edit 생성 | `artifacts.project_json`, `fcpxml`, `report`, `srt?`, `sync_diagnostics?` |
 | `review-segments` | project JSON 에서 engine-native review payload 생성 | `schema_version`, `segments[]` |
 | `apply-evaluation` | 사람 평가를 project JSON 에 반영 | `artifacts.project_json` |
-| `rebuild-multicam` | extra source 를 붙여 project JSON 재구성 | `artifacts.project_json` |
+| `rebuild-multicam` | extra source 를 붙여 project JSON 재구성 | `artifacts.project_json`, `sync_diagnostics?` |
 | `clear-extra-sources` | extra source 제거 | `artifacts.project_json` |
 | `export-project` | 준비된 project JSON 을 최종 export | `artifacts.fcpxml`, `srt?` |
 | `reexport` | deprecated compatibility wrapper | `artifacts.project_json`, `fcpxml`, `srt?` |
+
+`sync_diagnostics?` 는 extra source 자동 싱크를 수행한 경우에만 생긴다.
+여기에는 `MFCC`, `PCM`, 최종 선택 offset, 후보 offset 목록, 불일치 경고가 들어간다.
 
 ## Provider Runtime 표면
 
@@ -221,6 +224,7 @@ avid-cli transcript-overview sample.srt -o /tmp/out/storyline.json --provider cl
 - `artifacts.fcpxml`
 - `artifacts.report`
 - `artifacts.srt` if transcription exists
+- `artifacts.sync_diagnostics` if `--extra-source` is used
 
 예시:
 
@@ -235,6 +239,7 @@ avid-cli subtitle-cut lecture.mp4 --srt lecture.srt --context lecture.storyline.
 - `artifacts.fcpxml`
 - `artifacts.report`
 - `artifacts.srt`
+- `artifacts.sync_diagnostics` if `--extra-source` is used
 
 예시:
 
@@ -257,6 +262,7 @@ avid-cli podcast-cut podcast.mp4 --srt podcast.srt --context podcast.storyline.j
 
 최소 artifact:
 - `artifacts.project_json`
+- `artifacts.sync_diagnostics` if automatic sync is attempted
 
 최소 stats:
 - `stats.applied_evaluation_segments`
@@ -394,6 +400,8 @@ avid-cli rebuild-multicam \
 - 최소 한 개 이상의 `--extra-source` 가 있어야 한다
 - `--offset` 은 `--extra-source` 순서에 대응한다
 - implicit strip-only 는 하지 않는다
+- 자동 싱크 시 `sync_diagnostics.json` 이 함께 생성된다
+- `MFCC` 와 `PCM` 후보가 크게 다르면 경고를 남기고, 현재 선택 결과와 후보들을 diagnostics 에 기록한다
 
 ### `avid-cli clear-extra-sources`
 
