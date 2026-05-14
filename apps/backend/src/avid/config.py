@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     # Pipeline
     max_concurrent_jobs: int = 2
 
+    # Sentry
+    sentry_dsn: str = ""
+    sentry_environment: str = "local"
+    sentry_release: str = ""
+    sentry_traces_sample_rate: float = 0.05
+
     def ensure_directories(self) -> None:
         """Create required directories if they don't exist."""
         self.upload_dir.mkdir(parents=True, exist_ok=True)

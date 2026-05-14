@@ -21,7 +21,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
-    init_sentry()
+    init_sentry(
+        dsn=settings.sentry_dsn,
+        environment=settings.sentry_environment,
+        release=settings.sentry_release,
+        traces_sample_rate=settings.sentry_traces_sample_rate,
+    )
 
     app = FastAPI(
         title="AVID - Auto Video Edit",
