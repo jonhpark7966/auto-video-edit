@@ -17,6 +17,7 @@ dependencies = [
     "pydantic-settings>=2.1.0",
     "streamlit>=1.30.0",
     "httpx>=0.24.0",
+    "sentry-sdk[fastapi]>=2.0.0",
 ]
 
 [project.optional-dependencies]

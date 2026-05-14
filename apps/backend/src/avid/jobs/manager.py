@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import sentry_sdk
+
 from avid.jobs.models import Job, JobResult, JobStatus, JobType
 
 logger = logging.getLogger(__name__)
@@ -60,6 +62,12 @@ class JobManager:
                 job.result = result
             except Exception as e:
                 logger.exception("Job %s failed", job.id)
+                with sentry_sdk.new_scope() as scope:
+                    scope.set_tag("service", "auto-video-edit")
+                    scope.set_tag("job_id", job.id)
+                    scope.set_tag("job_type", str(job.type))
+                    scope.set_context("job_params", job.params)
+                    sentry_sdk.capture_exception(e)
                 job.status = JobStatus.FAILED
                 job.error = str(e)
                 job.message = "Failed"

@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from avid.api.deps import init_job_manager
 from avid.api.routes import health, jobs, media
 from avid.config import settings
+from avid.monitoring import init_sentry
 
 
 @asynccontextmanager
@@ -20,6 +21,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+    init_sentry()
+
     app = FastAPI(
         title="AVID - Auto Video Edit",
         description="Automated video editing pipeline",
