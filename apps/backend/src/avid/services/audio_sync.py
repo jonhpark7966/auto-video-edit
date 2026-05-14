@@ -191,15 +191,21 @@ class AudioSyncService:
         Returns a SyncResult if a consistent offset is found, or None if
         verification is inconclusive.
         """
-        import wave
         from scipy import signal as sig
+        from scipy.io import wavfile as scipy_wav
 
         def read_mono_16k(path: str) -> tuple[np.ndarray, int]:
-            with wave.open(path, "r") as wf:
-                sr = wf.getframerate()
-                data = np.frombuffer(
-                    wf.readframes(wf.getnframes()), dtype=np.int16,
-                ).astype(np.float32)
+            sr, data = scipy_wav.read(path)
+            # Convert to float32 regardless of source dtype
+            if data.dtype == np.int16:
+                data = data.astype(np.float32)
+            elif data.dtype == np.int32:
+                data = data.astype(np.float32) / 32768.0
+            elif data.dtype == np.float32 or data.dtype == np.float64:
+                data = data.astype(np.float32) * 32767.0
+            # If stereo, take first channel
+            if data.ndim > 1:
+                data = data[:, 0]
             return data, sr
 
         main, sr = read_mono_16k(main_wav_path)

@@ -796,6 +796,10 @@ class FCPXMLExporter(ProjectExporter):
                 continue
 
             extra_duration_ms = source.info.duration_ms
+            extra_format_id = primary_format_id
+            extra_fps = primary_fps
+            if source_format_map and source.id in source_format_map:
+                extra_format_id, extra_fps = source_format_map[source.id]
 
             # track.offset_ms = when the extra track starts on the unified timeline.
             # So extra_source_time = unified_time - track.offset_ms.
@@ -810,10 +814,13 @@ class FCPXMLExporter(ProjectExporter):
             if extra_end_ms <= extra_start_ms:
                 continue
 
-            actual_duration_ms = extra_end_ms - extra_start_ms
-
-            # Skip clips that round to zero frames (would crash FCP)
-            duration_frames = self._ms_to_frames(actual_duration_ms, primary_fps)
+            # Compute extra duration using ceil() so the connected clip
+            # always fully covers the main clip's duration.  Using int()
+            # (floor) on start/end independently can leave the extra clip
+            # 1 frame short, causing a single-frame flicker at cuts.
+            # Any overshoot is invisible since FCP masks it to the parent.
+            extra_start_frames = self._ms_to_frames(extra_start_ms, extra_fps)
+            duration_frames = self._ms_to_frames_ceil(clip_duration_ms, extra_fps)
             if duration_frames <= 0:
                 continue
 
@@ -821,9 +828,9 @@ class FCPXMLExporter(ProjectExporter):
                 "ref": extra_asset_id,
                 "lane": str(lane),
                 "offset": self._ms_to_time(main_start_ms, primary_fps),
-                "start": self._ms_to_time(extra_start_ms, primary_fps),
-                "duration": self._frames_to_time(duration_frames, primary_fps),
-                "format": primary_format_id,
+                "start": self._frames_to_time(extra_start_frames, extra_fps),
+                "duration": self._frames_to_time(duration_frames, extra_fps),
+                "format": extra_format_id,
                 "tcFormat": "NDF",
                 "name": source.original_name,
             }
@@ -1083,8 +1090,8 @@ class FCPXMLExporter(ProjectExporter):
 
         return result
 
-    def _ms_to_frames(self, ms: int, fps: float) -> int:
-        """Convert milliseconds to frame count.
+    def _ms_to_frames(self, ms: int | float, fps: float) -> int:
+        """Convert milliseconds to frame count (floor).
 
         For NTSC frame rates, uses proper 1001-based calculation.
         """
@@ -1096,6 +1103,22 @@ class FCPXMLExporter(ProjectExporter):
             return int(ms * 60000 / 1000 / 1001)
         else:
             return int(ms * fps / 1000)
+
+    def _ms_to_frames_ceil(self, ms: int | float, fps: float) -> int:
+        """Convert milliseconds to frame count (ceil).
+
+        Like ``_ms_to_frames`` but rounds up so the resulting frame span
+        always covers the full millisecond duration.
+        """
+        import math
+        if abs(fps - 23.976) < 0.01:
+            return math.ceil(ms * 24000 / 1000 / 1001)
+        elif abs(fps - 29.97) < 0.01:
+            return math.ceil(ms * 30000 / 1000 / 1001)
+        elif abs(fps - 59.94) < 0.01:
+            return math.ceil(ms * 60000 / 1000 / 1001)
+        else:
+            return math.ceil(ms * fps / 1000)
 
     def _frames_to_time(self, frames: int, fps: float) -> str:
         """Convert frame count to FCPXML time format.
