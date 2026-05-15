@@ -845,6 +845,14 @@ def _build_review_segments_payload(project_json_path: Path, project: Any) -> dic
     legacy_overlap_fallback = not indexed_decisions
     review_segments = []
     for position, segment in enumerate(project.transcription.segments):
+        if segment.end_ms <= segment.start_ms:
+            print(
+                "경고: review-segments 에서 잘못된 시간 범위의 transcript segment 를 건너뜁니다: "
+                f"index={getattr(segment, 'index', None)!r}, start_ms={segment.start_ms}, end_ms={segment.end_ms}",
+                file=sys.stderr,
+            )
+            continue
+
         segment_index = _segment_identity(segment, position)
         decision = None
         if legacy_overlap_fallback:
@@ -857,6 +865,7 @@ def _build_review_segments_payload(project_json_path: Path, project: Any) -> dic
             "start_ms": segment.start_ms,
             "end_ms": segment.end_ms,
             "text": segment.text,
+            "speaker": segment.speaker,
             "ai": _review_ai_payload(decision) if decision else None,
             "human": None,
         })
