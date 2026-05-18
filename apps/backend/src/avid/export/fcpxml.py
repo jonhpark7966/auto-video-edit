@@ -1,5 +1,6 @@
 """Final Cut Pro XML exporter."""
 
+import math
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -457,6 +458,24 @@ class FCPXMLExporter(ProjectExporter):
                 src=f"file://{source_file.path.absolute()}",
             )
 
+        multicam_media_id: str | None = None
+        multicam_angle_map: dict[str, str] = {}
+        if primary_video_track:
+            multicam_tracks = self._get_multicam_angle_tracks(project, primary_video_track)
+            if len(multicam_tracks) > 1:
+                multicam_media_id = f"r{next_resource_id}"
+                next_resource_id += 1
+                multicam_angle_map = self._add_multicam_media(
+                    resources,
+                    project,
+                    multicam_tracks,
+                    asset_map,
+                    source_format_map,
+                    primary_format_id,
+                    fps,
+                    multicam_media_id,
+                )
+
         # Library and Event
         library = ET.SubElement(fcpxml, "library")
         event = ET.SubElement(library, "event", name=project.name)
@@ -472,7 +491,7 @@ class FCPXMLExporter(ProjectExporter):
             fcp_project,
             "sequence",
             format=primary_format_id,
-            duration=self._ms_to_time(duration_ms, fps),
+            duration=self._ms_to_time_nearest(duration_ms, fps),
         )
 
         # Spine (main video track)
@@ -482,6 +501,7 @@ class FCPXMLExporter(ProjectExporter):
         self._build_video_timeline(
             spine, project, asset_map, primary_format_id, fps,
             show_disabled_cuts, merge_short_gaps_ms, source_format_map,
+            multicam_media_id, multicam_angle_map,
         )
 
         return fcpxml
@@ -526,6 +546,8 @@ class FCPXMLExporter(ProjectExporter):
         show_disabled_cuts: bool = False,
         merge_short_gaps_ms: int = 500,
         source_format_map: dict[str, tuple[str, float]] | None = None,
+        multicam_media_id: str | None = None,
+        multicam_angle_map: dict[str, str] | None = None,
     ) -> None:
         """Build the video timeline with clips (no embedded captions).
 
@@ -540,6 +562,8 @@ class FCPXMLExporter(ProjectExporter):
             merge_short_gaps_ms: Short enabled segments (< this duration) between
                                 disabled segments will also be disabled.
             source_format_map: source_file_id → (format_id, fps) per source.
+            multicam_media_id: Optional FCPXML media resource ID for multicam exports.
+            multicam_angle_map: track ID → FCPXML angleID for multicam exports.
         """
         video_tracks = project.get_video_tracks()
         if not video_tracks:
@@ -558,14 +582,29 @@ class FCPXMLExporter(ProjectExporter):
 
         # Resolve extra sources once for use in connected clips
         extra_tracks = self._get_extra_source_tracks(project, primary_track)
+        use_multicam = bool(multicam_media_id and multicam_angle_map)
 
         # If no edit decisions, simple timeline with single clip
         if not project.edit_decisions:
+            duration_frames = self._ms_to_frames_nearest(total_duration_ms, fps)
+            if use_multicam:
+                clip_elem = ET.SubElement(
+                    spine,
+                    "mc-clip",
+                    ref=multicam_media_id,
+                    offset=self._frames_to_time(0, fps),
+                    duration=self._frames_to_time(duration_frames, fps),
+                    start=self._frames_to_time(0, fps),
+                    name=self._multicam_clip_name(project, source),
+                )
+                self._add_mc_source(clip_elem, primary_track, multicam_angle_map or {})
+                return
+
             clip_elem = ET.SubElement(
                 spine,
                 "asset-clip",
                 ref=asset_id,
-                duration=self._ms_to_time(total_duration_ms, fps),
+                duration=self._frames_to_time(duration_frames, fps),
                 start=self._ms_to_time(0, fps),
                 format=format_id,
                 tcFormat="NDF",
@@ -573,7 +612,7 @@ class FCPXMLExporter(ProjectExporter):
             )
             self._add_connected_clips(
                 clip_elem, 0, total_duration_ms, extra_tracks,
-                asset_map, source_format_map, fps,
+                duration_frames, asset_map, source_format_map, fps,
             )
             return
 
@@ -685,16 +724,33 @@ class FCPXMLExporter(ProjectExporter):
         # Convert to frame units (for 23.976fps: units of 1001/24000s)
         ms_to_frames_map: dict[int, int] = {}
         for ms in boundary_points_ms:
-            frames = self._ms_to_frames(ms, fps)
+            frames = self._ms_to_frames_nearest(ms, fps)
             ms_to_frames_map[ms] = frames
 
         # Create clips for each segment using pre-calculated frame positions
+        timeline_offset_frames = 0
         for source_start_ms, source_end_ms, enabled in final_segments:
             start_frames = ms_to_frames_map[source_start_ms]
             end_frames = ms_to_frames_map[source_end_ms]
             duration_frames = end_frames - start_frames
 
             if duration_frames <= 0:
+                continue
+
+            if use_multicam:
+                clip_attrs = {
+                    "ref": multicam_media_id,
+                    "offset": self._frames_to_time(timeline_offset_frames, fps),
+                    "duration": self._frames_to_time(duration_frames, fps),
+                    "start": self._frames_to_time(start_frames, fps),
+                    "name": self._multicam_clip_name(project, source),
+                }
+                if not enabled:
+                    clip_attrs["enabled"] = "0"
+
+                clip_elem = ET.SubElement(spine, "mc-clip", **clip_attrs)
+                self._add_mc_source(clip_elem, primary_track, multicam_angle_map or {})
+                timeline_offset_frames += duration_frames
                 continue
 
             clip_attrs = {
@@ -711,8 +767,161 @@ class FCPXMLExporter(ProjectExporter):
             clip_elem = ET.SubElement(spine, "asset-clip", **clip_attrs)
             self._add_connected_clips(
                 clip_elem, source_start_ms, source_end_ms, extra_tracks,
-                asset_map, source_format_map, fps, enabled=enabled,
+                duration_frames, asset_map, source_format_map, fps, enabled=enabled,
             )
+            timeline_offset_frames += duration_frames
+
+    def _get_multicam_angle_tracks(
+        self,
+        project: Project,
+        primary_track: Track,
+    ) -> list[tuple[Track, MediaFile, str]]:
+        """Return video tracks that should become FCP multicam angles."""
+        seen_source_ids: set[str] = set()
+        angle_tracks: list[tuple[Track, MediaFile, str]] = []
+
+        ordered_tracks = [
+            primary_track,
+            *[track for track in project.get_video_tracks() if track.id != primary_track.id],
+        ]
+
+        for track in ordered_tracks:
+            if track.source_file_id in seen_source_ids:
+                continue
+            source = project.get_source_file(track.source_file_id)
+            if not source or not source.is_video:
+                continue
+
+            seen_source_ids.add(track.source_file_id)
+            angle_id = f"angle{len(angle_tracks) + 1}"
+            angle_tracks.append((track, source, angle_id))
+
+        return angle_tracks
+
+    def _add_multicam_media(
+        self,
+        resources: ET.Element,
+        project: Project,
+        angle_tracks: list[tuple[Track, MediaFile, str]],
+        asset_map: dict[str, str],
+        source_format_map: dict[str, tuple[str, float]],
+        primary_format_id: str,
+        primary_fps: float,
+        media_id: str,
+    ) -> dict[str, str]:
+        """Create a real FCPXML multicam media resource and return track angle IDs."""
+        media = ET.SubElement(
+            resources,
+            "media",
+            id=media_id,
+            name=f"{project.name} Multicam",
+        )
+        multicam = ET.SubElement(
+            media,
+            "multicam",
+            format=primary_format_id,
+            tcStart="0s",
+            tcFormat="NDF",
+        )
+
+        angle_map: dict[str, str] = {}
+        for track, source, angle_id in angle_tracks:
+            asset_id = asset_map.get(source.id)
+            if not asset_id:
+                continue
+
+            angle_map[track.id] = angle_id
+            angle = ET.SubElement(
+                multicam,
+                "mc-angle",
+                name=source.original_name.rsplit(".", 1)[0],
+                angleID=angle_id,
+            )
+            self._add_multicam_angle_asset_clip(
+                angle,
+                track,
+                source,
+                asset_id,
+                source_format_map,
+                primary_fps,
+            )
+
+        return angle_map
+
+    def _add_multicam_angle_asset_clip(
+        self,
+        angle: ET.Element,
+        track: Track,
+        source: MediaFile,
+        asset_id: str,
+        source_format_map: dict[str, tuple[str, float]],
+        primary_fps: float,
+    ) -> None:
+        """Place one source asset on a multicam angle timeline."""
+        source_format_id, source_fps = source_format_map.get(
+            source.id,
+            ("r1", primary_fps),
+        )
+        source_duration_ms = source.info.duration_ms
+
+        if track.offset_ms > 0:
+            offset_frames = self._ms_to_frames_nearest(track.offset_ms, primary_fps)
+            if offset_frames > 0:
+                ET.SubElement(
+                    angle,
+                    "gap",
+                    name="Gap",
+                    offset=self._frames_to_time(0, primary_fps),
+                    start=self._frames_to_time(0, primary_fps),
+                    duration=self._frames_to_time(offset_frames, primary_fps),
+                )
+            clip_offset = self._frames_to_time(offset_frames, primary_fps)
+            quantized_offset_ms = self._frames_to_ms(offset_frames, primary_fps)
+            source_start_ms = max(0, quantized_offset_ms - track.offset_ms)
+        else:
+            clip_offset = self._frames_to_time(0, primary_fps)
+            source_start_ms = -track.offset_ms
+
+        if source_start_ms >= source_duration_ms:
+            return
+
+        source_start_frames = self._ms_to_frames_nearest(source_start_ms, source_fps)
+        timeline_duration_frames = self._ms_to_frames_nearest(
+            source_duration_ms - source_start_ms,
+            primary_fps,
+        )
+        if timeline_duration_frames <= 0:
+            return
+
+        ET.SubElement(
+            angle,
+            "asset-clip",
+            ref=asset_id,
+            offset=clip_offset,
+            name=source.original_name,
+            start=self._frames_to_time(source_start_frames, source_fps),
+            duration=self._frames_to_time(timeline_duration_frames, primary_fps),
+            format=source_format_id,
+            tcFormat="NDF",
+        )
+
+    def _multicam_clip_name(self, project: Project, source: MediaFile) -> str:
+        """Return a stable timeline name for generated multicam clips."""
+        if project.name:
+            return f"{project.name} Multicam"
+        return f"{source.original_name.rsplit('.', 1)[0]} Multicam"
+
+    def _add_mc_source(
+        self,
+        mc_clip: ET.Element,
+        primary_track: Track,
+        angle_map: dict[str, str],
+    ) -> None:
+        """Select the primary angle for a generated multicam timeline clip."""
+        angle_id = angle_map.get(primary_track.id)
+        if not angle_id:
+            return
+        ET.SubElement(mc_clip, "mc-source", angleID=angle_id, srcEnable="all")
 
     def _get_extra_source_tracks(
         self,
@@ -756,6 +965,7 @@ class FCPXMLExporter(ProjectExporter):
         main_start_ms: int,
         main_end_ms: int,
         extra_tracks: list[tuple[Track, MediaFile, int]],
+        timeline_duration_frames: int,
         asset_map: dict[str, str],
         source_format_map: dict[str, tuple[str, float]] | None,
         primary_fps: float,
@@ -765,15 +975,16 @@ class FCPXMLExporter(ProjectExporter):
 
         Each connected clip lives in its own lane (negative lane numbers).
         The ``offset`` uses the **primary** (sequence) fps so it aligns to
-        the timeline grid.  ``start`` and ``duration`` use the **extra
-        source's own fps** so FCP can seek accurately in the source media
-        without frame-rate drift.
+        the timeline grid. ``duration`` also uses the primary fps, because it
+        describes the connected clip's timeline span. ``start`` uses the extra
+        source's own fps so FCP can seek accurately in the source media.
 
         Args:
             parent_clip: The parent ``<asset-clip>`` element.
             main_start_ms: Start of the main clip in main-source time.
             main_end_ms: End of the main clip in main-source time.
             extra_tracks: Output of ``_get_extra_source_tracks()``.
+            timeline_duration_frames: Parent clip duration in sequence frames.
             asset_map: source_file_id → FCPXML asset ID.
             source_format_map: source_file_id → (format_id, fps).
             primary_fps: Frame rate of the sequence timeline.
@@ -814,22 +1025,19 @@ class FCPXMLExporter(ProjectExporter):
             if extra_end_ms <= extra_start_ms:
                 continue
 
-            # Compute extra duration using ceil() so the connected clip
-            # always fully covers the main clip's duration.  Using int()
-            # (floor) on start/end independently can leave the extra clip
-            # 1 frame short, causing a single-frame flicker at cuts.
-            # Any overshoot is invisible since FCP masks it to the parent.
-            extra_start_frames = self._ms_to_frames(extra_start_ms, extra_fps)
-            duration_frames = self._ms_to_frames_ceil(clip_duration_ms, extra_fps)
-            if duration_frames <= 0:
+            extra_start_frames = self._ms_to_frames_nearest(extra_start_ms, extra_fps)
+            if timeline_duration_frames <= 0:
                 continue
 
             attrs = {
                 "ref": extra_asset_id,
                 "lane": str(lane),
-                "offset": self._ms_to_time(main_start_ms, primary_fps),
+                # This clip is nested under the parent main clip, so its
+                # placement offset is parent-local. The source media position
+                # is already represented by ``start`` below.
+                "offset": self._ms_to_time(0, primary_fps),
                 "start": self._frames_to_time(extra_start_frames, extra_fps),
-                "duration": self._frames_to_time(duration_frames, extra_fps),
+                "duration": self._frames_to_time(timeline_duration_frames, primary_fps),
                 "format": extra_format_id,
                 "tcFormat": "NDF",
                 "name": source.original_name,
@@ -1095,14 +1303,30 @@ class FCPXMLExporter(ProjectExporter):
 
         For NTSC frame rates, uses proper 1001-based calculation.
         """
+        return int(self._ms_to_exact_frames(ms, fps))
+
+    def _ms_to_frames_nearest(self, ms: int | float, fps: float) -> int:
+        """Convert milliseconds to the nearest frame count.
+
+        This is used for FCPXML edit boundaries. It keeps exported ranges as
+        close as possible to the source segment while making them divisible by
+        the project frame duration.
+        """
+        frames = self._ms_to_exact_frames(ms, fps)
+        if frames >= 0:
+            return math.floor(frames + 0.5)
+        return math.ceil(frames - 0.5)
+
+    def _ms_to_exact_frames(self, ms: int | float, fps: float) -> float:
+        """Convert milliseconds to fractional frames for an FCP frame rate."""
         if abs(fps - 23.976) < 0.01:
-            return int(ms * 24000 / 1000 / 1001)
+            return ms * 24000 / 1000 / 1001
         elif abs(fps - 29.97) < 0.01:
-            return int(ms * 30000 / 1000 / 1001)
+            return ms * 30000 / 1000 / 1001
         elif abs(fps - 59.94) < 0.01:
-            return int(ms * 60000 / 1000 / 1001)
+            return ms * 60000 / 1000 / 1001
         else:
-            return int(ms * fps / 1000)
+            return ms * fps / 1000
 
     def _ms_to_frames_ceil(self, ms: int | float, fps: float) -> int:
         """Convert milliseconds to frame count (ceil).
@@ -1110,15 +1334,18 @@ class FCPXMLExporter(ProjectExporter):
         Like ``_ms_to_frames`` but rounds up so the resulting frame span
         always covers the full millisecond duration.
         """
-        import math
+        return math.ceil(self._ms_to_exact_frames(ms, fps))
+
+    def _frames_to_ms(self, frames: int, fps: float) -> float:
+        """Convert frame count back to milliseconds for a given FCP frame rate."""
         if abs(fps - 23.976) < 0.01:
-            return math.ceil(ms * 24000 / 1000 / 1001)
+            return frames * 1001 * 1000 / 24000
         elif abs(fps - 29.97) < 0.01:
-            return math.ceil(ms * 30000 / 1000 / 1001)
+            return frames * 1001 * 1000 / 30000
         elif abs(fps - 59.94) < 0.01:
-            return math.ceil(ms * 60000 / 1000 / 1001)
+            return frames * 1001 * 1000 / 60000
         else:
-            return math.ceil(ms * fps / 1000)
+            return frames * 1000 / fps
 
     def _frames_to_time(self, frames: int, fps: float) -> str:
         """Convert frame count to FCPXML time format.
@@ -1145,6 +1372,11 @@ class FCPXMLExporter(ProjectExporter):
         For integer frame rates, use simple frames/fps format.
         """
         frames = self._ms_to_frames(ms, fps)
+        return self._frames_to_time(frames, fps)
+
+    def _ms_to_time_nearest(self, ms: int | float, fps: float) -> str:
+        """Convert milliseconds to FCPXML time at the nearest frame boundary."""
+        frames = self._ms_to_frames_nearest(ms, fps)
         return self._frames_to_time(frames, fps)
 
     def _fps_to_frame_duration(self, fps: float) -> str:
