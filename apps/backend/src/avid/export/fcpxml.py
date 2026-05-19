@@ -427,7 +427,7 @@ class FCPXMLExporter(ProjectExporter):
 
             # Build asset attributes matching FCP's export format
             # Note: uid is omitted - FCP uses file hash for uid, using arbitrary values causes crashes
-            has_audio = source_file.info and source_file.info.sample_rate is not None
+            has_audio = bool(source_file.info and source_file.info.has_audio)
             asset_attrs = {
                 "id": asset_id,
                 "name": source_file.original_name.rsplit(".", 1)[0],  # Name without extension
@@ -445,10 +445,12 @@ class FCPXMLExporter(ProjectExporter):
             if source_file.info:
                 if source_file.info.sample_rate:
                     asset_attrs["audioRate"] = str(source_file.info.sample_rate)
-                    asset_attrs["audioChannels"] = "2"  # Default to stereo
+                if source_file.info.audio_channels:
+                    asset_attrs["audioChannels"] = str(source_file.info.audio_channels)
                 if source_file.is_video:
                     asset_attrs["videoSources"] = "1"
-                    asset_attrs["audioSources"] = "1" if has_audio else "0"
+                    if source_file.info.audio_sources is not None:
+                        asset_attrs["audioSources"] = str(source_file.info.audio_sources)
 
             asset = ET.SubElement(resources, "asset", **asset_attrs)
             ET.SubElement(

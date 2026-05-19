@@ -14,6 +14,8 @@ class MediaInfo(BaseModel):
     height: int | None = Field(None, description="Video height in pixels")
     fps: float | None = Field(None, description="Frames per second")
     sample_rate: int | None = Field(None, description="Audio sample rate in Hz")
+    audio_channels: int | None = Field(None, description="Total number of audio channels")
+    audio_sources: int | None = Field(None, description="Number of audio streams/sources")
 
     @property
     def duration_seconds(self) -> float:
@@ -26,6 +28,15 @@ class MediaInfo(BaseModel):
         if self.width and self.height:
             return f"{self.width}x{self.height}"
         return None
+
+    @property
+    def has_audio(self) -> bool:
+        """Check if metadata indicates an audio stream is present."""
+        return (
+            self.sample_rate is not None
+            or (self.audio_channels or 0) > 0
+            or (self.audio_sources or 0) > 0
+        )
 
 
 class MediaFile(BaseModel):
@@ -49,4 +60,4 @@ class MediaFile(BaseModel):
     @property
     def is_audio_only(self) -> bool:
         """Check if this is an audio-only file."""
-        return not self.is_video and self.info.sample_rate is not None
+        return not self.is_video and self.info.has_audio

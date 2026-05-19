@@ -14,6 +14,9 @@ def _video_source(
     name: str,
     duration_ms: int = 10_000,
     fps: float = 30.0,
+    sample_rate: int | None = 48_000,
+    audio_channels: int | None = 2,
+    audio_sources: int | None = 1,
 ) -> MediaFile:
     return MediaFile(
         id=source_id,
@@ -24,7 +27,9 @@ def _video_source(
             width=1920,
             height=1080,
             fps=fps,
-            sample_rate=48_000,
+            sample_rate=sample_rate,
+            audio_channels=audio_channels,
+            audio_sources=audio_sources,
         ),
     )
 
@@ -95,6 +100,99 @@ def test_single_source_export_keeps_asset_clip_timeline(tmp_path):
     assert root.find("./resources/media") is None
     assert not root.findall("./library/event/project/sequence/spine/mc-clip")
     assert len(root.findall("./library/event/project/sequence/spine/asset-clip")) == 1
+
+
+def test_asset_audio_metadata_uses_source_values(tmp_path):
+    main = _video_source(
+        tmp_path,
+        "main",
+        "surround.mov",
+        sample_rate=48_000,
+        audio_channels=6,
+        audio_sources=1,
+    )
+    project = Project(
+        name="Surround Source Test",
+        source_files=[main],
+        tracks=[
+            Track(id="main_video", source_file_id="main", track_type=TrackType.VIDEO),
+            Track(id="main_audio", source_file_id="main", track_type=TrackType.AUDIO),
+        ],
+    )
+
+    output_path = tmp_path / "out.fcpxml"
+    asyncio.run(FCPXMLExporter().export(project, output_path))
+
+    root = ET.parse(output_path).getroot()
+    asset = root.find("./resources/asset")
+
+    assert asset is not None
+    assert asset.get("hasAudio") == "1"
+    assert asset.get("audioRate") == "48000"
+    assert asset.get("audioChannels") == "6"
+    assert asset.get("audioSources") == "1"
+
+
+def test_asset_audio_metadata_omits_unknown_counts(tmp_path):
+    main = _video_source(
+        tmp_path,
+        "main",
+        "legacy.mov",
+        sample_rate=48_000,
+        audio_channels=None,
+        audio_sources=None,
+    )
+    project = Project(
+        name="Legacy Source Test",
+        source_files=[main],
+        tracks=[
+            Track(id="main_video", source_file_id="main", track_type=TrackType.VIDEO),
+            Track(id="main_audio", source_file_id="main", track_type=TrackType.AUDIO),
+        ],
+    )
+
+    output_path = tmp_path / "out.fcpxml"
+    asyncio.run(FCPXMLExporter().export(project, output_path))
+
+    root = ET.parse(output_path).getroot()
+    asset = root.find("./resources/asset")
+
+    assert asset is not None
+    assert asset.get("hasAudio") == "1"
+    assert asset.get("audioRate") == "48000"
+    assert "audioChannels" not in asset.attrib
+    assert "audioSources" not in asset.attrib
+
+
+def test_asset_has_audio_when_sample_rate_is_unknown(tmp_path):
+    main = _video_source(
+        tmp_path,
+        "main",
+        "unknown-rate.mov",
+        sample_rate=None,
+        audio_channels=1,
+        audio_sources=1,
+    )
+    project = Project(
+        name="Unknown Rate Source Test",
+        source_files=[main],
+        tracks=[
+            Track(id="main_video", source_file_id="main", track_type=TrackType.VIDEO),
+            Track(id="main_audio", source_file_id="main", track_type=TrackType.AUDIO),
+        ],
+    )
+
+    output_path = tmp_path / "out.fcpxml"
+    asyncio.run(FCPXMLExporter().export(project, output_path))
+
+    root = ET.parse(output_path).getroot()
+    asset = root.find("./resources/asset")
+
+    assert asset is not None
+    assert asset.get("hasAudio") == "1"
+    assert "audioRate" not in asset.attrib
+    assert asset.get("audioChannels") == "1"
+    assert asset.get("audioSources") == "1"
 
 
 def test_timeline_boundaries_use_nearest_primary_frames(tmp_path):

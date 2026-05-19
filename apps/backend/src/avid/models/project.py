@@ -113,7 +113,7 @@ class Project(BaseModel):
             created_tracks.append(video_track)
 
         # Create audio track if audio exists
-        if media_file.info.sample_rate is not None:
+        if media_file.info.has_audio:
             audio_track = Track(
                 id=f"{media_file.id}_audio",
                 source_file_id=media_file.id,

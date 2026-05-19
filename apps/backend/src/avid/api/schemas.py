@@ -92,3 +92,5 @@ class MediaInfoResponse(BaseModel):
     height: int | None = None
     fps: float | None = None
     sample_rate: int | None = None
+    audio_channels: int | None = None
+    audio_sources: int | None = None

@@ -26,6 +26,13 @@ from avid.services.audio_sync import AudioSyncService, SyncResult
 from avid.services.provider_env import build_provider_subprocess_env
 
 
+def _int_or_none(value: object) -> int | None:
+    try:
+        return int(value) or None
+    except (TypeError, ValueError):
+        return None
+
+
 @dataclass
 class SilenceRegion:
     """A detected silence region."""
@@ -692,6 +699,9 @@ class PodcastCutService:
         height = None
         fps = None
         sample_rate = None
+        sample_rates: set[int] = set()
+        audio_channels = 0
+        audio_sources = 0
 
         for stream in data.get("streams", []):
             if stream.get("codec_type") == "video":
@@ -702,7 +712,14 @@ class PodcastCutService:
                     num, den = fps_str.split("/")
                     fps = float(num) / float(den) if float(den) != 0 else None
             elif stream.get("codec_type") == "audio":
-                sample_rate = int(stream.get("sample_rate", 0)) or None
+                audio_sources += 1
+                rate = _int_or_none(stream.get("sample_rate"))
+                if rate:
+                    sample_rates.add(rate)
+                audio_channels += _int_or_none(stream.get("channels")) or 0
+
+        if len(sample_rates) == 1:
+            sample_rate = next(iter(sample_rates))
 
         return MediaInfo(
             duration_ms=int(duration_sec * 1000),
@@ -710,4 +727,6 @@ class PodcastCutService:
             height=height,
             fps=fps,
             sample_rate=sample_rate,
+            audio_channels=audio_channels or None,
+            audio_sources=audio_sources or None,
         )

@@ -30,4 +30,6 @@ async def get_media_info(
         height=info.height,
         fps=info.fps,
         sample_rate=info.sample_rate,
+        audio_channels=info.audio_channels,
+        audio_sources=info.audio_sources,
     )
