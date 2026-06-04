@@ -274,3 +274,55 @@ def test_mixed_rate_multicam_angle_uses_primary_frame_boundary(tmp_path):
     assert clip is not None
     assert clip.get("start") == "0/30000s"
     assert clip.get("duration") == "226/60s"
+
+
+def test_refresh_primary_source_media_updates_info_without_changing_id(tmp_path, monkeypatch):
+    from avid import cli
+
+    main = _video_source(
+        tmp_path,
+        "main",
+        "source.mp4",
+        duration_ms=305_017,
+        fps=60.0,
+        sample_rate=44_100,
+    )
+    project = Project(
+        name="Refresh Source Test",
+        source_files=[main],
+        tracks=[
+            Track(id="main_video", source_file_id="main", track_type=TrackType.VIDEO),
+            Track(id="main_audio", source_file_id="main", track_type=TrackType.AUDIO),
+        ],
+    )
+    refreshed_path = tmp_path / "source.mp4"
+    refreshed_info = MediaInfo(
+        duration_ms=305_000,
+        width=1920,
+        height=1080,
+        fps=60.0,
+        sample_rate=44_100,
+        audio_channels=2,
+        audio_sources=1,
+    )
+
+    async def fake_create_media_file(self, path):
+        return MediaFile(
+            id="new-main-id",
+            path=path,
+            original_name=path.name,
+            info=refreshed_info,
+        )
+
+    monkeypatch.setattr(
+        "avid.services.media.MediaService.create_media_file",
+        fake_create_media_file,
+    )
+
+    asyncio.run(cli._refresh_primary_source_media(project, refreshed_path))
+
+    assert project.source_files[0].id == "main"
+    assert project.source_files[0].path == refreshed_path
+    assert project.source_files[0].original_name == "source.mp4"
+    assert project.source_files[0].info.duration_ms == 305_000
+    assert [track.source_file_id for track in project.tracks] == ["main", "main"]

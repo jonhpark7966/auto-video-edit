@@ -750,6 +750,19 @@ def _strip_extra_sources(project) -> int:
     return removed
 
 
+async def _refresh_primary_source_media(project, source_path: Path) -> None:
+    if not project.source_files:
+        return
+
+    from avid.services.media import MediaService
+
+    refreshed_source = await MediaService().create_media_file(source_path)
+    primary_source = project.source_files[0]
+    primary_source.path = refreshed_source.path
+    primary_source.original_name = refreshed_source.original_name
+    primary_source.info = refreshed_source.info
+
+
 async def _rebuild_multicam_in_place(
     project,
     source_path: Path,
@@ -759,6 +772,7 @@ async def _rebuild_multicam_in_place(
     from avid.services.audio_sync import AudioSyncService
 
     sync_service = AudioSyncService()
+    await _refresh_primary_source_media(project, source_path)
     return await sync_service.add_extra_sources(
         project,
         source_path,
