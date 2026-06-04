@@ -120,7 +120,7 @@ AI provider 를 쓰는 명령은 아래 공통 옵션을 가진다.
 현재 권장 기본 프로필:
 
 - `claude`: `claude-opus-4-6` + `medium`
-- `codex`: `gpt-5.4` + `medium`
+- `codex`: `gpt-5.5` + `xhigh`
 
 세부 규칙과 payload shape 는 [PROVIDER_RUNTIME_SPEC.md](PROVIDER_RUNTIME_SPEC.md) 를 source of truth 로 본다.
 
@@ -244,7 +244,7 @@ avid-cli subtitle-cut lecture.mp4 --srt lecture.srt --context lecture.storyline.
 예시:
 
 ```bash
-avid-cli podcast-cut podcast.mp4 --srt podcast.srt --context podcast.storyline.json -d /tmp/out --provider codex --provider-model gpt-5.4 --provider-effort medium --json
+avid-cli podcast-cut podcast.mp4 --srt podcast.srt --context podcast.storyline.json -d /tmp/out --provider codex --provider-model gpt-5.5 --provider-effort xhigh --json
 ```
 
 ### `avid-cli apply-evaluation`

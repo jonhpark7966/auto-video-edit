@@ -4,19 +4,21 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Mapping
 
 SMOKE_TEST_PROMPT = "Respond with exactly OK"
 
 DEFAULT_PROVIDER_MODELS = {
     "claude": "claude-opus-4-6",
-    "codex": "gpt-5.4",
+    "codex": "gpt-5.5",
 }
 DEFAULT_PROVIDER_EFFORTS = {
     "claude": "medium",
-    "codex": "medium",
+    "codex": "xhigh",
 }
 _PROVIDER_MODEL_ENVS = {
     "claude": "AVID_CLAUDE_MODEL",
@@ -130,11 +132,40 @@ def build_provider_invocation(
             "--sandbox",
             "read-only",
             "--skip-git-repo-check",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--ephemeral",
             "-",
         ]
         return command, prompt, config, command.copy()
 
     raise ValueError(f"unsupported provider: {provider}")
+
+
+def _prepare_provider_env(provider: str) -> dict[str, str] | None:
+    """Prepare provider-specific subprocess environment."""
+    if provider != "codex":
+        return None
+
+    env = os.environ.copy()
+    source_home = Path(env.get("CODEX_HOME") or (Path.home() / ".codex"))
+    writable_home = Path(env.get("AVID_CODEX_WRITABLE_HOME", "/tmp/eogum/codex-home"))
+
+    writable_home.mkdir(parents=True, exist_ok=True)
+    if source_home.exists() and source_home.resolve() != writable_home.resolve():
+        for name in (
+            "auth.json",
+            "config.toml",
+            "installation_id",
+            "version.json",
+            "models_cache.json",
+        ):
+            src = source_home / name
+            if src.is_file():
+                shutil.copy2(src, writable_home / name)
+
+    env["CODEX_HOME"] = str(writable_home)
+    return env
 
 
 def _run_provider_command(
@@ -153,6 +184,7 @@ def _run_provider_command(
             capture_output=True,
             text=True,
             timeout=timeout,
+            env=_prepare_provider_env(provider),
         )
     except FileNotFoundError as exc:
         raise RuntimeError(f"{pretty_name} CLI not found: {binary}") from exc

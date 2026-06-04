@@ -102,8 +102,8 @@ avid-cli transcript-overview \
   -o "$TMP_DIR/02_overview/main_live.storyline.json" \
   --content-type podcast \
   --provider codex \
-  --provider-model gpt-5.4 \
-  --provider-effort medium \
+  --provider-model gpt-5.5 \
+  --provider-effort xhigh \
   --json
 ```
 
@@ -124,8 +124,8 @@ avid-cli podcast-cut \
   --srt "$TMP_DIR/01_transcribe/main_live.srt" \
   --context "$TMP_DIR/02_overview/main_live.storyline.json" \
   --provider codex \
-  --provider-model gpt-5.4 \
-  --provider-effort medium \
+  --provider-model gpt-5.5 \
+  --provider-effort xhigh \
   -d "$TMP_DIR/03_cut" \
   --json
 ```

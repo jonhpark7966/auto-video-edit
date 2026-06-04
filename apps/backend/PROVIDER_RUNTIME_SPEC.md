@@ -7,14 +7,14 @@
 
 2026-03-13 기준 로컬에서 아주 작은 smoke call 로 아래를 확인했다.
 
-- `codex exec -m gpt-5.4 -c 'model_reasoning_effort="medium"' ...` 는 실제 응답을 반환했다.
+- `codex exec -m gpt-5.5 -c 'model_reasoning_effort="xhigh"' ...` 는 실제 응답을 반환했다.
 - `claude -p --model claude-opus-4-6 --effort medium ...` 는 실제 응답을 반환했다.
 - 현재 `eogum` 은 provider 이름만 넘기고, model/effort 는 `auto-video-edit` 내부 구현에 묻혀 있다.
 
 현재 구현 상태:
 
 - `claude`, `codex` 모두 model/effort 를 CLI 와 env 로 제어할 수 있다.
-- 기본 프로필은 `claude-opus-4-6 + medium`, `gpt-5.4 + medium` 이다.
+- 기본 프로필은 `claude-opus-4-6 + medium`, `gpt-5.5 + xhigh` 이다.
 - `doctor` 기본 실행은 빠른 provider binary check 위주로 동작하고, 정밀 probe 는 `--probe-providers` 일 때만 수행한다.
 
 ## 2. 목표 상태
@@ -42,7 +42,7 @@
 초기 기본값은 아래처럼 둔다.
 
 - `claude`: model `claude-opus-4-6`, effort `medium`
-- `codex`: model `gpt-5.4`, effort `medium`
+- `codex`: model `gpt-5.5`, effort `xhigh`
 
 이 값들은 product default 일 뿐이고, external contract 로는 고정하지 않는다.
 계속 바뀔 수 있으므로 env 나 CLI flag 로 쉽게 덮어써야 한다.
@@ -104,7 +104,7 @@ codex exec \
 - model 이름은 string passthrough 로 둔다.
 - reasoning effort 도 string passthrough 로 둔다.
 - trusted directory 검사에 걸리지 않도록 `--skip-git-repo-check` 를 항상 포함한다.
-- 현재 추천 baseline 은 `gpt-5.4` + `medium` 이다.
+- 현재 추천 baseline 은 `gpt-5.5` + `xhigh` 이다.
 
 ## 6. CLI API Spec
 
@@ -143,8 +143,8 @@ avid-cli doctor --json
 avid-cli doctor \
   --provider codex \
   --probe-providers \
-  --provider-model gpt-5.4 \
-  --provider-effort medium \
+  --provider-model gpt-5.5 \
+  --provider-effort xhigh \
   --json
 ```
 
@@ -202,8 +202,8 @@ AI 관련 명령의 `--json` 결과에는 resolved provider config 를 넣는다
   },
   "provider_config": {
     "provider": "codex",
-    "model": "gpt-5.4",
-    "effort": "medium",
+    "model": "gpt-5.5",
+    "effort": "xhigh",
     "source": {
       "provider": "cli",
       "model": "cli",
@@ -214,7 +214,7 @@ AI 관련 명령의 `--json` 결과에는 resolved provider config 를 넣는다
     "status": "ok",
     "prompt": "Respond with exactly OK",
     "response": "OK",
-    "argv_summary": ["codex", "exec", "-m", "gpt-5.4"]
+    "argv_summary": ["codex", "exec", "-m", "gpt-5.5"]
   }
 }
 ```
@@ -247,7 +247,7 @@ AI 관련 명령의 `--json` 결과에는 resolved provider config 를 넣는다
 - `doctor --json` 이 기본적으로 `claude`, `codex` 둘 다 binary-only check 하는지
 - `doctor --probe-providers --json` 이 실제 `claude`, `codex` 둘 다 probe 하는지
 - `doctor --provider claude --probe-providers --provider-model claude-opus-4-6 --provider-effort medium --json`
-- `doctor --provider codex --probe-providers --provider-model gpt-5.4 --provider-effort medium --json`
+- `doctor --provider codex --probe-providers --provider-model gpt-5.5 --provider-effort xhigh --json`
 - multi-provider 기본 실행은 `provider_configs` 를 포함하고 `provider_probes` 는 비어 있는지
 - single-provider probe 실행은 `provider_config` 와 `provider_probe` 를 포함하는지
 - actual response 가 `OK` 인지
@@ -268,8 +268,8 @@ AI 관련 명령의 `--json` 결과에는 resolved provider config 를 넣는다
 
 - Claude alias model: `opus`
 - Claude full model: `claude-opus-4-6`
-- Codex baseline model: `gpt-5.4`
-- Codex effort override: `low`, `medium`
+- Codex baseline model: `gpt-5.5`
+- Codex effort override: `low`, `medium`, `high`, `xhigh`
 
 matrix 는 env 로 확장 가능하게 둔다.
 

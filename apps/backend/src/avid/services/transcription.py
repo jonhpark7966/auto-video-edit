@@ -51,7 +51,12 @@ class ChalnaResult:
     segments: list[ChalnaSegment]
     language: str
     full_text: str
-    progress_history: list[str]
+    progress_history: list[dict[str, Any]]
+    raw_srt: str | None = None
+    aligned_srt: str | None = None
+    refined_srt: str | None = None
+    refined: bool | None = None
+    metadata: dict[str, Any] | None = None
 
 
 # Progress callback type: (progress: float 0-1, status: str) -> None
@@ -185,6 +190,7 @@ class ChalnaTranscriptionService:
                     "use_alignment": str(use_alignment).lower(),
                     "use_llm_refinement": str(use_llm_refinement).lower(),
                     "output_format": "json",  # Request JSON format for segments
+                    "include_intermediate": "true",
                 }
                 if context:
                     data["context"] = context
@@ -338,6 +344,12 @@ class ChalnaTranscriptionService:
         ]
 
         metadata = result_data.get("metadata", {})
+        if not isinstance(metadata, dict):
+            metadata = {}
+
+        refined = data.get("refined")
+        if refined is None:
+            refined = metadata.get("refined")
 
         return ChalnaResult(
             task_id=task_id,
@@ -346,6 +358,11 @@ class ChalnaTranscriptionService:
             language=metadata.get("language", result_data.get("language", "ko")),
             full_text=result_data.get("text", ""),
             progress_history=data.get("progress_history", []),
+            raw_srt=data.get("raw_srt") or result_data.get("raw_srt"),
+            aligned_srt=data.get("aligned_srt") or result_data.get("aligned_srt"),
+            refined_srt=data.get("refined_srt") or result_data.get("refined_srt"),
+            refined=refined,
+            metadata=metadata,
         )
 
 

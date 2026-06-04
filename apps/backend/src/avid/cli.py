@@ -236,12 +236,33 @@ async def cmd_transcribe(args: argparse.Namespace) -> dict[str, Any]:
     print(f"  세그먼트: {len(result.segments)}개")
     print(f"\n완료: {srt_path}")
 
+    artifacts = {"srt": str(srt_path)}
+    intermediate_outputs = [
+        ("srt_raw", result.raw_srt, f"{video_path.stem}_1_raw.srt"),
+        ("srt_aligned", result.aligned_srt, f"{video_path.stem}_2_aligned.srt"),
+        ("srt_refined", result.refined_srt, f"{video_path.stem}_3_refined.srt"),
+    ]
+    for artifact_key, content, filename in intermediate_outputs:
+        if not content:
+            continue
+        intermediate_path = output_dir / filename
+        intermediate_path.write_text(content, encoding="utf-8")
+        artifacts[artifact_key] = str(intermediate_path)
+
+    metadata = result.metadata or {}
     return _payload(
         "transcribe",
-        artifacts={"srt": str(srt_path)},
+        artifacts=artifacts,
         stats={
             "segments": len(result.segments),
             "language": args.language,
+            "progress_history": result.progress_history,
+            "metadata": metadata,
+            "aligned": metadata.get("aligned"),
+            "refined": result.refined,
+            "has_raw_srt": bool(result.raw_srt),
+            "has_aligned_srt": bool(result.aligned_srt),
+            "has_refined_srt": bool(result.refined_srt),
         },
     )
 
