@@ -1,0 +1,11 @@
+{
+	"nodes":[
+		{"id":"61de2b364f69b1cd","type":"text","text":"word\n---\nedit decision\nstart time\nend time\ntext","x":-240,"y":-120,"width":145,"height":180},
+		{"id":"a11e26ae2572b2e7","type":"text","text":"edit decision\n---\n\ndecision (cut, mute, speedup)\nconfidence,\ntrack (for multicam)\nreason, ..","x":0,"y":-160,"width":420,"height":260},
+		{"id":"1c30e7678db7ed40","type":"text","text":"segments (chalna srt 조각)\n---\nconstructor import(file srt)\n\n---\nwords\nspeaker_id\nindex\n\n중간에 cut 된 word 들이 존재할 수 있음 --> fcp export 잘린 clip 으로 나가야 함\n","x":-362,"y":-460,"width":572,"height":260}
+	],
+	"edges":[
+		{"id":"c8fecf2e15427dfb","fromNode":"61de2b364f69b1cd","fromSide":"right","toNode":"a11e26ae2572b2e7","toSide":"left","toEnd":"none"},
+		{"id":"bab2aeffe8653787","fromNode":"61de2b364f69b1cd","fromSide":"top","toNode":"1c30e7678db7ed40","toSide":"bottom","toEnd":"none"}
+	]
+}
