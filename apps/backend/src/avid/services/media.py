@@ -41,11 +41,9 @@ def _rate_to_float(value: object) -> float | None:
 
 
 def _video_stream_duration_ms(stream: dict, fps: float | None) -> int | None:
-    duration = _float_or_none(stream.get("duration"))
-    if duration is not None:
-        return int(duration * 1000)
-
-    frames = _int_or_none(stream.get("nb_frames"))
+    frames = _int_or_none(stream.get("nb_frames")) or _int_or_none(
+        stream.get("nb_read_frames")
+    )
     if frames is not None and fps:
         return int(frames / fps * 1000)
 
@@ -53,6 +51,10 @@ def _video_stream_duration_ms(stream: dict, fps: float | None) -> int | None:
     time_base = _rate_to_float(stream.get("time_base"))
     if duration_ts is not None and time_base:
         return int(duration_ts * time_base * 1000)
+
+    duration = _float_or_none(stream.get("duration"))
+    if duration is not None:
+        return int(duration * 1000)
 
     return None
 
@@ -73,6 +75,7 @@ class MediaService:
             "ffprobe",
             "-v", "quiet",
             "-print_format", "json",
+            "-count_frames",
             "-show_format",
             "-show_streams",
             str(path),

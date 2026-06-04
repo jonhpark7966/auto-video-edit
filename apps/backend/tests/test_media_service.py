@@ -49,6 +49,7 @@ def test_get_media_info_extracts_audio_channels_and_sources(monkeypatch, tmp_pat
 
 def test_get_media_info_prefers_video_frame_duration(monkeypatch, tmp_path):
     def fake_run(cmd, capture_output, text):
+        assert "-count_frames" in cmd
         return subprocess.CompletedProcess(
             cmd,
             0,
@@ -61,7 +62,8 @@ def test_get_media_info_prefers_video_frame_duration(monkeypatch, tmp_path):
                             "width": 1920,
                             "height": 1080,
                             "r_frame_rate": "60/1",
-                            "nb_frames": "18300",
+                            "duration": "305.017",
+                            "nb_read_frames": "18300",
                         },
                         {
                             "codec_type": "audio",
