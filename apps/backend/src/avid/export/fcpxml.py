@@ -423,7 +423,7 @@ class FCPXMLExporter(ProjectExporter):
             next_resource_id += 1
             asset_map[source_file.id] = asset_id
 
-            src_format_id, _ = source_format_map[source_file.id]
+            src_format_id, src_fps = source_format_map[source_file.id]
 
             # Build asset attributes matching FCP's export format
             # Note: uid is omitted - FCP uses file hash for uid, using arbitrary values causes crashes
@@ -437,9 +437,13 @@ class FCPXMLExporter(ProjectExporter):
                 "hasAudio": "1" if has_audio else "0",
             }
 
-            # Add duration in milliseconds/1000s format (FCP standard)
+            # Add duration. Video assets use frame-aligned stream duration so
+            # FCP relink does not reject files because of audio/container padding.
             if source_file.info and source_file.info.duration_ms:
-                asset_attrs["duration"] = f"{source_file.info.duration_ms}/1000s"
+                if source_file.is_video:
+                    asset_attrs["duration"] = self._source_duration_time(source_file, src_fps)
+                else:
+                    asset_attrs["duration"] = f"{source_file.info.duration_ms}/1000s"
 
             # Add audio info if available
             if source_file.info:
@@ -506,6 +510,7 @@ class FCPXMLExporter(ProjectExporter):
             multicam_media_id, multicam_angle_map,
         )
 
+        self._validate_asset_clip_bounds(fcpxml)
         return fcpxml
 
     def _calculate_kept_duration(self, project: Project) -> int:
@@ -581,6 +586,7 @@ class FCPXMLExporter(ProjectExporter):
             return
 
         total_duration_ms = source.info.duration_ms
+        source_duration_frames = self._source_duration_frames(source, fps)
 
         # Resolve extra sources once for use in connected clips
         extra_tracks = self._get_extra_source_tracks(project, primary_track)
@@ -588,7 +594,7 @@ class FCPXMLExporter(ProjectExporter):
 
         # If no edit decisions, simple timeline with single clip
         if not project.edit_decisions:
-            duration_frames = self._ms_to_frames_nearest(total_duration_ms, fps)
+            duration_frames = source_duration_frames
             if use_multicam:
                 clip_elem = ET.SubElement(
                     spine,
@@ -726,7 +732,10 @@ class FCPXMLExporter(ProjectExporter):
         # Convert to frame units (for 23.976fps: units of 1001/24000s)
         ms_to_frames_map: dict[int, int] = {}
         for ms in boundary_points_ms:
-            frames = self._ms_to_frames_nearest(ms, fps)
+            frames = self._clamp_frame(
+                self._ms_to_frames_nearest(ms, fps),
+                source_duration_frames,
+            )
             ms_to_frames_map[ms] = frames
 
         # Create clips for each segment using pre-calculated frame positions
@@ -865,6 +874,7 @@ class FCPXMLExporter(ProjectExporter):
             ("r1", primary_fps),
         )
         source_duration_ms = source.info.duration_ms
+        source_duration_frames = self._source_duration_frames(source, source_fps)
 
         if track.offset_ms > 0:
             offset_frames = self._ms_to_frames_nearest(track.offset_ms, primary_fps)
@@ -887,10 +897,17 @@ class FCPXMLExporter(ProjectExporter):
         if source_start_ms >= source_duration_ms:
             return
 
-        source_start_frames = self._ms_to_frames_nearest(source_start_ms, source_fps)
-        timeline_duration_frames = self._ms_to_frames_nearest(
-            source_duration_ms - source_start_ms,
-            primary_fps,
+        source_start_frames = self._clamp_frame(
+            self._ms_to_frames_nearest(source_start_ms, source_fps),
+            source_duration_frames,
+        )
+        available_source_ms = self._frames_to_ms(
+            source_duration_frames - source_start_frames,
+            source_fps,
+        )
+        timeline_duration_frames = min(
+            self._ms_to_frames(source_duration_ms - source_start_ms, primary_fps),
+            self._ms_to_frames(available_source_ms, primary_fps),
         )
         if timeline_duration_frames <= 0:
             return
@@ -1013,6 +1030,7 @@ class FCPXMLExporter(ProjectExporter):
             extra_fps = primary_fps
             if source_format_map and source.id in source_format_map:
                 extra_format_id, extra_fps = source_format_map[source.id]
+            extra_duration_frames = self._source_duration_frames(source, extra_fps)
 
             # track.offset_ms = when the extra track starts on the unified timeline.
             # So extra_source_time = unified_time - track.offset_ms.
@@ -1027,8 +1045,19 @@ class FCPXMLExporter(ProjectExporter):
             if extra_end_ms <= extra_start_ms:
                 continue
 
-            extra_start_frames = self._ms_to_frames_nearest(extra_start_ms, extra_fps)
-            if timeline_duration_frames <= 0:
+            extra_start_frames = self._clamp_frame(
+                self._ms_to_frames_nearest(extra_start_ms, extra_fps),
+                extra_duration_frames,
+            )
+            available_extra_ms = self._frames_to_ms(
+                extra_duration_frames - extra_start_frames,
+                extra_fps,
+            )
+            connected_duration_frames = min(
+                timeline_duration_frames,
+                self._ms_to_frames(available_extra_ms, primary_fps),
+            )
+            if connected_duration_frames <= 0:
                 continue
 
             attrs = {
@@ -1039,7 +1068,7 @@ class FCPXMLExporter(ProjectExporter):
                 # is already represented by ``start`` below.
                 "offset": self._ms_to_time(0, primary_fps),
                 "start": self._frames_to_time(extra_start_frames, extra_fps),
-                "duration": self._frames_to_time(timeline_duration_frames, primary_fps),
+                "duration": self._frames_to_time(connected_duration_frames, primary_fps),
                 "format": extra_format_id,
                 "tcFormat": "NDF",
                 "name": source.original_name,
@@ -1299,6 +1328,56 @@ class FCPXMLExporter(ProjectExporter):
                     result[i] = (start, end, False)
 
         return result
+
+    def _source_duration_frames(self, source: MediaFile, fps: float) -> int:
+        """Return the frame count FCP may safely reference for a source."""
+        if not source.info or not source.info.duration_ms:
+            return 0
+        return max(0, self._ms_to_frames_nearest(source.info.duration_ms, fps))
+
+    def _source_duration_time(self, source: MediaFile, fps: float) -> str:
+        """Return frame-aligned source duration for FCPXML asset metadata."""
+        return self._frames_to_time(self._source_duration_frames(source, fps), fps)
+
+    def _clamp_frame(self, frame: int, max_frames: int) -> int:
+        return max(0, min(frame, max_frames))
+
+    def _time_to_seconds(self, value: str | None) -> float:
+        if not value:
+            return 0.0
+        raw = value[:-1] if value.endswith("s") else value
+        if "/" in raw:
+            num, den = raw.split("/", 1)
+            den_float = float(den)
+            if den_float == 0:
+                return 0.0
+            return float(num) / den_float
+        return float(raw)
+
+    def _validate_asset_clip_bounds(self, root: ET.Element) -> None:
+        """Ensure exported asset clips do not reference beyond source duration."""
+        asset_durations: dict[str, float] = {}
+        for asset in root.findall("./resources/asset"):
+            asset_id = asset.get("id")
+            duration = asset.get("duration")
+            if asset_id and duration:
+                asset_durations[asset_id] = self._time_to_seconds(duration)
+
+        for clip in root.findall(".//asset-clip"):
+            ref = clip.get("ref")
+            if ref not in asset_durations:
+                continue
+
+            start = self._time_to_seconds(clip.get("start"))
+            duration = self._time_to_seconds(clip.get("duration"))
+            asset_duration = asset_durations[ref]
+            if start + duration > asset_duration + 1e-6:
+                name = clip.get("name") or ref
+                raise ValueError(
+                    "FCPXML asset clip exceeds source duration: "
+                    f"{name} start={start:.6f}s duration={duration:.6f}s "
+                    f"asset_duration={asset_duration:.6f}s"
+                )
 
     def _ms_to_frames(self, ms: int | float, fps: float) -> int:
         """Convert milliseconds to frame count (floor).

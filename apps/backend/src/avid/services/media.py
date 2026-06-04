@@ -15,6 +15,48 @@ def _int_or_none(value: object) -> int | None:
         return None
 
 
+def _float_or_none(value: object) -> float | None:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _rate_to_float(value: object) -> float | None:
+    if not isinstance(value, str) or not value:
+        return _float_or_none(value)
+    if "/" not in value:
+        return _float_or_none(value)
+
+    try:
+        num, den = value.split("/", 1)
+        den_float = float(den)
+        if den_float == 0:
+            return None
+        parsed = float(num) / den_float
+    except ValueError:
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _video_stream_duration_ms(stream: dict, fps: float | None) -> int | None:
+    duration = _float_or_none(stream.get("duration"))
+    if duration is not None:
+        return int(duration * 1000)
+
+    frames = _int_or_none(stream.get("nb_frames"))
+    if frames is not None and fps:
+        return int(frames / fps * 1000)
+
+    duration_ts = _int_or_none(stream.get("duration_ts"))
+    time_base = _rate_to_float(stream.get("time_base"))
+    if duration_ts is not None and time_base:
+        return int(duration_ts * time_base * 1000)
+
+    return None
+
+
 class MediaService:
     """FFmpeg-based media operations service."""
 
@@ -45,9 +87,12 @@ class MediaService:
 
         data = json.loads(result.stdout)
 
-        # Extract duration from format
+        # Extract duration from format. Video files prefer the video stream
+        # length below so audio/container padding does not create FCP relink
+        # overruns by a frame.
         duration_sec = float(data.get("format", {}).get("duration", 0))
-        duration_ms = int(duration_sec * 1000)
+        format_duration_ms = int(duration_sec * 1000)
+        video_duration_ms = None
 
         # Find video and audio streams
         width = None
@@ -63,10 +108,12 @@ class MediaService:
                 width = stream.get("width")
                 height = stream.get("height")
                 # Parse frame rate (e.g., "30/1" or "30000/1001")
-                fps_str = stream.get("r_frame_rate", "0/1")
-                if "/" in fps_str:
-                    num, den = fps_str.split("/")
-                    fps = float(num) / float(den) if float(den) != 0 else None
+                fps = (
+                    _rate_to_float(stream.get("avg_frame_rate"))
+                    or _rate_to_float(stream.get("r_frame_rate"))
+                )
+                if video_duration_ms is None:
+                    video_duration_ms = _video_stream_duration_ms(stream, fps)
             elif stream.get("codec_type") == "audio":
                 audio_sources += 1
                 rate = _int_or_none(stream.get("sample_rate"))
@@ -78,7 +125,7 @@ class MediaService:
             sample_rate = next(iter(sample_rates))
 
         return MediaInfo(
-            duration_ms=duration_ms,
+            duration_ms=video_duration_ms or format_duration_ms,
             width=width,
             height=height,
             fps=fps,
