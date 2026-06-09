@@ -592,6 +592,82 @@ def _transcription_segment_lookup(project: Any) -> dict[int, Any]:
     }
 
 
+def _valid_segment_time(seg: dict[str, Any], fallback: Any | None = None) -> tuple[int, int] | None:
+    start = seg.get("start_ms")
+    end = seg.get("end_ms")
+    if start is None and fallback is not None:
+        start = fallback.start_ms
+    if end is None and fallback is not None:
+        end = fallback.end_ms
+    try:
+        start_ms = int(start)
+        end_ms = int(end)
+    except (TypeError, ValueError):
+        return None
+    if end_ms <= start_ms:
+        return None
+    return start_ms, end_ms
+
+
+def _merged_ranges(ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted((s, e) for s, e in ranges if e > s):
+        if not merged or start > merged[-1][1]:
+            merged.append((start, end))
+            continue
+        merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+    return merged
+
+
+def _subtract_ranges(
+    start_ms: int,
+    end_ms: int,
+    protected_ranges: list[tuple[int, int]],
+) -> list[tuple[int, int]]:
+    pieces: list[tuple[int, int]] = []
+    cursor = start_ms
+    for protected_start, protected_end in protected_ranges:
+        if protected_end <= cursor:
+            continue
+        if protected_start >= end_ms:
+            break
+        if protected_start > cursor:
+            pieces.append((cursor, min(protected_start, end_ms)))
+        cursor = max(cursor, protected_end)
+        if cursor >= end_ms:
+            break
+    if cursor < end_ms:
+        pieces.append((cursor, end_ms))
+    return pieces
+
+
+def _edit_reason_from_value(value: Any, fallback: Any):
+    from avid.models.timeline import EditReason
+
+    try:
+        return EditReason(value)
+    except Exception:
+        return fallback
+
+
+def _edit_type_from_value(value: Any, fallback: Any):
+    from avid.models.timeline import EditType
+
+    try:
+        return EditType(value)
+    except Exception:
+        return fallback
+
+
+def _origin_kind_from_value(value: Any, fallback: Any):
+    from avid.models.timeline import EditOriginKind
+
+    try:
+        return EditOriginKind(value)
+    except Exception:
+        return fallback
+
+
 def _apply_evaluation_index_patch(project: Any, eval_segments: list[dict[str, Any]]) -> tuple[int, int, str]:
     from avid.models.timeline import EditDecision, EditOriginKind, EditReason, EditType, TimeRange
 
@@ -608,45 +684,84 @@ def _apply_evaluation_index_patch(project: Any, eval_segments: list[dict[str, An
         primary_audio_track_ids = [t.id for t in audio_tracks]
 
     segment_lookup = _transcription_segment_lookup(project)
-    human_overrides = []
+    eval_by_index: dict[int, dict[str, Any]] = {}
+    protected_ranges: list[tuple[int, int]] = []
+    human_override_count = 0
     for seg in eval_segments:
+        seg_index = seg.get("index")
+        if seg_index is None:
+            continue
+        try:
+            normalized_index = int(seg_index)
+        except (TypeError, ValueError):
+            continue
+
+        fallback_segment = segment_lookup.get(normalized_index)
+        time_range = _valid_segment_time(seg, fallback_segment)
+        if time_range is None:
+            continue
+
+        eval_by_index[normalized_index] = seg
+        protected_ranges.append(time_range)
         human = seg.get("human")
         if human:
-            seg_index = seg.get("index")
-            if seg_index is None:
-                continue
-            human_overrides.append((int(seg_index), human["action"], seg.get("start_ms"), seg.get("end_ms")))
+            human_override_count += 1
 
-    if not human_overrides:
+    if not eval_by_index:
         return 0, 0, "source_segment_index"
 
     original_count = len(project.edit_decisions)
-    override_indices = {seg_index for seg_index, _, _, _ in human_overrides}
+    eval_indices = set(eval_by_index)
+    protected_ranges = _merged_ranges(protected_ranges)
 
     new_decisions = []
     for ed in project.edit_decisions:
         if ed.reason == EditReason.SILENCE:
-            new_decisions.append(ed)
+            remaining_ranges = _subtract_ranges(
+                ed.range.start_ms,
+                ed.range.end_ms,
+                protected_ranges,
+            )
+            for start_ms, end_ms in remaining_ranges:
+                new_decisions.append(ed.model_copy(update={
+                    "range": TimeRange(start_ms=start_ms, end_ms=end_ms),
+                }))
             continue
-        if ed.source_segment_index in override_indices:
+        if ed.source_segment_index in eval_indices:
             continue
         new_decisions.append(ed)
 
     cuts_added = 0
-    for seg_index, action, fallback_start, fallback_end in human_overrides:
+    for seg_index in sorted(eval_by_index):
+        seg = eval_by_index[seg_index]
+        human = seg.get("human")
+        ai = seg.get("ai") or {}
+        action = (human or ai or {}).get("action", "keep")
         if action == "cut":
             segment = segment_lookup.get(seg_index)
-            start_ms = segment.start_ms if segment is not None else int(fallback_start)
-            end_ms = segment.end_ms if segment is not None else int(fallback_end)
+            time_range = _valid_segment_time(seg, segment)
+            if time_range is None:
+                continue
+            start_ms, end_ms = time_range
+            is_human_override = human is not None
+            edit_type = EditType.CUT if is_human_override else _edit_type_from_value(ai.get("edit_type"), EditType.CUT)
+            reason = EditReason.MANUAL if is_human_override else _edit_reason_from_value(ai.get("reason"), EditReason.MANUAL)
+            origin_kind = (
+                EditOriginKind.MANUAL_OVERRIDE
+                if is_human_override
+                else _origin_kind_from_value(ai.get("origin_kind"), EditOriginKind.CONTENT_SEGMENT)
+            )
+            confidence = 1.0 if is_human_override else float(ai.get("confidence") or 1.0)
+            note = "human evaluation override" if is_human_override else ai.get("note")
             new_decisions.append(EditDecision(
                 range=TimeRange(start_ms=start_ms, end_ms=end_ms),
-                edit_type=EditType.CUT,
-                reason=EditReason.MANUAL,
-                confidence=1.0,
-                note="human evaluation override",
+                edit_type=edit_type,
+                reason=reason,
+                confidence=confidence,
+                note=note,
                 active_video_track_id=primary_video_track_id,
                 active_audio_track_ids=primary_audio_track_ids,
-                origin_kind=EditOriginKind.MANUAL_OVERRIDE,
+                origin_kind=origin_kind,
                 source_segment_index=seg_index,
             ))
             cuts_added += 1
@@ -655,7 +770,7 @@ def _apply_evaluation_index_patch(project: Any, eval_segments: list[dict[str, An
     project.edit_decisions = new_decisions
 
     changes = abs(original_count - len(new_decisions)) + cuts_added
-    return len(human_overrides), changes, "source_segment_index"
+    return human_override_count, changes, "source_segment_index"
 
 
 def _apply_evaluation_overlap_patch(project: Any, eval_segments: list[dict[str, Any]]) -> tuple[int, int, str]:
@@ -867,6 +982,43 @@ def _match_overlap_review_decision(project: Any, seg_start: int, seg_end: int) -
     return _select_review_decision(candidates)
 
 
+def _adjust_review_segment_boundaries(segments: list[Any]) -> dict[int, tuple[int, int]]:
+    valid: list[tuple[int, int, int, int]] = []
+    for position, segment in enumerate(segments):
+        segment_index = _segment_identity(segment, position)
+        try:
+            start_ms = int(segment.start_ms)
+            end_ms = int(segment.end_ms)
+        except (TypeError, ValueError):
+            continue
+        if end_ms <= start_ms:
+            continue
+        valid.append((position, segment_index, start_ms, end_ms))
+
+    adjusted: dict[int, tuple[int, int]] = {}
+    if not valid:
+        return adjusted
+
+    starts = {position: start_ms for position, _, start_ms, _ in valid}
+    ends = {position: end_ms for position, _, _, end_ms in valid}
+
+    for current, following in zip(valid, valid[1:]):
+        current_position, _, _, current_end = current
+        next_position, _, next_start, _ = following
+        boundary = (current_end + next_start) // 2
+        ends[current_position] = boundary
+        starts[next_position] = boundary
+
+    for position, segment_index, raw_start, raw_end in valid:
+        start_ms = starts[position]
+        end_ms = ends[position]
+        if end_ms <= start_ms:
+            start_ms = raw_start
+            end_ms = raw_end
+        adjusted[segment_index] = (start_ms, end_ms)
+    return adjusted
+
+
 def _build_review_segments_payload(project_json_path: Path, project: Any) -> dict[str, Any]:
     if not project.transcription or not project.transcription.segments:
         raise RuntimeError("review-segments requires transcription.segments in project JSON")
@@ -878,6 +1030,7 @@ def _build_review_segments_payload(project_json_path: Path, project: Any) -> dic
         indexed_decisions.setdefault(int(decision.source_segment_index), []).append(decision)
 
     legacy_overlap_fallback = not indexed_decisions
+    adjusted_boundaries = _adjust_review_segment_boundaries(project.transcription.segments)
     review_segments = []
     for position, segment in enumerate(project.transcription.segments):
         if segment.end_ms <= segment.start_ms:
@@ -894,11 +1047,14 @@ def _build_review_segments_payload(project_json_path: Path, project: Any) -> dic
             decision = _match_overlap_review_decision(project, segment.start_ms, segment.end_ms)
         else:
             decision = _select_review_decision(indexed_decisions.get(segment_index, []))
+        adjusted_start_ms, adjusted_end_ms = adjusted_boundaries.get(segment_index, (segment.start_ms, segment.end_ms))
 
         review_segments.append({
             "index": segment_index,
-            "start_ms": segment.start_ms,
-            "end_ms": segment.end_ms,
+            "start_ms": adjusted_start_ms,
+            "end_ms": adjusted_end_ms,
+            "raw_start_ms": segment.start_ms,
+            "raw_end_ms": segment.end_ms,
             "text": segment.text,
             "speaker": segment.speaker,
             "ai": _review_ai_payload(decision) if decision else None,
@@ -911,6 +1067,7 @@ def _build_review_segments_payload(project_json_path: Path, project: Any) -> dic
             "segments": len(review_segments),
             "indexed_decisions": sum(len(items) for items in indexed_decisions.values()),
             "legacy_overlap_fallback": legacy_overlap_fallback,
+            "boundary_strategy": "midpoint_between_transcript_segments",
         },
         schema_version="review-segments/v1",
         project_json=str(project_json_path),
