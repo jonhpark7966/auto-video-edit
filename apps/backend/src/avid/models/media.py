@@ -16,6 +16,16 @@ class MediaInfo(BaseModel):
     sample_rate: int | None = Field(None, description="Audio sample rate in Hz")
     audio_channels: int | None = Field(None, description="Total number of audio channels")
     audio_sources: int | None = Field(None, description="Number of audio streams/sources")
+    video_frame_count: int | None = Field(None, description="Video stream frame count")
+    frame_duration: str | None = Field(
+        None,
+        description="Video frame duration as rational seconds, e.g. 1001/30000",
+    )
+    video_duration: str | None = Field(None, description="Video duration as rational seconds")
+    audio_sample_rate: int | None = Field(None, description="Audio stream sample rate in Hz")
+    audio_sample_count: int | None = Field(None, description="Audio stream sample count")
+    start_time: str | None = Field(None, description="Container or stream start time")
+    time_base: str | None = Field(None, description="Video stream time base")
 
     @property
     def duration_seconds(self) -> float:

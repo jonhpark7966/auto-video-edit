@@ -2,13 +2,14 @@
 
 import math
 import xml.etree.ElementTree as ET
+from fractions import Fraction
 from pathlib import Path
 
 from avid.export.base import ProjectExporter
-from avid.models.project import Project, TranscriptSegment
-from avid.models.timeline import EditDecision, EditReason, EditType
 from avid.models.media import MediaFile
-from avid.models.track import Track, TrackType
+from avid.models.project import Project
+from avid.models.timeline import EditDecision, EditReason, EditType
+from avid.models.track import Track
 
 
 class FCPXMLExporter(ProjectExporter):
@@ -67,6 +68,10 @@ class FCPXMLExporter(ProjectExporter):
         root = self._create_fcpxml_structure(
             processed_project, show_disabled_cuts, merge_short_gaps_ms
         )
+        validation_errors = self._validate_time_domains(root)
+        if validation_errors:
+            sample = "; ".join(validation_errors[:5])
+            raise RuntimeError(f"FCPXML time validation failed: {sample}")
         tree = ET.ElementTree(root)
 
         # Ensure output path has correct extension
@@ -426,7 +431,7 @@ class FCPXMLExporter(ProjectExporter):
             src_format_id, src_fps = source_format_map[source_file.id]
 
             # Build asset attributes matching FCP's export format
-            # Note: uid is omitted - FCP uses file hash for uid, using arbitrary values causes crashes
+            # Note: uid is omitted. Arbitrary values can crash FCP.
             has_audio = bool(source_file.info and source_file.info.has_audio)
             asset_attrs = {
                 "id": asset_id,
@@ -905,11 +910,11 @@ class FCPXMLExporter(ProjectExporter):
             source_duration_frames - source_start_frames,
             source_fps,
         )
-        timeline_duration_frames = min(
-            self._ms_to_frames(source_duration_ms - source_start_ms, primary_fps),
-            self._ms_to_frames(available_source_ms, primary_fps),
+        source_clip_duration_frames = min(
+            self._ms_to_frames(source_duration_ms - source_start_ms, source_fps),
+            self._ms_to_frames(available_source_ms, source_fps),
         )
-        if timeline_duration_frames <= 0:
+        if source_clip_duration_frames <= 0:
             return
 
         ET.SubElement(
@@ -919,7 +924,7 @@ class FCPXMLExporter(ProjectExporter):
             offset=clip_offset,
             name=source.original_name,
             start=self._frames_to_time(source_start_frames, source_fps),
-            duration=self._frames_to_time(timeline_duration_frames, primary_fps),
+            duration=self._frames_to_time(source_clip_duration_frames, source_fps),
             format=source_format_id,
             tcFormat="NDF",
         )
@@ -994,8 +999,7 @@ class FCPXMLExporter(ProjectExporter):
 
         Each connected clip lives in its own lane (negative lane numbers).
         The ``offset`` uses the **primary** (sequence) fps so it aligns to
-        the timeline grid. ``duration`` also uses the primary fps, because it
-        describes the connected clip's timeline span. ``start`` uses the extra
+        the parent timeline grid. ``start`` and ``duration`` use the extra
         source's own fps so FCP can seek accurately in the source media.
 
         Args:
@@ -1016,8 +1020,6 @@ class FCPXMLExporter(ProjectExporter):
         if clip_duration_ms <= 0:
             return
 
-        # All connected clips use the primary (sequence) format so timing
-        # is consistent and FCP scales resolution automatically.
         primary_format_id = parent_clip.get("format", "r1")
 
         for track, source, lane in extra_tracks:
@@ -1049,15 +1051,14 @@ class FCPXMLExporter(ProjectExporter):
                 self._ms_to_frames_nearest(extra_start_ms, extra_fps),
                 extra_duration_frames,
             )
-            available_extra_ms = self._frames_to_ms(
+            actual_duration_ms = extra_end_ms - extra_start_ms
+            parent_duration_ms = self._frames_to_ms(timeline_duration_frames, primary_fps)
+            duration_frames = min(
+                self._ms_to_frames(actual_duration_ms, extra_fps),
+                self._ms_to_frames(parent_duration_ms, extra_fps),
                 extra_duration_frames - extra_start_frames,
-                extra_fps,
             )
-            connected_duration_frames = min(
-                timeline_duration_frames,
-                self._ms_to_frames(available_extra_ms, primary_fps),
-            )
-            if connected_duration_frames <= 0:
+            if duration_frames <= 0:
                 continue
 
             attrs = {
@@ -1068,7 +1069,7 @@ class FCPXMLExporter(ProjectExporter):
                 # is already represented by ``start`` below.
                 "offset": self._ms_to_time(0, primary_fps),
                 "start": self._frames_to_time(extra_start_frames, extra_fps),
-                "duration": self._frames_to_time(connected_duration_frames, primary_fps),
+                "duration": self._frames_to_time(duration_frames, extra_fps),
                 "format": extra_format_id,
                 "tcFormat": "NDF",
                 "name": source.original_name,
@@ -1145,8 +1146,6 @@ class FCPXMLExporter(ProjectExporter):
             if not other_asset_id:
                 continue
 
-            # Connected clip with offset
-            offset_time = self._ms_to_time(track.offset_ms, fps)
             # Note: Connected clips are added differently in FCPXML
             # For now, we just add them to spine with their offset
 
@@ -1331,7 +1330,11 @@ class FCPXMLExporter(ProjectExporter):
 
     def _source_duration_frames(self, source: MediaFile, fps: float) -> int:
         """Return the frame count FCP may safely reference for a source."""
-        if not source.info or not source.info.duration_ms:
+        if not source.info:
+            return 0
+        if source.info.video_frame_count and source.info.video_frame_count > 0:
+            return source.info.video_frame_count
+        if not source.info.duration_ms:
             return 0
         return max(0, self._ms_to_frames_nearest(source.info.duration_ms, fps))
 
@@ -1379,8 +1382,98 @@ class FCPXMLExporter(ProjectExporter):
                     f"asset_duration={asset_duration:.6f}s"
                 )
 
+    def _time_fraction(self, value: str | None) -> Fraction:
+        if not value:
+            return Fraction(0, 1)
+        raw = value[:-1] if value.endswith("s") else value
+        if "/" in raw:
+            numerator, denominator = raw.split("/", 1)
+            return Fraction(int(numerator), int(denominator))
+        return Fraction(raw)
+
+    def _validate_time_domains(self, root: ET.Element) -> list[str]:
+        """Validate generated FCPXML times against their format frame grids."""
+        errors: list[str] = []
+        format_frame_duration: dict[str, Fraction] = {}
+        asset_frame_duration: dict[str, Fraction] = {}
+
+        resources = root.find("resources")
+        if resources is None:
+            return ["missing resources"]
+
+        for fmt in resources.findall("format"):
+            fmt_id = fmt.get("id")
+            if not fmt_id:
+                continue
+            frame_duration = fmt.get("frameDuration")
+            if frame_duration:
+                format_frame_duration[fmt_id] = self._time_fraction(frame_duration)
+
+        for asset in resources.findall("asset"):
+            asset_id = asset.get("id")
+            fmt_id = asset.get("format")
+            if not asset_id or not fmt_id or asset.get("hasVideo") != "1":
+                continue
+            frame_duration = format_frame_duration.get(fmt_id)
+            if frame_duration is None:
+                continue
+            asset_frame_duration[asset_id] = frame_duration
+            for attr in ("start", "duration"):
+                value = asset.get(attr)
+                if value and not self._is_frame_multiple(value, frame_duration):
+                    errors.append(
+                        f"asset {asset_id} {attr}={value} not aligned to {frame_duration}"
+                    )
+
+        sequence = root.find("./library/event/project/sequence")
+        if sequence is None:
+            return errors
+
+        sequence_frame_duration = format_frame_duration.get(sequence.get("format") or "")
+        if sequence_frame_duration is not None:
+            duration = sequence.get("duration")
+            if duration and not self._is_frame_multiple(duration, sequence_frame_duration):
+                errors.append(
+                    f"sequence duration={duration} not aligned to {sequence_frame_duration}"
+                )
+
+        for clip in root.findall(".//asset-clip"):
+            ref = clip.get("ref")
+            source_frame_duration = asset_frame_duration.get(ref or "")
+            for attr in ("start", "duration"):
+                value = clip.get(attr)
+                if (
+                    value
+                    and source_frame_duration
+                    and not self._is_frame_multiple(value, source_frame_duration)
+                ):
+                    errors.append(
+                        f"asset-clip {ref} {attr}={value} "
+                        f"not aligned to {source_frame_duration}"
+                    )
+
+        for clip in sequence.findall(".//asset-clip"):
+            ref = clip.get("ref")
+            offset = clip.get("offset")
+            if (
+                offset
+                and sequence_frame_duration
+                and not self._is_frame_multiple(offset, sequence_frame_duration)
+            ):
+                errors.append(
+                    f"asset-clip {ref} offset={offset} "
+                    f"not aligned to {sequence_frame_duration}"
+                )
+
+        return errors
+
+    def _is_frame_multiple(self, time_value: str, frame_duration: Fraction) -> bool:
+        if frame_duration == 0:
+            return True
+        return (self._time_fraction(time_value) / frame_duration).denominator == 1
+
     def _ms_to_frames(self, ms: int | float, fps: float) -> int:
-        """Convert milliseconds to frame count (floor).
+        """Convert milliseconds to frame count.
 
         For NTSC frame rates, uses proper 1001-based calculation.
         """

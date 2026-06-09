@@ -3,6 +3,7 @@
 import asyncio
 import json
 import subprocess
+from fractions import Fraction
 from pathlib import Path
 
 from avid.models.media import MediaFile, MediaInfo
@@ -38,6 +39,18 @@ def _rate_to_float(value: object) -> float | None:
     except ValueError:
         return None
     return parsed if parsed > 0 else None
+
+
+def _rate_to_fraction(value: object) -> Fraction | None:
+    if not isinstance(value, str) or not value or "/" not in value:
+        return None
+
+    try:
+        num, den = value.split("/", 1)
+        fraction = Fraction(int(num), int(den))
+    except (ValueError, ZeroDivisionError):
+        return None
+    return fraction if fraction > 0 else None
 
 
 def _video_stream_duration_ms(stream: dict, fps: float | None) -> int | None:
@@ -105,17 +118,50 @@ class MediaService:
         sample_rates: set[int] = set()
         audio_channels = 0
         audio_sources = 0
+        audio_sample_count = None
+        video_frame_count = None
+        frame_duration = None
+        video_duration = None
+        start_time = data.get("format", {}).get("start_time")
+        time_base = None
 
         for stream in data.get("streams", []):
             if stream.get("codec_type") == "video":
                 width = stream.get("width")
                 height = stream.get("height")
                 # Parse frame rate (e.g., "30/1" or "30000/1001")
-                fps = (
+                fps_fraction = _rate_to_fraction(
+                    stream.get("avg_frame_rate")
+                ) or _rate_to_fraction(stream.get("r_frame_rate"))
+                fps = float(fps_fraction) if fps_fraction else (
                     _rate_to_float(stream.get("avg_frame_rate"))
                     or _rate_to_float(stream.get("r_frame_rate"))
                 )
-                if video_duration_ms is None:
+                if fps_fraction:
+                    frame_duration = (
+                        f"{fps_fraction.denominator}/{fps_fraction.numerator}"
+                    )
+                time_base = stream.get("time_base")
+
+                video_frame_count = _int_or_none(
+                    stream.get("nb_frames")
+                ) or _int_or_none(stream.get("nb_read_frames"))
+
+                if video_frame_count is None and fps_fraction is not None:
+                    duration_ts = _int_or_none(stream.get("duration_ts"))
+                    stream_time_base = _rate_to_fraction(stream.get("time_base"))
+                    if duration_ts is not None and stream_time_base:
+                        seconds = duration_ts * stream_time_base
+                        video_frame_count = round(seconds * fps_fraction)
+                    elif stream.get("duration"):
+                        seconds = Fraction(str(stream["duration"]))
+                        video_frame_count = round(seconds * fps_fraction)
+
+                if video_frame_count is not None and fps_fraction is not None:
+                    duration = Fraction(video_frame_count, 1) / fps_fraction
+                    video_duration = f"{duration.numerator}/{duration.denominator}"
+                    video_duration_ms = int(float(duration) * 1000)
+                elif video_duration_ms is None:
                     video_duration_ms = _video_stream_duration_ms(stream, fps)
             elif stream.get("codec_type") == "audio":
                 audio_sources += 1
@@ -123,6 +169,9 @@ class MediaService:
                 if rate:
                     sample_rates.add(rate)
                 audio_channels += _int_or_none(stream.get("channels")) or 0
+                duration_ts = _int_or_none(stream.get("duration_ts"))
+                if duration_ts is not None:
+                    audio_sample_count = duration_ts
 
         if len(sample_rates) == 1:
             sample_rate = next(iter(sample_rates))
@@ -135,6 +184,13 @@ class MediaService:
             sample_rate=sample_rate,
             audio_channels=audio_channels or None,
             audio_sources=audio_sources or None,
+            video_frame_count=video_frame_count,
+            frame_duration=frame_duration,
+            video_duration=video_duration,
+            audio_sample_rate=sample_rate,
+            audio_sample_count=audio_sample_count,
+            start_time=start_time,
+            time_base=time_base,
         )
 
     async def create_media_file(self, path: Path) -> MediaFile:
