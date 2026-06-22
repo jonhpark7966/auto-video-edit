@@ -7,6 +7,29 @@ narrative arc, chapters, key moments, dependencies, and pacing notes.
 from dataclasses import dataclass, field
 
 
+def _coerce_int(value: object, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _coerce_int_list(values: object) -> list[int]:
+    if not isinstance(values, list):
+        return []
+    result: list[int] = []
+    for value in values:
+        if isinstance(value, bool):
+            continue
+        try:
+            result.append(int(value))
+        except (TypeError, ValueError):
+            continue
+    return result
+
+
 @dataclass
 class NarrativeArc:
     """Overall narrative structure of the content."""
@@ -162,13 +185,13 @@ class TranscriptOverview:
             Chapter(
                 id=ch.get("id", f"ch_{i+1}"),
                 title=ch.get("title", ""),
-                start_segment=ch.get("start_segment", 0),
-                end_segment=ch.get("end_segment", 0),
-                start_ms=ch.get("start_ms", 0),
-                end_ms=ch.get("end_ms", 0),
+                start_segment=_coerce_int(ch.get("start_segment")),
+                end_segment=_coerce_int(ch.get("end_segment")),
+                start_ms=_coerce_int(ch.get("start_ms")),
+                end_ms=_coerce_int(ch.get("end_ms")),
                 summary=ch.get("summary", ""),
                 role=ch.get("role", "main_topic"),
-                importance=ch.get("importance", 5),
+                importance=_coerce_int(ch.get("importance"), 5),
                 topics=ch.get("topics", []),
             )
             for i, ch in enumerate(data.get("chapters", []))
@@ -176,11 +199,11 @@ class TranscriptOverview:
 
         key_moments = [
             KeyMoment(
-                segment_index=km.get("segment_index", 0),
+                segment_index=_coerce_int(km.get("segment_index")),
                 type=km.get("type", "highlight"),
                 description=km.get("description", ""),
                 chapter_id=km.get("chapter_id", ""),
-                references=km.get("references", []),
+                references=_coerce_int_list(km.get("references", [])),
             )
             for km in data.get("key_moments", [])
         ]
@@ -188,8 +211,12 @@ class TranscriptOverview:
         dependencies = [
             Dependency(
                 type=dep.get("type", "setup_payoff"),
-                setup_segments=dep.get("setup_segments", dep.get("question_segments", [])),
-                payoff_segments=dep.get("payoff_segments", dep.get("answer_segments", [])),
+                setup_segments=_coerce_int_list(
+                    dep.get("setup_segments", dep.get("question_segments", []))
+                ),
+                payoff_segments=_coerce_int_list(
+                    dep.get("payoff_segments", dep.get("answer_segments", []))
+                ),
                 description=dep.get("description", ""),
                 strength=dep.get("strength", "strong"),
             )
@@ -200,16 +227,16 @@ class TranscriptOverview:
         pacing_notes = PacingNotes(
             slow_sections=[
                 PacingSection(
-                    start_segment=s.get("start_segment", 0),
-                    end_segment=s.get("end_segment", 0),
+                    start_segment=_coerce_int(s.get("start_segment")),
+                    end_segment=_coerce_int(s.get("end_segment")),
                     note=s.get("note", ""),
                 )
                 for s in pacing_data.get("slow_sections", [])
             ],
             high_energy_sections=[
                 PacingSection(
-                    start_segment=s.get("start_segment", 0),
-                    end_segment=s.get("end_segment", 0),
+                    start_segment=_coerce_int(s.get("start_segment")),
+                    end_segment=_coerce_int(s.get("end_segment")),
                     note=s.get("note", ""),
                 )
                 for s in pacing_data.get("high_energy_sections", [])

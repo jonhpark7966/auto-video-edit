@@ -27,6 +27,15 @@ class Track(BaseModel):
     track_type: TrackType = Field(..., description="Type of track (video/audio)")
     offset_ms: int = Field(default=0, description="Sync offset in milliseconds")
 
+    sync_drift_retime_speed: float | None = Field(
+        default=None,
+        description=(
+            "Linear speed correction for this synced track, derived from "
+            "multi-point audio drift estimation. Values above 1.0 play the "
+            "track faster."
+        ),
+    )
+
     @property
     def is_video(self) -> bool:
         """Check if this is a video track."""

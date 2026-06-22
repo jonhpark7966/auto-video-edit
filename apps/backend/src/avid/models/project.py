@@ -3,6 +3,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -43,6 +44,18 @@ class Transcription(BaseModel):
     def full_text(self) -> str:
         """Return full transcription as a single string."""
         return " ".join(seg.text for seg in self.segments)
+
+
+class MulticamSettings(BaseModel):
+    """Export-time multicam speaker switching settings."""
+
+    switching: Literal[
+        "none",
+        "follow_speaker",
+        "conservative_follow_speaker",
+    ] = "none"
+    speaker_source_map: dict[str, str] = Field(default_factory=dict)
+    audio_source_key: str = "primary"
 
 
 class Project(BaseModel):
@@ -86,6 +99,10 @@ class Project(BaseModel):
     edit_decisions: list[EditDecision] = Field(
         default_factory=list, description="Editing decisions on unified timeline"
     )
+
+    # Export-time multicam behavior. Source keys are stable UI/API keys:
+    # "primary", "extra:0", "extra:1", ...
+    multicam_settings: MulticamSettings | None = None
 
     # --- Helper methods ---
 

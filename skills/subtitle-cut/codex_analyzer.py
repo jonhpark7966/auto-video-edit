@@ -12,12 +12,85 @@ skills_dir = Path(__file__).parent.parent
 if str(skills_dir) not in sys.path:
     sys.path.insert(0, str(skills_dir))
 
-from _common import SubtitleSegment, AnalysisResult, call_codex, parse_json_response, format_context_for_prompt, format_filtered_context_for_prompt, process_chunks_parallel
+from _common import (
+    AdaptiveConfig,
+    SubtitleSegment,
+    AnalysisResult,
+    adaptive_analyze_segments,
+    call_codex,
+    count_text_tokens,
+    dedupe_by_segment_index,
+    parse_json_response,
+    format_context_for_prompt,
+    format_filtered_context_for_prompt,
+    process_chunks_parallel,
+)
 
 
 # Chunk size for processing large transcripts
 CHUNK_SIZE = 80
 CHUNK_OVERLAP = 5
+
+CUTS_ONLY_RESPONSE_INSTRUCTIONS = '''
+
+## 출력 형식 (JSON) - 최종 지시
+위의 기존 출력 예시와 달리, 이제 keep 항목은 출력하지 마세요.
+실제로 잘라야 할 세그먼트만 `cuts` 배열에 넣으세요.
+자를 세그먼트가 없으면 {"cuts": []} 를 반환하세요.
+
+```json
+{
+  "cuts": [
+    {
+      "segment_index": 1,
+      "reason": "meta_comment",
+      "note": "슬레이트. 촬영 준비 발화."
+    }
+  ]
+}
+```
+
+reason 값: "duplicate", "incomplete", "filler", "meta_comment", "retake_signal", "fumble"
+JSON만 출력하세요.
+'''
+
+
+def _edit_intensity_guidance(edit_intensity: str = "normal") -> str:
+    normalized = edit_intensity if edit_intensity in {"light", "normal", "heavy"} else "normal"
+    labels = {
+        "light": "적게 편집",
+        "normal": "일반 편집",
+        "heavy": "많이 편집",
+    }
+    details = {
+        "light": [
+            "- 메타 발화, 명백한 실수, 긴 침묵, 완전 중복 위주로만 cut하세요.",
+            "- 약한 반복이나 보충 설명은 남은 흐름이 자연스러우면 keep하세요.",
+        ],
+        "normal": [
+            "- 중복, 필러, 불완전 문장, 늘어지는 구간을 균형 있게 제거하세요.",
+            "- 설명 흐름과 전환 문장은 적극적으로 보존하세요.",
+        ],
+        "heavy": [
+            "- 핵심을 직접 강화하지 않는 반복, 느슨한 보충 설명, 낮은 정보 밀도 구간까지 cut 후보로 보세요.",
+            "- 그래도 남은 결과가 요약 조각처럼 끊기면 안 됩니다.",
+            "- 맥락 연결용 bridge segment는 짧더라도 keep하세요.",
+        ],
+    }
+    lines = [
+        "## 컷 편집 강도 지시 (최우선)",
+        f"- 선택된 편집 강도: {labels[normalized]}",
+        "- 이 강도에 맞춰 cut/keep을 판단하세요.",
+        "- 단, 최종 결과에서 남은 segment들의 맥락이 자연스럽게 이어지는 것을 항상 우선하세요.",
+        "- 질문만 남거나 답변만 남는 컷, setup 없이 payoff만 남는 컷, 전환 문장 제거로 흐름이 끊기는 컷은 피하세요.",
+        "- 강도 때문에 애매한 세그먼트를 자를 수는 있지만, 앞뒤 연결이 어색해지면 keep을 선택하세요.",
+        *details[normalized],
+    ]
+    return "\n".join(lines)
+
+
+def _apply_edit_intensity_guidance(prompt: str, edit_intensity: str = "normal") -> str:
+    return _edit_intensity_guidance(edit_intensity) + "\n\n" + prompt
 
 
 CHUNK_ANALYSIS_PROMPT = '''당신은 영상 편집 전문가입니다. 아래 자막 세그먼트들을 분석해서 어떤 부분을 잘라야 하는지 판단해주세요.
@@ -225,11 +298,93 @@ def format_segments_for_prompt(segments: list[SubtitleSegment]) -> str:
     return "\n".join(lines)
 
 
+def _segment_token_count(segment: SubtitleSegment) -> int:
+    return count_text_tokens(format_segments_for_prompt([segment]))
+
+
+def _build_cuts_only_prompt(
+    segments: list[SubtitleSegment],
+    storyline_context: dict | None,
+    edit_intensity: str,
+) -> str:
+    segments_text = format_segments_for_prompt(segments)
+    prompt = ANALYSIS_PROMPT.format(segments=segments_text)
+
+    if storyline_context and segments:
+        start_idx = segments[0].index
+        end_idx = segments[-1].index
+        context_text = format_filtered_context_for_prompt(storyline_context, start_idx, end_idx)
+        prompt = context_text + "\n\n" + prompt
+
+    prompt = _apply_edit_intensity_guidance(prompt, edit_intensity)
+    return prompt + "\n\n" + CUTS_ONLY_RESPONSE_INSTRUCTIONS
+
+
+def _parse_cuts_only_response(data: dict) -> list[dict]:
+    if isinstance(data.get("cuts"), list):
+        items = data["cuts"]
+    elif isinstance(data.get("analysis"), list):
+        # Backward-compatible parser for models that still return the legacy shape.
+        items = [item for item in data["analysis"] if item.get("action") == "cut"]
+    else:
+        raise ValueError("response missing cuts array")
+
+    cuts = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        cuts.append({
+            "segment_index": item.get("segment_index"),
+            "reason": item.get("reason", "manual"),
+            "note": item.get("note", ""),
+        })
+    return dedupe_by_segment_index(cuts)
+
+
+def _analyze_cuts_only_segments(
+    segments: list[SubtitleSegment],
+    label: str,
+    storyline_context: dict | None,
+    edit_intensity: str,
+) -> list[dict]:
+    prompt = _build_cuts_only_prompt(segments, storyline_context, edit_intensity)
+    print(f"  {label}: calling Codex cuts-only analyzer...")
+    response = call_codex(prompt, timeout=900)
+    data = parse_json_response(response)
+    return _parse_cuts_only_response(data)
+
+
+def _legacy_fixed_chunk_cuts(
+    segments: list[SubtitleSegment],
+    storyline_context: dict | None,
+    edit_intensity: str,
+    config: AdaptiveConfig | None = None,
+) -> list[dict]:
+    cfg = config or AdaptiveConfig.from_env()
+    print(f"  Legacy fixed chunk analysis ({len(segments)} segments, chunk={cfg.legacy_chunk_size}, overlap={cfg.legacy_chunk_overlap})...")
+    all_cuts, all_keeps = process_chunks_parallel(
+        segments,
+        cfg.legacy_chunk_size,
+        cfg.legacy_chunk_overlap,
+        analyze_fn=lambda chunk, num, total: analyze_chunk(
+            chunk,
+            num,
+            total,
+            storyline_context,
+            edit_intensity,
+        ),
+        max_workers=5,
+    )
+    all_cuts, _all_keeps = _dedup_verification(segments, all_cuts, all_keeps)
+    return dedupe_by_segment_index(all_cuts)
+
+
 def analyze_chunk(
     segments: list[SubtitleSegment],
     chunk_num: int,
     total_chunks: int,
     storyline_context: dict | None = None,
+    edit_intensity: str = "normal",
 ) -> tuple[list[dict], list[dict]]:
     """Analyze a chunk of segments using Codex (2-step prompt, no flow review).
 
@@ -251,6 +406,8 @@ def analyze_chunk(
         end_idx = segments[-1].index
         context_text = format_filtered_context_for_prompt(storyline_context, start_idx, end_idx)
         prompt = context_text + "\n\n" + prompt
+
+    prompt = _apply_edit_intensity_guidance(prompt, edit_intensity)
 
     print(f"  Processing chunk {chunk_num}/{total_chunks} ({len(segments)} segments)...")
 
@@ -301,10 +458,11 @@ DEDUP_VERIFICATION_PROMPT = '''아래는 영상 편집에서 "유지(keep)"로 �
 JSON만 출력하세요.'''
 
 
-def analyze_with_codex(
+def _analyze_with_legacy_schema(
     segments: list[SubtitleSegment],
     keep_alternatives: bool = False,
     storyline_context: dict | None = None,
+    edit_intensity: str = "normal",
 ) -> AnalysisResult:
     """Analyze subtitle segments using Codex CLI.
 
@@ -327,6 +485,8 @@ def analyze_with_codex(
 
         if keep_alternatives:
             prompt += "\n\n추가로, 좋은 대안이 있는 경우 'has_alternative': true와 'alternative_to': [segment_index]를 추가해주세요."
+
+        prompt = _apply_edit_intensity_guidance(prompt, edit_intensity)
 
         response = call_codex(prompt)
 
@@ -358,7 +518,13 @@ def analyze_with_codex(
 
         all_cuts, all_keeps = process_chunks_parallel(
             segments, CHUNK_SIZE, CHUNK_OVERLAP,
-            analyze_fn=lambda chunk, num, total: analyze_chunk(chunk, num, total, storyline_context),
+            analyze_fn=lambda chunk, num, total: analyze_chunk(
+                chunk,
+                num,
+                total,
+                storyline_context,
+                edit_intensity,
+            ),
             max_workers=5,
         )
 
@@ -366,6 +532,48 @@ def analyze_with_codex(
         all_cuts, all_keeps = _dedup_verification(segments, all_cuts, all_keeps)
 
         return AnalysisResult(cuts=all_cuts, keeps=all_keeps)
+
+
+def analyze_with_codex(
+    segments: list[SubtitleSegment],
+    keep_alternatives: bool = False,
+    storyline_context: dict | None = None,
+    edit_intensity: str = "normal",
+) -> AnalysisResult:
+    """Analyze subtitle segments using full-call-first adaptive splitting."""
+    config = AdaptiveConfig.from_env()
+    if keep_alternatives or not config.enabled:
+        if keep_alternatives:
+            print("  keep_alternatives requested. Using legacy analysis schema...")
+        return _analyze_with_legacy_schema(
+            segments,
+            keep_alternatives=keep_alternatives,
+            storyline_context=storyline_context,
+            edit_intensity=edit_intensity,
+        )
+
+    cuts = adaptive_analyze_segments(
+        segments,
+        analyze_fn=lambda chunk, label: _analyze_cuts_only_segments(
+            chunk,
+            label,
+            storyline_context,
+            edit_intensity,
+        ),
+        prompt_token_count_fn=lambda chunk: count_text_tokens(
+            _build_cuts_only_prompt(chunk, storyline_context, edit_intensity)
+        ),
+        segment_token_count_fn=_segment_token_count,
+        fixed_chunk_fallback_fn=lambda: _legacy_fixed_chunk_cuts(
+            segments,
+            storyline_context,
+            edit_intensity,
+            config,
+        ),
+        config=config,
+        label="subtitle-cut",
+    )
+    return AnalysisResult(cuts=dedupe_by_segment_index(cuts), keeps=[])
 
 
 def _dedup_verification(

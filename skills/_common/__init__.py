@@ -28,6 +28,13 @@ from .context_utils import (
     format_podcast_context_for_prompt,
 )
 from .parallel import process_chunks_parallel
+from .adaptive import (
+    AdaptiveConfig,
+    adaptive_analyze_segments,
+    count_text_tokens,
+    dedupe_by_segment_index,
+    is_recoverable_analysis_error,
+)
 
 __all__ = [
     "SubtitleSegment",
@@ -52,4 +59,9 @@ __all__ = [
     "format_filtered_context_for_prompt",
     "format_podcast_context_for_prompt",
     "process_chunks_parallel",
+    "AdaptiveConfig",
+    "adaptive_analyze_segments",
+    "count_text_tokens",
+    "dedupe_by_segment_index",
+    "is_recoverable_analysis_error",
 ]

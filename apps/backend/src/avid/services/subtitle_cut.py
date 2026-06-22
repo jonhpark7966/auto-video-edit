@@ -61,6 +61,7 @@ class SubtitleCutService:
         provider_effort: str | None = None,
         extra_sources: list[Path] | None = None,
         extra_offsets: dict[str, int] | None = None,
+        edit_intensity: str = "normal",
     ) -> tuple[Project, Path, list[SyncResult]]:
         """Analyze subtitles and return Project with content + silence decisions.
 
@@ -75,6 +76,7 @@ class SubtitleCutService:
             provider_effort: Optional provider effort override
             extra_sources: Additional media files to sync and include.
             extra_offsets: Manual offset overrides ``{filename: ms}``.
+            edit_intensity: Cut editing intensity (light, normal, heavy).
 
         Returns:
             Tuple of (Project with edit_decisions, path to .avid.json, sync results)
@@ -114,6 +116,8 @@ class SubtitleCutService:
             storyline_path = Path(storyline_path).resolve()
             if storyline_path.exists():
                 cmd.extend(["--context", str(storyline_path)])
+
+        cmd.extend(["--edit-intensity", edit_intensity])
 
         result = await asyncio.to_thread(
             subprocess.run,
@@ -185,6 +189,7 @@ class SubtitleCutService:
                             start_ms=seg["start_ms"],
                             end_ms=seg["end_ms"],
                             text=seg["text"],
+                            speaker=seg.get("speaker"),
                         )
                         for seg in srt_segments
                     ],
@@ -217,6 +222,18 @@ class SubtitleCutService:
         return project, project_output, sync_results
 
 
+def _extract_speaker(text: str) -> tuple[str | None, str]:
+    m = re.match(r"^\[([^\]]+)\]\s*", text)
+    if m:
+        return m.group(1).strip(), text[m.end():].strip()
+    m = re.match(r"^([\w\s]+?):\s+", text)
+    if m:
+        candidate = m.group(1).strip()
+        if 0 < len(candidate) <= 40:
+            return candidate, text[m.end():].strip()
+    return None, text
+
+
 def _parse_srt(srt_path: Path) -> list[dict]:
     """Parse SRT file into segment dicts."""
     content = srt_path.read_text(encoding="utf-8")
@@ -239,7 +256,8 @@ def _parse_srt(srt_path: Path) -> list[dict]:
         start_ms = h1 * 3600000 + m1 * 60000 + s1 * 1000 + ms1
         end_ms = h2 * 3600000 + m2 * 60000 + s2 * 1000 + ms2
         text = " ".join(l.strip() for l in lines[2:] if l.strip())
-        segments.append({"index": index, "start_ms": start_ms, "end_ms": end_ms, "text": text})
+        speaker, clean_text = _extract_speaker(text)
+        segments.append({"index": index, "start_ms": start_ms, "end_ms": end_ms, "text": clean_text, "speaker": speaker})
     return segments
 
 

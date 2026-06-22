@@ -53,23 +53,33 @@ def _rate_to_fraction(value: object) -> Fraction | None:
     return fraction if fraction > 0 else None
 
 
-def _video_stream_duration_ms(stream: dict, fps: float | None) -> int | None:
-    frames = _int_or_none(stream.get("nb_frames")) or _int_or_none(
-        stream.get("nb_read_frames")
-    )
-    if frames is not None and fps:
-        return int(frames / fps * 1000)
+def _frame_count_from_seconds(value: object, fps: Fraction) -> int | None:
+    try:
+        duration = Fraction(str(value))
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+    if duration <= 0:
+        return None
+    return round(duration * fps)
 
+
+def _duration_fraction_from_stream(stream: dict) -> Fraction | None:
     duration_ts = _int_or_none(stream.get("duration_ts"))
-    time_base = _rate_to_float(stream.get("time_base"))
-    if duration_ts is not None and time_base:
-        return int(duration_ts * time_base * 1000)
+    stream_time_base = _rate_to_fraction(stream.get("time_base"))
+    if duration_ts is not None and stream_time_base:
+        duration = duration_ts * stream_time_base
+        if duration > 0:
+            return duration
 
-    duration = _float_or_none(stream.get("duration"))
-    if duration is not None:
-        return int(duration * 1000)
+    try:
+        duration = Fraction(str(stream.get("duration")))
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+    return duration if duration > 0 else None
 
-    return None
+
+def _duration_ms(duration: Fraction) -> int:
+    return int(duration * 1000)
 
 
 class MediaService:
@@ -103,10 +113,9 @@ class MediaService:
 
         data = json.loads(result.stdout)
 
-        # Extract duration from format. Video files prefer the video stream
-        # length below so audio/container padding does not create FCP relink
-        # overruns by a frame.
-        duration_sec = float(data.get("format", {}).get("duration", 0))
+        # Extract duration from format
+        format_duration = data.get("format", {}).get("duration")
+        duration_sec = _float_or_none(format_duration) or 0
         format_duration_ms = int(duration_sec * 1000)
         video_duration_ms = None
 
@@ -138,31 +147,30 @@ class MediaService:
                     or _rate_to_float(stream.get("r_frame_rate"))
                 )
                 if fps_fraction:
-                    frame_duration = (
-                        f"{fps_fraction.denominator}/{fps_fraction.numerator}"
-                    )
+                    frame_duration = f"{fps_fraction.denominator}/{fps_fraction.numerator}"
                 time_base = stream.get("time_base")
-
-                video_frame_count = _int_or_none(
-                    stream.get("nb_frames")
-                ) or _int_or_none(stream.get("nb_read_frames"))
-
+                stream_duration = _duration_fraction_from_stream(stream)
+                if stream_duration is not None:
+                    video_duration = f"{stream_duration.numerator}/{stream_duration.denominator}"
+                    video_duration_ms = _duration_ms(stream_duration)
+                video_frame_count = _int_or_none(stream.get("nb_frames")) or _int_or_none(
+                    stream.get("nb_read_frames")
+                )
                 if video_frame_count is None and fps_fraction is not None:
                     duration_ts = _int_or_none(stream.get("duration_ts"))
                     stream_time_base = _rate_to_fraction(stream.get("time_base"))
                     if duration_ts is not None and stream_time_base:
-                        seconds = duration_ts * stream_time_base
-                        video_frame_count = round(seconds * fps_fraction)
-                    elif stream.get("duration"):
-                        seconds = Fraction(str(stream["duration"]))
-                        video_frame_count = round(seconds * fps_fraction)
-
+                        video_frame_count = round(
+                            duration_ts * stream_time_base * fps_fraction
+                        )
+                    if video_frame_count is None:
+                        video_frame_count = _frame_count_from_seconds(
+                            stream.get("duration"), fps_fraction
+                        )
                 if video_frame_count is not None and fps_fraction is not None:
                     duration = Fraction(video_frame_count, 1) / fps_fraction
                     video_duration = f"{duration.numerator}/{duration.denominator}"
-                    video_duration_ms = int(float(duration) * 1000)
-                elif video_duration_ms is None:
-                    video_duration_ms = _video_stream_duration_ms(stream, fps)
+                    video_duration_ms = _duration_ms(duration)
             elif stream.get("codec_type") == "audio":
                 audio_sources += 1
                 rate = _int_or_none(stream.get("sample_rate"))

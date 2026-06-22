@@ -16,6 +16,7 @@ import subprocess
 import sys
 import uuid
 from dataclasses import dataclass
+from fractions import Fraction
 from pathlib import Path
 
 from avid.models.media import MediaFile, MediaInfo
@@ -31,6 +32,70 @@ def _int_or_none(value: object) -> int | None:
         return int(value) or None
     except (TypeError, ValueError):
         return None
+
+
+def _float_or_none(value: object) -> float | None:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _rate_to_float(value: object) -> float | None:
+    if not isinstance(value, str) or not value:
+        return _float_or_none(value)
+    if "/" not in value:
+        return _float_or_none(value)
+    try:
+        num, den = value.split("/", 1)
+        den_float = float(den)
+        if den_float == 0:
+            return None
+        parsed = float(num) / den_float
+    except ValueError:
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _rate_to_fraction(value: object) -> Fraction | None:
+    if not isinstance(value, str) or not value or "/" not in value:
+        return None
+    try:
+        num, den = value.split("/", 1)
+        fraction = Fraction(int(num), int(den))
+    except (ValueError, ZeroDivisionError):
+        return None
+    return fraction if fraction > 0 else None
+
+
+def _frame_count_from_seconds(value: object, fps: Fraction) -> int | None:
+    try:
+        duration = Fraction(str(value))
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+    if duration <= 0:
+        return None
+    return round(duration * fps)
+
+
+def _duration_fraction_from_stream(stream: dict) -> Fraction | None:
+    duration_ts = _int_or_none(stream.get("duration_ts"))
+    stream_time_base = _rate_to_fraction(stream.get("time_base"))
+    if duration_ts is not None and stream_time_base:
+        duration = duration_ts * stream_time_base
+        if duration > 0:
+            return duration
+
+    try:
+        duration = Fraction(str(stream.get("duration")))
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+    return duration if duration > 0 else None
+
+
+def _duration_ms(duration: Fraction) -> int:
+    return int(duration * 1000)
 
 
 @dataclass
@@ -116,6 +181,7 @@ class PodcastCutService:
         provider_effort: str | None = None,
         extra_sources: list[Path] | None = None,
         extra_offsets: dict[str, int] | None = None,
+        edit_intensity: str = "normal",
     ) -> tuple[Project, dict[str, Path], list[SyncResult]]:
         """Process a podcast audio file through the full workflow.
 
@@ -131,6 +197,7 @@ class PodcastCutService:
             provider_effort: Optional provider effort override
             extra_sources: Additional media files to sync and include.
             extra_offsets: Manual offset overrides ``{filename: ms}``.
+            edit_intensity: Cut editing intensity (light, normal, heavy).
 
         Returns:
             Tuple of (Project, dict of output paths, sync results)
@@ -172,6 +239,7 @@ class PodcastCutService:
             provider_model=provider_model,
             provider_effort=provider_effort,
             storyline_path=storyline_path,
+            edit_intensity=edit_intensity,
         )
 
         # Step 3: Parse skill output → content decisions
@@ -246,6 +314,7 @@ class PodcastCutService:
         provider_model: str | None = None,
         provider_effort: str | None = None,
         storyline_path: Path | None = None,
+        edit_intensity: str = "normal",
     ) -> None:
         """Run podcast-cut skill as subprocess.
 
@@ -257,6 +326,7 @@ class PodcastCutService:
             provider_model: Optional provider model override
             provider_effort: Optional provider effort override
             storyline_path: Optional storyline.json path
+            edit_intensity: Cut editing intensity (light, normal, heavy)
 
         Raises:
             RuntimeError: If skill fails
@@ -280,6 +350,8 @@ class PodcastCutService:
             storyline_path = Path(storyline_path).resolve()
             if storyline_path.exists():
                 cmd.extend(["--context", str(storyline_path)])
+
+        cmd.extend(["--edit-intensity", edit_intensity])
 
         result = await asyncio.to_thread(
             subprocess.run,
@@ -620,6 +692,7 @@ class PodcastCutService:
                     start_ms=seg.start_ms,
                     end_ms=seg.end_ms,
                     text=seg.text,
+                    speaker=seg.speaker,
                 )
                 for seg in segments
             ],
@@ -694,7 +767,10 @@ class PodcastCutService:
         except (json.JSONDecodeError, ValueError):
             return MediaInfo(duration_ms=self._get_duration(path), sample_rate=44100)
 
-        duration_sec = float(data.get("format", {}).get("duration", 0))
+        format_duration = data.get("format", {}).get("duration")
+        duration_sec = _float_or_none(format_duration) or 0
+        format_duration_ms = int(duration_sec * 1000)
+        video_duration_ms = None
         width = None
         height = None
         fps = None
@@ -702,31 +778,81 @@ class PodcastCutService:
         sample_rates: set[int] = set()
         audio_channels = 0
         audio_sources = 0
+        audio_sample_count = None
+        video_frame_count = None
+        frame_duration = None
+        video_duration = None
+        start_time = data.get("format", {}).get("start_time")
+        time_base = None
 
         for stream in data.get("streams", []):
             if stream.get("codec_type") == "video":
                 width = stream.get("width")
                 height = stream.get("height")
-                fps_str = stream.get("r_frame_rate", "0/1")
-                if "/" in fps_str:
-                    num, den = fps_str.split("/")
-                    fps = float(num) / float(den) if float(den) != 0 else None
+                fps_fraction = _rate_to_fraction(
+                    stream.get("avg_frame_rate")
+                ) or _rate_to_fraction(stream.get("r_frame_rate"))
+                fps = float(fps_fraction) if fps_fraction else (
+                    _rate_to_float(stream.get("avg_frame_rate"))
+                    or _rate_to_float(stream.get("r_frame_rate"))
+                )
+                if fps_fraction:
+                    frame_duration = f"{fps_fraction.denominator}/{fps_fraction.numerator}"
+                time_base = stream.get("time_base")
+                stream_duration = _duration_fraction_from_stream(stream)
+                if stream_duration is not None:
+                    video_duration = f"{stream_duration.numerator}/{stream_duration.denominator}"
+                    video_duration_ms = _duration_ms(stream_duration)
+                video_frame_count = _int_or_none(stream.get("nb_frames"))
+                if video_frame_count is None and fps_fraction is not None:
+                    duration_ts = _int_or_none(stream.get("duration_ts"))
+                    stream_time_base = _rate_to_fraction(stream.get("time_base"))
+                    if duration_ts is not None and stream_time_base:
+                        video_frame_count = round(
+                            duration_ts * stream_time_base * fps_fraction
+                        )
+                    if video_frame_count is None:
+                        video_frame_count = _frame_count_from_seconds(
+                            stream.get("duration"), fps_fraction
+                        )
+                    if video_frame_count is None:
+                        video_frame_count = _frame_count_from_seconds(
+                            format_duration, fps_fraction
+                        )
+                if (
+                    video_duration is None
+                    and video_frame_count is not None
+                    and fps_fraction is not None
+                ):
+                    duration = Fraction(video_frame_count, 1) / fps_fraction
+                    video_duration = f"{duration.numerator}/{duration.denominator}"
+                    video_duration_ms = _duration_ms(duration)
             elif stream.get("codec_type") == "audio":
                 audio_sources += 1
                 rate = _int_or_none(stream.get("sample_rate"))
                 if rate:
                     sample_rates.add(rate)
                 audio_channels += _int_or_none(stream.get("channels")) or 0
+                duration_ts = _int_or_none(stream.get("duration_ts"))
+                if duration_ts is not None:
+                    audio_sample_count = duration_ts
 
         if len(sample_rates) == 1:
             sample_rate = next(iter(sample_rates))
 
         return MediaInfo(
-            duration_ms=int(duration_sec * 1000),
+            duration_ms=video_duration_ms or format_duration_ms,
             width=width,
             height=height,
             fps=fps,
             sample_rate=sample_rate,
             audio_channels=audio_channels or None,
             audio_sources=audio_sources or None,
+            video_frame_count=video_frame_count,
+            frame_duration=frame_duration,
+            video_duration=video_duration,
+            audio_sample_rate=sample_rate,
+            audio_sample_count=audio_sample_count,
+            start_time=start_time,
+            time_base=time_base,
         )

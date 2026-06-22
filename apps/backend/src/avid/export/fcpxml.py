@@ -2,14 +2,56 @@
 
 import math
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass, replace
 from fractions import Fraction
 from pathlib import Path
 
 from avid.export.base import ProjectExporter
+from avid.models.project import MulticamSettings, Project, TranscriptSegment
+from avid.models.timeline import EditDecision, EditReason, EditType, TimeRange
 from avid.models.media import MediaFile
-from avid.models.project import Project
-from avid.models.timeline import EditDecision, EditReason, EditType
-from avid.models.track import Track
+from avid.models.track import Track, TrackType
+
+
+MAX_REVIEW_GAP_PADDING_MS = 500
+MIN_MULTICAM_RETIME_DRIFT = Fraction(1, 20)
+MAX_MULTICAM_RETIME_SPEED_DELTA = Fraction(1, 200)
+CONSERVATIVE_BACKCHANNEL_MAX_MS = 800
+CONSERVATIVE_MIN_SHOT_MS = 1500
+
+
+@dataclass(frozen=True)
+class _MulticamContext:
+    media_id: str
+    name: str
+    primary_angle_id: str
+    source_key_to_angle_id: dict[str, str]
+    primary_offset_frames: int
+    duration_frames: int
+    # srcFrameRate string for the spine mc-clip <conform-rate>, set when the
+    # multicam base rate differs from the sequence rate; None means no conform.
+    conform_src_rate: str | None = None
+
+
+@dataclass(frozen=True)
+class _RetimeCorrection:
+    speed: Fraction
+    nominal_duration: Fraction
+    actual_duration: Fraction
+    drift: Fraction
+
+
+@dataclass(frozen=True)
+class _TimelineClipPlan:
+    source_start_ms: int
+    source_end_ms: int
+    start_frames: int
+    duration_frames: int
+    timeline_offset_frames: int
+    enabled: bool
+    video_angle_id: str | None = None
+    audio_angle_id: str | None = None
+    speaker: str | None = None
 
 
 class FCPXMLExporter(ProjectExporter):
@@ -58,6 +100,7 @@ class FCPXMLExporter(ProjectExporter):
         """
         # Apply mode-based filtering to edit decisions
         processed_project = self._apply_edit_modes(project, silence_mode, content_mode)
+        processed_project = self._align_to_review_segment_boundaries(processed_project)
 
         # Compute final removed ranges (including absorbed short gaps) once,
         # so both FCPXML timeline and SRT use the same cut list.
@@ -68,10 +111,11 @@ class FCPXMLExporter(ProjectExporter):
         root = self._create_fcpxml_structure(
             processed_project, show_disabled_cuts, merge_short_gaps_ms
         )
-        validation_errors = self._validate_time_domains(root)
-        if validation_errors:
-            sample = "; ".join(validation_errors[:5])
-            raise RuntimeError(f"FCPXML time validation failed: {sample}")
+        if silence_mode == "cut" and content_mode == "cut":
+            disabled_errors = self._validate_no_disabled_clips(root)
+            if disabled_errors:
+                sample = "; ".join(disabled_errors[:5])
+                raise RuntimeError(f"FCPXML delivery export contains disabled clips: {sample}")
         tree = ET.ElementTree(root)
 
         # Ensure output path has correct extension
@@ -133,9 +177,12 @@ class FCPXMLExporter(ProjectExporter):
         new_decisions = []
 
         for decision in project.edit_decisions:
-            # Determine which mode applies to this decision
+            # In delivery mode (content_mode="cut"), any MUTE decision is a
+            # cut candidate and must be removed regardless of reason.
             if decision.reason == EditReason.SILENCE:
                 mode = silence_mode
+            elif decision.edit_type == EditType.MUTE:
+                mode = content_mode
             elif decision.reason in self.CONTENT_REASONS:
                 mode = content_mode
             else:
@@ -171,6 +218,225 @@ class FCPXMLExporter(ProjectExporter):
 
         return new_project
 
+    def _segment_identity(self, segment: TranscriptSegment, position: int) -> int:
+        return int(segment.index) if segment.index is not None else position + 1
+
+    def _review_segment_ranges(self, project: Project) -> list[tuple[int, int, int]]:
+        """Return review-segments/v1 padded boundaries.
+
+        The output items are ``(segment_index, start_ms, end_ms)`` in transcript
+        order. This mirrors avid-cli review-segments so FCPXML export can use the
+        same segment boundaries as the review UI.
+        """
+        if not project.transcription or not project.transcription.segments:
+            return []
+
+        valid: list[tuple[int, int, int, int]] = []
+        for position, segment in enumerate(project.transcription.segments):
+            start_ms = int(segment.start_ms)
+            end_ms = int(segment.end_ms)
+            if end_ms <= start_ms:
+                continue
+            valid.append((
+                position,
+                self._segment_identity(segment, position),
+                start_ms,
+                end_ms,
+            ))
+
+        if not valid:
+            return []
+
+        starts = {position: start_ms for position, _, start_ms, _ in valid}
+        ends = {position: end_ms for position, _, _, end_ms in valid}
+
+        for current, following in zip(valid, valid[1:]):
+            current_position, _, _, current_end = current
+            next_position, _, next_start, _ = following
+            boundary = (current_end + next_start) // 2
+            ends[current_position] = boundary
+            starts[next_position] = boundary
+
+        ranges: list[tuple[int, int, int]] = []
+        for position, segment_index, raw_start, raw_end in valid:
+            start_ms = starts[position]
+            end_ms = ends[position]
+            if end_ms <= start_ms:
+                start_ms = raw_start
+                end_ms = raw_end
+            ranges.append((segment_index, start_ms, end_ms))
+        return ranges
+
+    def _subtract_ranges(
+        self,
+        start_ms: int,
+        end_ms: int,
+        protected_ranges: list[tuple[int, int]],
+    ) -> list[tuple[int, int]]:
+        pieces: list[tuple[int, int]] = []
+        cursor = start_ms
+        for protected_start, protected_end in protected_ranges:
+            if protected_end <= cursor:
+                continue
+            if protected_start >= end_ms:
+                break
+            if protected_start > cursor:
+                pieces.append((cursor, min(protected_start, end_ms)))
+            cursor = max(cursor, protected_end)
+            if cursor >= end_ms:
+                break
+        if cursor < end_ms:
+            pieces.append((cursor, end_ms))
+        return pieces
+
+    def _invert_ranges(
+        self,
+        kept_ranges: list[tuple[int, int]],
+        total_duration_ms: int,
+    ) -> list[tuple[int, int]]:
+        removed: list[tuple[int, int]] = []
+        cursor = 0
+        for start_ms, end_ms in self._merge_overlapping_ranges(kept_ranges):
+            start_ms = max(0, min(start_ms, total_duration_ms))
+            end_ms = max(0, min(end_ms, total_duration_ms))
+            if end_ms <= start_ms:
+                continue
+            if start_ms > cursor:
+                removed.append((cursor, start_ms))
+            cursor = max(cursor, end_ms)
+        if cursor < total_duration_ms:
+            removed.append((cursor, total_duration_ms))
+        return removed
+
+    def _align_to_review_segment_boundaries(self, project: Project) -> Project:
+        """Make export decisions use the same boundaries as review-segments."""
+        review_ranges = self._review_segment_ranges(project)
+        if not review_ranges:
+            return project
+
+        ranges_by_index = {
+            segment_index: (start_ms, end_ms)
+            for segment_index, start_ms, end_ms in review_ranges
+        }
+        protected_ranges = self._merge_overlapping_ranges(
+            [(start_ms, end_ms) for _, start_ms, end_ms in review_ranges]
+        )
+
+        aligned = project.model_copy(deep=True)
+        aligned_decisions: list[EditDecision] = []
+        for decision in aligned.edit_decisions:
+            if decision.reason == EditReason.SILENCE:
+                for start_ms, end_ms in self._subtract_ranges(
+                    decision.range.start_ms,
+                    decision.range.end_ms,
+                    protected_ranges,
+                ):
+                    aligned_decisions.append(decision.model_copy(update={
+                        "range": TimeRange(start_ms=start_ms, end_ms=end_ms),
+                    }))
+                continue
+
+            segment_index = decision.source_segment_index
+            if segment_index is None:
+                aligned_decisions.append(decision)
+                continue
+
+            review_range = ranges_by_index.get(int(segment_index))
+            if review_range is None:
+                aligned_decisions.append(decision)
+                continue
+
+            start_ms, end_ms = review_range
+            aligned_decisions.append(decision.model_copy(update={
+                "range": TimeRange(start_ms=start_ms, end_ms=end_ms),
+            }))
+
+        aligned_decisions.sort(key=lambda item: item.range.start_ms)
+        aligned.edit_decisions = aligned_decisions
+        return aligned
+
+    def _merge_adjacent_enabled_review_segments(
+        self,
+        project: Project,
+        segments: list[tuple[int, int, int, str]],
+        max_gap_ms: int = 500,
+    ) -> list[tuple[int, int, str]]:
+        """Merge adjacent enabled review segments when the same speaker continues."""
+        if not segments:
+            return []
+
+        speaker_by_index = {
+            int(segment.index): segment.speaker
+            for segment in (project.transcription.segments if project.transcription else [])
+            if segment.index is not None and segment.speaker
+        }
+
+        merged: list[tuple[int, int, int, str]] = []
+        for segment_index, start_ms, end_ms, state in segments:
+            if not merged:
+                merged.append((segment_index, start_ms, end_ms, state))
+                continue
+
+            prev_index, prev_start, prev_end, prev_state = merged[-1]
+            prev_speaker = speaker_by_index.get(int(prev_index))
+            speaker = speaker_by_index.get(int(segment_index))
+            gap_ms = max(0, start_ms - prev_end)
+
+            if (
+                prev_state == state == "enabled"
+                and prev_speaker is not None
+                and prev_speaker == speaker
+                and gap_ms < max_gap_ms
+            ):
+                merged[-1] = (prev_index, prev_start, end_ms, prev_state)
+                continue
+
+            merged.append((segment_index, start_ms, end_ms, state))
+
+        return [(start_ms, end_ms, state) for _, start_ms, end_ms, state in merged]
+
+
+    def _review_timeline_segments(
+        self,
+        project: Project,
+        primary_track: Track,
+    ) -> list[tuple[int, int, str]]:
+        review_ranges = self._review_segment_ranges(project)
+        if not review_ranges:
+            return []
+
+        cut_ranges = self._merge_overlapping_ranges([
+            (d.range.start_ms, d.range.end_ms)
+            for d in project.edit_decisions
+            if d.edit_type == EditType.CUT
+            and d.active_video_track_id == primary_track.id
+        ])
+        mute_ranges = self._merge_overlapping_ranges([
+            (d.range.start_ms, d.range.end_ms)
+            for d in project.edit_decisions
+            if d.edit_type == EditType.MUTE
+            and d.active_video_track_id == primary_track.id
+        ])
+
+        segments: list[tuple[int, int, int, str]] = []
+        for segment_index, start_ms, end_ms in review_ranges:
+            is_cut = any(
+                cut_start < end_ms and start_ms < cut_end
+                for cut_start, cut_end in cut_ranges
+            )
+            is_mute = any(
+                mute_start < end_ms and start_ms < mute_end
+                for mute_start, mute_end in mute_ranges
+            )
+            if is_cut:
+                state = "removed"
+            elif is_mute:
+                state = "disabled"
+            else:
+                state = "enabled"
+            segments.append((segment_index, start_ms, end_ms, state))
+        return self._merge_adjacent_enabled_review_segments(project, segments)
+
     def _compute_removed_ranges(
         self,
         project: Project,
@@ -192,6 +458,14 @@ class FCPXMLExporter(ProjectExporter):
             return []
 
         total_duration_ms = source.info.duration_ms
+        review_segments = self._review_timeline_segments(project, primary_track)
+        if review_segments:
+            kept_ranges = [
+                (start_ms, end_ms)
+                for start_ms, end_ms, state in review_segments
+                if state != "removed"
+            ]
+            return self._invert_ranges(kept_ranges, total_duration_ms)
 
         cut_decisions = [
             d for d in project.edit_decisions
@@ -378,12 +652,16 @@ class FCPXMLExporter(ProjectExporter):
                 height = source.info.height or 1080
 
         # Build per-source format resources.
-        # Each unique (width, height, fps) gets one <format> element.
+        # Each unique (width, height, frameDuration) gets one <format> element.
         # source_format_map: source_file_id → (format_id, fps)
         primary_format_id = "r1"
-        primary_spec = (width, height, fps)
-        spec_to_format: dict[tuple[int, int, float], str] = {
-            primary_spec: primary_format_id,
+        primary_frame_duration = (
+            self._source_frame_duration_time(source, fps)
+            if source and source.info else self._fps_to_frame_duration(fps)
+        )
+        primary_spec = (width, height, primary_frame_duration)
+        spec_to_format: dict[tuple[int, int, str], tuple[str, float]] = {
+            primary_spec: (primary_format_id, fps),
         }
         source_format_map: dict[str, tuple[str, float]] = {}
         next_resource_id = 2
@@ -398,28 +676,34 @@ class FCPXMLExporter(ProjectExporter):
                 src_w = source_file.info.width or width
                 src_h = source_file.info.height or height
 
-            spec = (src_w, src_h, src_fps)
+            src_frame_duration = self._source_frame_duration_time(source_file, src_fps)
+            spec = (src_w, src_h, src_frame_duration)
             if spec not in spec_to_format:
                 fmt_id = f"r{next_resource_id}"
                 next_resource_id += 1
-                spec_to_format[spec] = fmt_id
+                spec_to_format[spec] = (fmt_id, src_fps)
             source_format_map[source_file.id] = (
-                spec_to_format[spec],
+                spec_to_format[spec][0],
                 src_fps,
             )
 
         # Create <format> elements for each unique spec
-        for (fmt_w, fmt_h, fmt_fps), fmt_id in spec_to_format.items():
+        for (fmt_w, fmt_h, fmt_frame_duration), (fmt_id, fmt_fps) in spec_to_format.items():
             ET.SubElement(
                 resources,
                 "format",
                 id=fmt_id,
                 name=self._get_format_name(fmt_w, fmt_h, fmt_fps),
-                frameDuration=self._fps_to_frame_duration(fmt_fps),
+                frameDuration=fmt_frame_duration,
                 width=str(fmt_w),
                 height=str(fmt_h),
                 colorSpace="1-1-1 (Rec. 709)",
             )
+
+        extra_tracks = (
+            self._get_extra_source_tracks(project, primary_video_track)
+            if primary_video_track else []
+        )
 
         # Asset resources for each source file
         asset_map: dict[str, str] = {}  # source_file_id -> asset_id
@@ -442,13 +726,8 @@ class FCPXMLExporter(ProjectExporter):
                 "hasAudio": "1" if has_audio else "0",
             }
 
-            # Add duration. Video assets use frame-aligned stream duration so
-            # FCP relink does not reject files because of audio/container padding.
             if source_file.info and source_file.info.duration_ms:
-                if source_file.is_video:
-                    asset_attrs["duration"] = self._source_duration_time(source_file, src_fps)
-                else:
-                    asset_attrs["duration"] = f"{source_file.info.duration_ms}/1000s"
+                asset_attrs["duration"] = self._source_duration_time(source_file, src_fps)
 
             # Add audio info if available
             if source_file.info:
@@ -469,40 +748,68 @@ class FCPXMLExporter(ProjectExporter):
                 src=f"file://{source_file.path.absolute()}",
             )
 
-        multicam_media_id: str | None = None
-        multicam_angle_map: dict[str, str] = {}
-        if primary_video_track:
-            multicam_tracks = self._get_multicam_angle_tracks(project, primary_video_track)
-            if len(multicam_tracks) > 1:
-                multicam_media_id = f"r{next_resource_id}"
+        multicam_context = None
+        if primary_video_track and extra_tracks:
+            primary_source = project.get_source_file(primary_video_track.source_file_id)
+            if primary_source:
+                media_id = f"r{next_resource_id}"
                 next_resource_id += 1
-                multicam_angle_map = self._add_multicam_media(
-                    resources,
-                    project,
-                    multicam_tracks,
-                    asset_map,
-                    source_format_map,
-                    primary_format_id,
-                    fps,
-                    multicam_media_id,
+                multicam_context = self._add_multicam_media(
+                    resources, primary_video_track, primary_source,
+                    extra_tracks, media_id, asset_map, source_format_map,
+                    primary_format_id, fps, width, height,
                 )
+
+        timeline_plan = (
+            self._build_primary_timeline_plan(
+                project,
+                primary_video_track,
+                fps,
+                merge_short_gaps_ms,
+            )
+            if primary_video_track else []
+        )
+        if multicam_context:
+            timeline_plan = self._apply_multicam_switching(
+                project,
+                timeline_plan,
+                multicam_context,
+                fps,
+            )
+        sequence_duration_frames = self._timeline_plan_duration_frames(timeline_plan)
 
         # Library and Event
         library = ET.SubElement(fcpxml, "library")
         event = ET.SubElement(library, "event", name=project.name)
+        if multicam_context:
+            event_mc_clip = ET.SubElement(
+                event,
+                "mc-clip",
+                ref=multicam_context.media_id,
+                name=multicam_context.name,
+                duration=self._frames_to_time(multicam_context.duration_frames, fps),
+            )
+            if multicam_context.conform_src_rate:
+                ET.SubElement(
+                    event_mc_clip,
+                    "conform-rate",
+                    srcFrameRate=multicam_context.conform_src_rate,
+                )
+            ET.SubElement(
+                event_mc_clip,
+                "mc-source",
+                angleID=multicam_context.primary_angle_id,
+                srcEnable="all",
+            )
 
         # Project
         fcp_project = ET.SubElement(event, "project", name=project.name)
-
-        # Sequence duration: always exclude CUT segments (silence).
-        # MUTE segments (content edits shown as disabled) are still part of the timeline.
-        duration_ms = self._calculate_kept_duration(project)
 
         sequence = ET.SubElement(
             fcp_project,
             "sequence",
             format=primary_format_id,
-            duration=self._ms_to_time_nearest(duration_ms, fps),
+            duration=self._frames_to_time(sequence_duration_frames, fps),
         )
 
         # Spine (main video track)
@@ -511,42 +818,657 @@ class FCPXMLExporter(ProjectExporter):
         # Build timeline (video clips only, no embedded captions)
         self._build_video_timeline(
             spine, project, asset_map, primary_format_id, fps,
-            show_disabled_cuts, merge_short_gaps_ms, source_format_map,
-            multicam_media_id, multicam_angle_map,
+            show_disabled_cuts, merge_short_gaps_ms, source_format_map, width, height,
+            multicam_context, timeline_plan,
         )
 
-        self._validate_asset_clip_bounds(fcpxml)
+        timeline_errors = self._validate_sequence_spine_duration(fcpxml)
+        if timeline_errors:
+            sample = "; ".join(timeline_errors[:5])
+            raise RuntimeError(f"FCPXML sequence duration mismatch: {sample}")
+
+        reference_errors = self._validate_asset_reference_bounds(fcpxml)
+        if reference_errors:
+            sample = "; ".join(reference_errors[:5])
+            raise RuntimeError(f"FCPXML references media beyond asset duration: {sample}")
+
         return fcpxml
 
-    def _calculate_kept_duration(self, project: Project) -> int:
-        """Calculate total duration of kept segments (excluding cuts)."""
-        video_tracks = project.get_video_tracks()
-        if not video_tracks:
-            return 0
+    def _timeline_plan_duration_frames(
+        self,
+        timeline_plan: list[_TimelineClipPlan],
+    ) -> int:
+        return sum(clip.duration_frames for clip in timeline_plan)
 
-        primary_track = video_tracks[0]
+    def _segments_to_timeline_plan(
+        self,
+        segments: list[tuple[int, int, bool]],
+        source_duration_frames: int,
+        fps: float,
+    ) -> list[_TimelineClipPlan]:
+        """Convert source-ms segments to one continuous sequence-frame plan."""
+        if not segments:
+            return []
+
+        boundary_points_ms = {0}
+        for start_ms, end_ms, _enabled in segments:
+            boundary_points_ms.add(start_ms)
+            boundary_points_ms.add(end_ms)
+
+        ms_to_frames_map: dict[int, int] = {}
+        for ms in sorted(boundary_points_ms):
+            ms_to_frames_map[ms] = self._clamp_frame(
+                self._ms_to_frames_nearest(ms, fps),
+                source_duration_frames,
+            )
+
+        timeline_plan: list[_TimelineClipPlan] = []
+        timeline_cursor_frames = 0
+        for source_start_ms, source_end_ms, enabled in segments:
+            start_frames = ms_to_frames_map[source_start_ms]
+            end_frames = ms_to_frames_map[source_end_ms]
+            duration_frames = end_frames - start_frames
+            if duration_frames <= 0:
+                continue
+
+            timeline_plan.append(_TimelineClipPlan(
+                source_start_ms=source_start_ms,
+                source_end_ms=source_end_ms,
+                start_frames=start_frames,
+                duration_frames=duration_frames,
+                timeline_offset_frames=timeline_cursor_frames,
+                enabled=enabled,
+            ))
+            timeline_cursor_frames += duration_frames
+
+        return timeline_plan
+
+    def _build_primary_timeline_plan(
+        self,
+        project: Project,
+        primary_track: Track,
+        fps: float,
+        merge_short_gaps_ms: int = 500,
+    ) -> list[_TimelineClipPlan]:
         source = project.get_source_file(primary_track.source_file_id)
         if not source:
-            return 0
+            return []
 
-        total_duration_ms = source.info.duration_ms
+        total_duration_ms = source.info.duration_ms if source.info else 0
+        source_duration_frames = self._source_duration_frames(source, fps)
 
-        # Get all CUT decisions
+        review_segments = self._review_timeline_segments(project, primary_track)
+        if review_segments:
+            final_segments = [
+                (start_ms, end_ms, state == "enabled")
+                for start_ms, end_ms, state in review_segments
+                if state != "removed"
+            ]
+            return self._segments_to_timeline_plan(
+                final_segments,
+                source_duration_frames,
+                fps,
+            )
+
+        if not project.edit_decisions:
+            if source_duration_frames <= 0:
+                return []
+            return [_TimelineClipPlan(
+                source_start_ms=0,
+                source_end_ms=total_duration_ms,
+                start_frames=0,
+                duration_frames=source_duration_frames,
+                timeline_offset_frames=0,
+                enabled=True,
+            )]
+
         cut_decisions = [
             d
             for d in project.edit_decisions
             if d.edit_type == EditType.CUT
             and d.active_video_track_id == primary_track.id
         ]
+        mute_decisions = [
+            d
+            for d in project.edit_decisions
+            if d.edit_type == EditType.MUTE
+            and d.active_video_track_id == primary_track.id
+        ]
 
-        # Merge overlapping cuts
         merged_cuts = self._merge_overlapping_ranges(
             [(d.range.start_ms, d.range.end_ms) for d in cut_decisions]
         )
+        merged_mutes = self._merge_overlapping_ranges(
+            [(d.range.start_ms, d.range.end_ms) for d in mute_decisions]
+        )
 
-        # Subtract cut durations
-        cut_duration = sum(end - start for start, end in merged_cuts)
-        return total_duration_ms - cut_duration
+        boundary_points = {0, total_duration_ms}
+        for start, end in merged_cuts:
+            boundary_points.add(start)
+            boundary_points.add(end)
+        for start, end in merged_mutes:
+            boundary_points.add(start)
+            boundary_points.add(end)
+
+        sorted_boundaries = sorted(boundary_points)
+        segments: list[tuple[int, int, str]] = []
+        for i in range(len(sorted_boundaries) - 1):
+            range_start = sorted_boundaries[i]
+            range_end = sorted_boundaries[i + 1]
+            if range_start >= range_end:
+                continue
+
+            is_cut = any(
+                cut_start <= range_start and range_end <= cut_end
+                for cut_start, cut_end in merged_cuts
+            )
+            is_mute = any(
+                mute_start <= range_start and range_end <= mute_end
+                for mute_start, mute_end in merged_mutes
+            )
+
+            if is_cut:
+                state = "removed"
+            elif is_mute:
+                state = "disabled"
+            else:
+                state = "enabled"
+            segments.append((range_start, range_end, state))
+
+        if merge_short_gaps_ms > 0:
+            for i in range(1, len(segments) - 1):
+                seg_start, seg_end, state = segments[i]
+                if state == "enabled" and (seg_end - seg_start) < merge_short_gaps_ms:
+                    prev_state = segments[i - 1][2]
+                    next_state = segments[i + 1][2]
+                    if prev_state == "removed" and next_state == "removed":
+                        segments[i] = (seg_start, seg_end, "removed")
+
+        final_segments = [
+            (start, end, state == "enabled")
+            for start, end, state in segments
+            if state != "removed"
+        ]
+        if merge_short_gaps_ms > 0:
+            final_segments = self._merge_short_gaps(final_segments, merge_short_gaps_ms)
+
+        return self._segments_to_timeline_plan(
+            final_segments,
+            source_duration_frames,
+            fps,
+        )
+
+
+    def _resolve_multicam_settings(self, project: Project) -> MulticamSettings:
+        return project.multicam_settings or MulticamSettings()
+
+    def _speaker_ranges(self, project: Project) -> list[tuple[int, int, str]]:
+        if not project.transcription or not project.transcription.segments:
+            return []
+
+        ranges: list[tuple[int, int, str]] = []
+        for segment in project.transcription.segments:
+            speaker = segment.speaker
+            if not speaker:
+                continue
+            start_ms = int(segment.start_ms)
+            end_ms = int(segment.end_ms)
+            if end_ms <= start_ms:
+                continue
+            ranges.append((start_ms, end_ms, speaker))
+        return sorted(ranges, key=lambda item: item[0])
+
+    def _speaker_for_range(
+        self,
+        start_ms: int,
+        end_ms: int,
+        speaker_ranges: list[tuple[int, int, str]],
+    ) -> str | None:
+        best_speaker = None
+        best_overlap = 0
+        for speaker_start, speaker_end, speaker in speaker_ranges:
+            if speaker_end <= start_ms:
+                continue
+            if speaker_start >= end_ms:
+                break
+            overlap = min(end_ms, speaker_end) - max(start_ms, speaker_start)
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best_speaker = speaker
+        return best_speaker
+
+    def _camera_boundaries_for_clip(
+        self,
+        clip: _TimelineClipPlan,
+        speaker_ranges: list[tuple[int, int, str]],
+    ) -> list[int]:
+        boundaries = {clip.source_start_ms, clip.source_end_ms}
+        for speaker_start, speaker_end, _speaker in speaker_ranges:
+            if speaker_end <= clip.source_start_ms:
+                continue
+            if speaker_start >= clip.source_end_ms:
+                break
+            boundaries.add(max(clip.source_start_ms, speaker_start))
+            boundaries.add(min(clip.source_end_ms, speaker_end))
+        return sorted(boundaries)
+
+    def _split_timeline_plan_by_speaker_angles(
+        self,
+        timeline_plan: list[_TimelineClipPlan],
+        speaker_ranges: list[tuple[int, int, str]],
+        speaker_angle_map: dict[str, str],
+        default_video_angle_id: str,
+        audio_angle_id: str,
+        fps: float,
+    ) -> list[_TimelineClipPlan]:
+        pieces: list[_TimelineClipPlan] = []
+        last_speaker: str | None = None
+        last_video_angle_id = default_video_angle_id
+
+        for clip in timeline_plan:
+            boundaries = self._camera_boundaries_for_clip(clip, speaker_ranges)
+            clip_end_frames = clip.start_frames + clip.duration_frames
+            for piece_start_ms, piece_end_ms in zip(boundaries, boundaries[1:]):
+                if piece_end_ms <= piece_start_ms:
+                    continue
+
+                local_start_frames = self._ms_to_frames_nearest(
+                    piece_start_ms - clip.source_start_ms,
+                    fps,
+                )
+                local_end_frames = self._ms_to_frames_nearest(
+                    piece_end_ms - clip.source_start_ms,
+                    fps,
+                )
+                start_frames = self._clamp_frame(
+                    clip.start_frames + local_start_frames,
+                    clip_end_frames,
+                )
+                end_frames = self._clamp_frame(
+                    clip.start_frames + local_end_frames,
+                    clip_end_frames,
+                )
+                duration_frames = end_frames - start_frames
+                if duration_frames <= 0:
+                    continue
+
+                speaker = self._speaker_for_range(
+                    piece_start_ms,
+                    piece_end_ms,
+                    speaker_ranges,
+                )
+                if speaker is None:
+                    speaker = last_speaker
+                    video_angle_id = last_video_angle_id
+                else:
+                    video_angle_id = speaker_angle_map.get(
+                        speaker,
+                        default_video_angle_id,
+                    )
+                    if speaker in speaker_angle_map:
+                        last_speaker = speaker
+                        last_video_angle_id = video_angle_id
+
+                pieces.append(_TimelineClipPlan(
+                    source_start_ms=piece_start_ms,
+                    source_end_ms=piece_end_ms,
+                    start_frames=start_frames,
+                    duration_frames=duration_frames,
+                    timeline_offset_frames=(
+                        clip.timeline_offset_frames
+                        + start_frames
+                        - clip.start_frames
+                    ),
+                    enabled=clip.enabled,
+                    video_angle_id=video_angle_id,
+                    audio_angle_id=audio_angle_id,
+                    speaker=speaker,
+                ))
+
+        return self._merge_camera_plan_pieces(pieces)
+
+    def _merge_camera_plan_pieces(
+        self,
+        pieces: list[_TimelineClipPlan],
+    ) -> list[_TimelineClipPlan]:
+        merged: list[_TimelineClipPlan] = []
+        for piece in pieces:
+            if piece.duration_frames <= 0:
+                continue
+            if not merged:
+                merged.append(piece)
+                continue
+
+            previous = merged[-1]
+            if (
+                previous.video_angle_id == piece.video_angle_id
+                and previous.audio_angle_id == piece.audio_angle_id
+                and previous.enabled == piece.enabled
+                and previous.source_end_ms == piece.source_start_ms
+                and previous.start_frames + previous.duration_frames == piece.start_frames
+                and previous.timeline_offset_frames + previous.duration_frames
+                == piece.timeline_offset_frames
+            ):
+                merged[-1] = replace(
+                    previous,
+                    source_end_ms=piece.source_end_ms,
+                    duration_frames=previous.duration_frames + piece.duration_frames,
+                    speaker=(
+                        previous.speaker
+                        if previous.speaker == piece.speaker
+                        else None
+                    ),
+                )
+                continue
+
+            merged.append(piece)
+        return merged
+
+    def _apply_conservative_multicam_rules(
+        self,
+        pieces: list[_TimelineClipPlan],
+    ) -> list[_TimelineClipPlan]:
+        pieces = self._merge_camera_plan_pieces(pieces)
+        adjusted = list(pieces)
+        if len(adjusted) >= 3:
+            for index in range(1, len(adjusted) - 1):
+                previous = adjusted[index - 1]
+                current = adjusted[index]
+                following = adjusted[index + 1]
+                duration_ms = current.source_end_ms - current.source_start_ms
+                if (
+                    duration_ms <= CONSERVATIVE_BACKCHANNEL_MAX_MS
+                    and previous.video_angle_id == following.video_angle_id
+                    and current.video_angle_id != previous.video_angle_id
+                    and previous.enabled == current.enabled == following.enabled
+                ):
+                    adjusted[index] = replace(
+                        current,
+                        video_angle_id=previous.video_angle_id,
+                        speaker=previous.speaker,
+                    )
+
+        adjusted = self._merge_camera_plan_pieces(adjusted)
+        stabilized: list[_TimelineClipPlan] = []
+        for current in adjusted:
+            if (
+                stabilized
+                and current.video_angle_id != stabilized[-1].video_angle_id
+                and current.source_end_ms - current.source_start_ms
+                < CONSERVATIVE_MIN_SHOT_MS
+            ):
+                current = replace(
+                    current,
+                    video_angle_id=stabilized[-1].video_angle_id,
+                    speaker=stabilized[-1].speaker,
+                )
+            stabilized.append(current)
+        return self._merge_camera_plan_pieces(stabilized)
+
+    def _apply_multicam_switching(
+        self,
+        project: Project,
+        timeline_plan: list[_TimelineClipPlan],
+        multicam_context: _MulticamContext,
+        fps: float,
+    ) -> list[_TimelineClipPlan]:
+        settings = self._resolve_multicam_settings(project)
+        audio_angle_id = multicam_context.source_key_to_angle_id.get(
+            settings.audio_source_key,
+            multicam_context.primary_angle_id,
+        )
+        default_plan = [
+            replace(
+                clip,
+                video_angle_id=multicam_context.primary_angle_id,
+                audio_angle_id=audio_angle_id,
+            )
+            for clip in timeline_plan
+        ]
+
+        if settings.switching == "none":
+            return default_plan
+
+        speaker_angle_map: dict[str, str] = {}
+        for speaker, source_key in settings.speaker_source_map.items():
+            if not isinstance(speaker, str) or not isinstance(source_key, str):
+                continue
+            angle_id = multicam_context.source_key_to_angle_id.get(source_key)
+            if angle_id:
+                speaker_angle_map[speaker] = angle_id
+
+        if not speaker_angle_map:
+            return default_plan
+
+        speaker_ranges = self._speaker_ranges(project)
+        if not speaker_ranges:
+            return default_plan
+
+        pieces = self._split_timeline_plan_by_speaker_angles(
+            timeline_plan,
+            speaker_ranges,
+            speaker_angle_map,
+            multicam_context.primary_angle_id,
+            audio_angle_id,
+            fps,
+        )
+        if settings.switching == "conservative_follow_speaker":
+            return self._apply_conservative_multicam_rules(pieces)
+        return pieces
+
+    def _add_multicam_media(
+        self,
+        resources: ET.Element,
+        primary_track: Track,
+        primary_source: MediaFile,
+        extra_tracks: list[tuple[Track, MediaFile, int]],
+        media_id: str,
+        asset_map: dict[str, str],
+        source_format_map: dict[str, tuple[str, float]],
+        primary_format_id: str,
+        primary_fps: float,
+        sequence_width: int,
+        sequence_height: int,
+    ) -> _MulticamContext:
+        """Create a native FCP multicam media resource for synced sources."""
+        angle_entries: list[tuple[Track, MediaFile, str]] = [
+            (primary_track, primary_source, "a1")
+        ]
+        source_key_to_angle_id = {"primary": "a1"}
+        for extra_index, (track, source, _) in enumerate(extra_tracks):
+            angle_id = f"a{extra_index + 2}"
+            angle_entries.append((track, source, angle_id))
+            source_key_to_angle_id[f"extra:{extra_index}"] = angle_id
+
+        # Multicam base format = the angle with the LOWEST fps.  That angle
+        # (typically the camera used as the video source) then sits 1:1 inside
+        # the multicam with no frame-rate conform, which is what FCP's own
+        # "New Multicam Clip" does.  Conforming a fractional-rate angle INSIDE
+        # the multicam (the old behaviour) makes FCP drift ~0.1% over the run.
+        # The base->sequence rate change is handled once at the spine mc-clip.
+        base_format_id, base_fps = primary_format_id, primary_fps
+        for _track, source, _angle_id in angle_entries:
+            _fmt_id, _src_fps = source_format_map[source.id]
+            if _src_fps < base_fps:
+                base_format_id, base_fps = _fmt_id, _src_fps
+
+        min_offset_ms = min(track.offset_ms for track, _, _ in angle_entries)
+        primary_offset_ms = primary_track.offset_ms - min_offset_ms
+        # primary_offset for the SEQUENCE spine stays in sequence fps.
+        primary_offset_frames = self._ms_to_frames_nearest(primary_offset_ms, primary_fps)
+        media_name = f"{primary_source.original_name.rsplit(chr(46), 1)[0]}_multicam"
+
+        media = ET.SubElement(resources, "media", id=media_id, name=media_name)
+        multicam = ET.SubElement(
+            media,
+            "multicam",
+            format=base_format_id,
+            tcStart="0s",
+            tcFormat="NDF",
+        )
+
+        total_duration_frames = 0
+        for track, source, angle_id in angle_entries:
+            asset_id = asset_map.get(source.id)
+            if not asset_id:
+                continue
+            source_format_id, source_fps = source_format_map[source.id]
+            source_frames = self._source_duration_frames(source, source_fps)
+            angle_offset_ms = track.offset_ms - min_offset_ms
+            # Angle layout uses the multicam BASE fps.
+            angle_offset_frames = self._ms_to_frames_nearest(angle_offset_ms, base_fps)
+            source_timeline_frames = self._source_frames_to_timeline_frames_floor(
+                source_frames, source_fps, base_fps
+            )
+            # Track total multicam span in SEQUENCE fps for the context duration.
+            seq_offset_frames = self._ms_to_frames_nearest(angle_offset_ms, primary_fps)
+            seq_timeline_frames = self._source_frames_to_timeline_frames_floor(
+                source_frames, source_fps, primary_fps
+            )
+            total_duration_frames = max(
+                total_duration_frames,
+                seq_offset_frames + seq_timeline_frames,
+            )
+
+            angle = ET.SubElement(
+                multicam,
+                "mc-angle",
+                name=source.original_name.rsplit(".", 1)[0],
+                angleID=angle_id,
+            )
+            angle_offset_time = self._frames_to_time(angle_offset_frames, base_fps)
+            if angle_offset_frames > 0:
+                ET.SubElement(
+                    angle,
+                    "gap",
+                    name="Gap",
+                    offset="0s",
+                    start="0s",
+                    duration=angle_offset_time,
+                )
+            legacy_grid_time = not bool(
+                source.info and getattr(source.info, "video_frame_count", None)
+            )
+            clip_start_time = (
+                self._frames_to_time(0, source_fps) if legacy_grid_time else "0s"
+            )
+            clip_duration_time = self._frames_to_time(source_timeline_frames, base_fps)
+            if legacy_grid_time and source.info and source.info.duration_ms:
+                clip_duration_time = self._frames_to_time(
+                    self._ms_to_frames_nearest(source.info.duration_ms, primary_fps),
+                    primary_fps,
+                )
+
+            clip_attrs = {
+                "ref": asset_id,
+                "offset": angle_offset_time,
+                "start": clip_start_time,
+                "name": source.original_name,
+                "format": source_format_id,
+                "tcFormat": "NDF",
+                "duration": clip_duration_time,
+            }
+            if source.info and source.info.sample_rate:
+                clip_attrs["audioRole"] = "dialogue"
+            clip = ET.SubElement(angle, "asset-clip", **clip_attrs)
+            # Conform only angles whose native rate differs from the base; the
+            # base-rate angle (the video source) stays 1:1.  No timeMap retime.
+            if abs(source_fps - base_fps) > 1e-6:
+                ET.SubElement(
+                    clip,
+                    "conform-rate",
+                    scaleEnabled="0",
+                    srcFrameRate=self._fps_to_conform_rate(source_fps),
+                )
+            self._add_spatial_conform_if_needed(
+                clip, source, sequence_width, sequence_height
+            )
+
+        conform_src_rate = (
+            self._fps_to_conform_rate(base_fps)
+            if abs(base_fps - primary_fps) > 1e-6
+            else None
+        )
+        return _MulticamContext(
+            media_id=media_id,
+            name=media_name,
+            primary_angle_id="a1",
+            source_key_to_angle_id=source_key_to_angle_id,
+            primary_offset_frames=primary_offset_frames,
+            duration_frames=total_duration_frames,
+            conform_src_rate=conform_src_rate,
+        )
+
+    def _add_timeline_source_clip(
+        self,
+        spine: ET.Element,
+        *,
+        asset_id: str,
+        source: MediaFile,
+        format_id: str,
+        fps: float,
+        start_frames: int,
+        duration_frames: int,
+        enabled: bool,
+        timeline_offset_frames: int | None,
+        multicam_context: _MulticamContext | None,
+        video_angle_id: str | None = None,
+        audio_angle_id: str | None = None,
+    ) -> ET.Element:
+        if multicam_context:
+            clip_attrs = {
+                "ref": multicam_context.media_id,
+                "duration": self._frames_to_time(duration_frames, fps),
+                "start": self._frames_to_time(
+                    start_frames + multicam_context.primary_offset_frames, fps
+                ),
+                "name": multicam_context.name,
+            }
+            if timeline_offset_frames is not None:
+                clip_attrs["offset"] = self._frames_to_time(timeline_offset_frames, fps)
+            if not enabled:
+                clip_attrs["enabled"] = "0"
+            clip = ET.SubElement(spine, "mc-clip", **clip_attrs)
+            if multicam_context.conform_src_rate:
+                ET.SubElement(
+                    clip,
+                    "conform-rate",
+                    srcFrameRate=multicam_context.conform_src_rate,
+                )
+            selected_video_angle_id = (
+                video_angle_id or multicam_context.primary_angle_id
+            )
+            selected_audio_angle_id = audio_angle_id or selected_video_angle_id
+            ET.SubElement(
+                clip,
+                "mc-source",
+                angleID=selected_video_angle_id,
+                srcEnable=(
+                    "all"
+                    if selected_video_angle_id == selected_audio_angle_id
+                    else "video"
+                ),
+            )
+            if selected_audio_angle_id != selected_video_angle_id:
+                ET.SubElement(
+                    clip,
+                    "mc-source",
+                    angleID=selected_audio_angle_id,
+                    srcEnable="audio",
+                )
+            return clip
+
+        clip_attrs = {
+            "ref": asset_id,
+            "duration": self._frames_to_time(duration_frames, fps),
+            "start": self._frames_to_time(start_frames, fps),
+            "format": format_id,
+            "tcFormat": "NDF",
+            "name": source.original_name,
+        }
+        if not enabled:
+            clip_attrs["enabled"] = "0"
+        return ET.SubElement(spine, "asset-clip", **clip_attrs)
 
     def _build_video_timeline(
         self,
@@ -558,8 +1480,10 @@ class FCPXMLExporter(ProjectExporter):
         show_disabled_cuts: bool = False,
         merge_short_gaps_ms: int = 500,
         source_format_map: dict[str, tuple[str, float]] | None = None,
-        multicam_media_id: str | None = None,
-        multicam_angle_map: dict[str, str] | None = None,
+        sequence_width: int | None = None,
+        sequence_height: int | None = None,
+        multicam_context: _MulticamContext | None = None,
+        timeline_plan: list[_TimelineClipPlan] | None = None,
     ) -> None:
         """Build the video timeline with clips (no embedded captions).
 
@@ -574,8 +1498,8 @@ class FCPXMLExporter(ProjectExporter):
             merge_short_gaps_ms: Short enabled segments (< this duration) between
                                 disabled segments will also be disabled.
             source_format_map: source_file_id → (format_id, fps) per source.
-            multicam_media_id: Optional FCPXML media resource ID for multicam exports.
-            multicam_angle_map: track ID → FCPXML angleID for multicam exports.
+            sequence_width: Timeline raster width for explicit spatial conform.
+            sequence_height: Timeline raster height for explicit spatial conform.
         """
         video_tracks = project.get_video_tracks()
         if not video_tracks:
@@ -590,362 +1514,48 @@ class FCPXMLExporter(ProjectExporter):
         if not asset_id:
             return
 
-        total_duration_ms = source.info.duration_ms
-        source_duration_frames = self._source_duration_frames(source, fps)
-
         # Resolve extra sources once for use in connected clips
         extra_tracks = self._get_extra_source_tracks(project, primary_track)
-        use_multicam = bool(multicam_media_id and multicam_angle_map)
+        if timeline_plan is None:
+            timeline_plan = self._build_primary_timeline_plan(
+                project,
+                primary_track,
+                fps,
+                merge_short_gaps_ms,
+            )
 
-        # If no edit decisions, simple timeline with single clip
-        if not project.edit_decisions:
-            duration_frames = source_duration_frames
-            if use_multicam:
-                clip_elem = ET.SubElement(
-                    spine,
-                    "mc-clip",
-                    ref=multicam_media_id,
-                    offset=self._frames_to_time(0, fps),
-                    duration=self._frames_to_time(duration_frames, fps),
-                    start=self._frames_to_time(0, fps),
-                    name=self._multicam_clip_name(project, source),
-                )
-                self._add_mc_source(clip_elem, primary_track, multicam_angle_map or {})
-                return
-
-            clip_elem = ET.SubElement(
+        for planned_clip in timeline_plan:
+            clip_elem = self._add_timeline_source_clip(
                 spine,
-                "asset-clip",
-                ref=asset_id,
-                duration=self._frames_to_time(duration_frames, fps),
-                start=self._ms_to_time(0, fps),
-                format=format_id,
-                tcFormat="NDF",
-                name=source.original_name,
+                asset_id=asset_id,
+                source=source,
+                format_id=format_id,
+                fps=fps,
+                start_frames=planned_clip.start_frames,
+                duration_frames=planned_clip.duration_frames,
+                enabled=planned_clip.enabled,
+                timeline_offset_frames=(
+                    planned_clip.timeline_offset_frames
+                    if multicam_context else None
+                ),
+                multicam_context=multicam_context,
+                video_angle_id=planned_clip.video_angle_id,
+                audio_angle_id=planned_clip.audio_angle_id,
             )
-            self._add_connected_clips(
-                clip_elem, 0, total_duration_ms, extra_tracks,
-                duration_frames, asset_map, source_format_map, fps,
-            )
-            return
-
-        # Get CUT decisions (will be removed or shown as disabled)
-        cut_decisions = [
-            d
-            for d in project.edit_decisions
-            if d.edit_type == EditType.CUT
-            and d.active_video_track_id == primary_track.id
-        ]
-
-        # Get MUTE decisions (always shown as disabled)
-        mute_decisions = [
-            d
-            for d in project.edit_decisions
-            if d.edit_type == EditType.MUTE
-            and d.active_video_track_id == primary_track.id
-        ]
-
-        # Merge overlapping ranges for each type
-        merged_cuts = self._merge_overlapping_ranges(
-            [(d.range.start_ms, d.range.end_ms) for d in cut_decisions]
-        )
-        merged_mutes = self._merge_overlapping_ranges(
-            [(d.range.start_ms, d.range.end_ms) for d in mute_decisions]
-        )
-
-        # Build segment states: collect all boundary points and determine state for each range
-        # State: 'enabled', 'disabled', 'removed'
-        boundary_points = {0, total_duration_ms}
-        for start, end in merged_cuts:
-            boundary_points.add(start)
-            boundary_points.add(end)
-        for start, end in merged_mutes:
-            boundary_points.add(start)
-            boundary_points.add(end)
-
-        sorted_boundaries = sorted(boundary_points)
-
-        # For each range between boundaries, determine the state
-        # Priority: REMOVED > DISABLED > ENABLED
-        segments: list[tuple[int, int, str]] = []  # (start_ms, end_ms, state)
-
-        for i in range(len(sorted_boundaries) - 1):
-            range_start = sorted_boundaries[i]
-            range_end = sorted_boundaries[i + 1]
-
-            if range_start >= range_end:
-                continue
-
-            # Check if this range is in a CUT region
-            is_cut = any(
-                cut_start <= range_start and range_end <= cut_end
-                for cut_start, cut_end in merged_cuts
-            )
-
-            # Check if this range is in a MUTE region
-            is_mute = any(
-                mute_start <= range_start and range_end <= mute_end
-                for mute_start, mute_end in merged_mutes
-            )
-
-            # Determine state
-            # CUT segments are always removed from the timeline.
-            # MUTE segments are always shown as disabled (for review).
-            # show_disabled_cuts is kept for backward compat but no longer
-            # changes behavior — silence→CUT (removed), content→MUTE (disabled).
-            if is_cut:
-                state = 'removed'
-            elif is_mute:
-                state = 'disabled'
-            else:
-                state = 'enabled'
-
-            segments.append((range_start, range_end, state))
-
-        # Absorb short enabled segments between removed segments
-        # (e.g. tiny silence gaps between CUT regions)
-        if merge_short_gaps_ms > 0:
-            for i in range(1, len(segments) - 1):
-                seg_start, seg_end, state = segments[i]
-                if state == 'enabled' and (seg_end - seg_start) < merge_short_gaps_ms:
-                    prev_state = segments[i - 1][2]
-                    next_state = segments[i + 1][2]
-                    if prev_state == 'removed' and next_state == 'removed':
-                        segments[i] = (seg_start, seg_end, 'removed')
-
-        # Filter out removed segments and convert to (start, end, enabled_bool)
-        final_segments: list[tuple[int, int, bool]] = [
-            (start, end, state == 'enabled')
-            for start, end, state in segments
-            if state != 'removed'
-        ]
-
-        # Merge short enabled gaps between disabled segments
-        if merge_short_gaps_ms > 0:
-            final_segments = self._merge_short_gaps(final_segments, merge_short_gaps_ms)
-
-        # Convert all boundary points to frames ONCE to ensure continuity
-        # This prevents gaps caused by independent rounding
-        boundary_points_ms = [0]
-        for start_ms, end_ms, _ in final_segments:
-            if start_ms not in boundary_points_ms:
-                boundary_points_ms.append(start_ms)
-            if end_ms not in boundary_points_ms:
-                boundary_points_ms.append(end_ms)
-        boundary_points_ms.sort()
-
-        # Convert to frame units (for 23.976fps: units of 1001/24000s)
-        ms_to_frames_map: dict[int, int] = {}
-        for ms in boundary_points_ms:
-            frames = self._clamp_frame(
-                self._ms_to_frames_nearest(ms, fps),
-                source_duration_frames,
-            )
-            ms_to_frames_map[ms] = frames
-
-        # Create clips for each segment using pre-calculated frame positions
-        timeline_offset_frames = 0
-        for source_start_ms, source_end_ms, enabled in final_segments:
-            start_frames = ms_to_frames_map[source_start_ms]
-            end_frames = ms_to_frames_map[source_end_ms]
-            duration_frames = end_frames - start_frames
-
-            if duration_frames <= 0:
-                continue
-
-            if use_multicam:
-                clip_attrs = {
-                    "ref": multicam_media_id,
-                    "offset": self._frames_to_time(timeline_offset_frames, fps),
-                    "duration": self._frames_to_time(duration_frames, fps),
-                    "start": self._frames_to_time(start_frames, fps),
-                    "name": self._multicam_clip_name(project, source),
-                }
-                if not enabled:
-                    clip_attrs["enabled"] = "0"
-
-                clip_elem = ET.SubElement(spine, "mc-clip", **clip_attrs)
-                self._add_mc_source(clip_elem, primary_track, multicam_angle_map or {})
-                timeline_offset_frames += duration_frames
-                continue
-
-            clip_attrs = {
-                "ref": asset_id,
-                "duration": self._frames_to_time(duration_frames, fps),
-                "start": self._frames_to_time(start_frames, fps),
-                "format": format_id,
-                "tcFormat": "NDF",
-                "name": source.original_name,
-            }
-            if not enabled:
-                clip_attrs["enabled"] = "0"
-
-            clip_elem = ET.SubElement(spine, "asset-clip", **clip_attrs)
-            self._add_connected_clips(
-                clip_elem, source_start_ms, source_end_ms, extra_tracks,
-                duration_frames, asset_map, source_format_map, fps, enabled=enabled,
-            )
-            timeline_offset_frames += duration_frames
-
-    def _get_multicam_angle_tracks(
-        self,
-        project: Project,
-        primary_track: Track,
-    ) -> list[tuple[Track, MediaFile, str]]:
-        """Return video tracks that should become FCP multicam angles."""
-        seen_source_ids: set[str] = set()
-        angle_tracks: list[tuple[Track, MediaFile, str]] = []
-
-        ordered_tracks = [
-            primary_track,
-            *[track for track in project.get_video_tracks() if track.id != primary_track.id],
-        ]
-
-        for track in ordered_tracks:
-            if track.source_file_id in seen_source_ids:
-                continue
-            source = project.get_source_file(track.source_file_id)
-            if not source or not source.is_video:
-                continue
-
-            seen_source_ids.add(track.source_file_id)
-            angle_id = f"angle{len(angle_tracks) + 1}"
-            angle_tracks.append((track, source, angle_id))
-
-        return angle_tracks
-
-    def _add_multicam_media(
-        self,
-        resources: ET.Element,
-        project: Project,
-        angle_tracks: list[tuple[Track, MediaFile, str]],
-        asset_map: dict[str, str],
-        source_format_map: dict[str, tuple[str, float]],
-        primary_format_id: str,
-        primary_fps: float,
-        media_id: str,
-    ) -> dict[str, str]:
-        """Create a real FCPXML multicam media resource and return track angle IDs."""
-        media = ET.SubElement(
-            resources,
-            "media",
-            id=media_id,
-            name=f"{project.name} Multicam",
-        )
-        multicam = ET.SubElement(
-            media,
-            "multicam",
-            format=primary_format_id,
-            tcStart="0s",
-            tcFormat="NDF",
-        )
-
-        angle_map: dict[str, str] = {}
-        for track, source, angle_id in angle_tracks:
-            asset_id = asset_map.get(source.id)
-            if not asset_id:
-                continue
-
-            angle_map[track.id] = angle_id
-            angle = ET.SubElement(
-                multicam,
-                "mc-angle",
-                name=source.original_name.rsplit(".", 1)[0],
-                angleID=angle_id,
-            )
-            self._add_multicam_angle_asset_clip(
-                angle,
-                track,
-                source,
-                asset_id,
-                source_format_map,
-                primary_fps,
-            )
-
-        return angle_map
-
-    def _add_multicam_angle_asset_clip(
-        self,
-        angle: ET.Element,
-        track: Track,
-        source: MediaFile,
-        asset_id: str,
-        source_format_map: dict[str, tuple[str, float]],
-        primary_fps: float,
-    ) -> None:
-        """Place one source asset on a multicam angle timeline."""
-        source_format_id, source_fps = source_format_map.get(
-            source.id,
-            ("r1", primary_fps),
-        )
-        source_duration_ms = source.info.duration_ms
-        source_duration_frames = self._source_duration_frames(source, source_fps)
-
-        if track.offset_ms > 0:
-            offset_frames = self._ms_to_frames_nearest(track.offset_ms, primary_fps)
-            if offset_frames > 0:
-                ET.SubElement(
-                    angle,
-                    "gap",
-                    name="Gap",
-                    offset=self._frames_to_time(0, primary_fps),
-                    start=self._frames_to_time(0, primary_fps),
-                    duration=self._frames_to_time(offset_frames, primary_fps),
+            if not multicam_context:
+                self._add_connected_clips(
+                    clip_elem,
+                    planned_clip.source_start_ms,
+                    planned_clip.source_end_ms,
+                    extra_tracks,
+                    planned_clip.duration_frames,
+                    asset_map,
+                    source_format_map,
+                    fps,
+                    sequence_width,
+                    sequence_height,
+                    enabled=planned_clip.enabled,
                 )
-            clip_offset = self._frames_to_time(offset_frames, primary_fps)
-            quantized_offset_ms = self._frames_to_ms(offset_frames, primary_fps)
-            source_start_ms = max(0, quantized_offset_ms - track.offset_ms)
-        else:
-            clip_offset = self._frames_to_time(0, primary_fps)
-            source_start_ms = -track.offset_ms
-
-        if source_start_ms >= source_duration_ms:
-            return
-
-        source_start_frames = self._clamp_frame(
-            self._ms_to_frames_nearest(source_start_ms, source_fps),
-            source_duration_frames,
-        )
-        available_source_ms = self._frames_to_ms(
-            source_duration_frames - source_start_frames,
-            source_fps,
-        )
-        source_clip_duration_frames = min(
-            self._ms_to_frames(source_duration_ms - source_start_ms, source_fps),
-            self._ms_to_frames(available_source_ms, source_fps),
-        )
-        if source_clip_duration_frames <= 0:
-            return
-
-        ET.SubElement(
-            angle,
-            "asset-clip",
-            ref=asset_id,
-            offset=clip_offset,
-            name=source.original_name,
-            start=self._frames_to_time(source_start_frames, source_fps),
-            duration=self._frames_to_time(source_clip_duration_frames, source_fps),
-            format=source_format_id,
-            tcFormat="NDF",
-        )
-
-    def _multicam_clip_name(self, project: Project, source: MediaFile) -> str:
-        """Return a stable timeline name for generated multicam clips."""
-        if project.name:
-            return f"{project.name} Multicam"
-        return f"{source.original_name.rsplit('.', 1)[0]} Multicam"
-
-    def _add_mc_source(
-        self,
-        mc_clip: ET.Element,
-        primary_track: Track,
-        angle_map: dict[str, str],
-    ) -> None:
-        """Select the primary angle for a generated multicam timeline clip."""
-        angle_id = angle_map.get(primary_track.id)
-        if not angle_id:
-            return
-        ET.SubElement(mc_clip, "mc-source", angleID=angle_id, srcEnable="all")
 
     def _get_extra_source_tracks(
         self,
@@ -993,14 +1603,17 @@ class FCPXMLExporter(ProjectExporter):
         asset_map: dict[str, str],
         source_format_map: dict[str, tuple[str, float]] | None,
         primary_fps: float,
+        sequence_width: int | None = None,
+        sequence_height: int | None = None,
         enabled: bool = True,
     ) -> None:
         """Attach connected clips for extra sources as children of *parent_clip*.
 
         Each connected clip lives in its own lane (negative lane numbers).
         The ``offset`` uses the **primary** (sequence) fps so it aligns to
-        the parent timeline grid. ``start`` and ``duration`` use the extra
-        source's own fps so FCP can seek accurately in the source media.
+        the parent timeline grid. ``start`` uses the extra source fps, while
+        ``duration`` uses the primary timeline fps so FCP imports it on an
+        edit-frame boundary.
 
         Args:
             parent_clip: The parent ``<asset-clip>`` element.
@@ -1011,6 +1624,8 @@ class FCPXMLExporter(ProjectExporter):
             asset_map: source_file_id → FCPXML asset ID.
             source_format_map: source_file_id → (format_id, fps).
             primary_fps: Frame rate of the sequence timeline.
+            sequence_width: Timeline raster width for explicit spatial conform.
+            sequence_height: Timeline raster height for explicit spatial conform.
             enabled: If False, connected clips get ``enabled="0"``.
         """
         if not extra_tracks:
@@ -1034,49 +1649,56 @@ class FCPXMLExporter(ProjectExporter):
                 extra_format_id, extra_fps = source_format_map[source.id]
             extra_duration_frames = self._source_duration_frames(source, extra_fps)
 
-            # track.offset_ms = when the extra track starts on the unified timeline.
-            # So extra_source_time = unified_time - track.offset_ms.
-            # Since main has offset 0, unified_time == main_time.
-            extra_start_ms = main_start_ms - track.offset_ms
-            extra_end_ms = main_end_ms - track.offset_ms
-
-            # Clamp to the extra source's bounds
-            extra_start_ms = max(0, min(extra_start_ms, extra_duration_ms))
-            extra_end_ms = max(0, min(extra_end_ms, extra_duration_ms))
-
-            if extra_end_ms <= extra_start_ms:
+            # Track offsets are expressed on the unified timeline. Intersect
+            # the parent main clip range with the extra source available span
+            # before converting to parent-local edit frames.
+            extra_timeline_start_ms = track.offset_ms
+            extra_timeline_end_ms = track.offset_ms + extra_duration_ms
+            overlap_start_ms = max(main_start_ms, extra_timeline_start_ms)
+            overlap_end_ms = min(main_end_ms, extra_timeline_end_ms)
+            if overlap_end_ms <= overlap_start_ms:
                 continue
 
+            local_offset_frames = self._clamp_frame(
+                self._ms_to_frames_nearest(overlap_start_ms - main_start_ms, primary_fps),
+                timeline_duration_frames,
+            )
+            local_end_frames = self._clamp_frame(
+                self._ms_to_frames_nearest(overlap_end_ms - main_start_ms, primary_fps),
+                timeline_duration_frames,
+            )
+            timeline_clip_duration_frames = local_end_frames - local_offset_frames
+            if timeline_clip_duration_frames <= 0:
+                continue
+
+            extra_start_ms = overlap_start_ms - track.offset_ms
             extra_start_frames = self._clamp_frame(
                 self._ms_to_frames_nearest(extra_start_ms, extra_fps),
                 extra_duration_frames,
             )
-            actual_duration_ms = extra_end_ms - extra_start_ms
-            parent_duration_ms = self._frames_to_ms(timeline_duration_frames, primary_fps)
-            duration_frames = min(
-                self._ms_to_frames(actual_duration_ms, extra_fps),
-                self._ms_to_frames(parent_duration_ms, extra_fps),
+            available_timeline_frames = self._source_frames_to_timeline_frames_floor(
                 extra_duration_frames - extra_start_frames,
+                extra_fps,
+                primary_fps,
             )
+            duration_frames = min(timeline_clip_duration_frames, available_timeline_frames)
             if duration_frames <= 0:
                 continue
 
             attrs = {
                 "ref": extra_asset_id,
                 "lane": str(lane),
-                # This clip is nested under the parent main clip, so its
-                # placement offset is parent-local. The source media position
-                # is already represented by ``start`` below.
-                "offset": self._ms_to_time(0, primary_fps),
+                "offset": self._frames_to_time(local_offset_frames, primary_fps),
                 "start": self._frames_to_time(extra_start_frames, extra_fps),
-                "duration": self._frames_to_time(duration_frames, extra_fps),
+                "duration": self._frames_to_time(duration_frames, primary_fps),
                 "format": extra_format_id,
                 "tcFormat": "NDF",
                 "name": source.original_name,
             }
             if not enabled:
                 attrs["enabled"] = "0"
-            ET.SubElement(parent_clip, "asset-clip", **attrs)
+            clip = ET.SubElement(parent_clip, "asset-clip", **attrs)
+            self._add_spatial_conform_if_needed(clip, source, sequence_width, sequence_height)
 
     def _build_timeline(
         self,
@@ -1146,6 +1768,8 @@ class FCPXMLExporter(ProjectExporter):
             if not other_asset_id:
                 continue
 
+            # Connected clip with offset
+            offset_time = self._ms_to_time(track.offset_ms, fps)
             # Note: Connected clips are added differently in FCPXML
             # For now, we just add them to spine with their offset
 
@@ -1332,55 +1956,295 @@ class FCPXMLExporter(ProjectExporter):
         """Return the frame count FCP may safely reference for a source."""
         if not source.info:
             return 0
-        if source.info.video_frame_count and source.info.video_frame_count > 0:
-            return source.info.video_frame_count
-        if not source.info.duration_ms:
-            return 0
-        return max(0, self._ms_to_frames_nearest(source.info.duration_ms, fps))
+
+        available_duration = self._source_available_duration(source)
+        duration_frames = self._duration_to_frames_floor(available_duration, fps)
+        frame_count = getattr(source.info, "video_frame_count", None)
+        if frame_count and frame_count > 0:
+            return min(frame_count, duration_frames) if duration_frames > 0 else frame_count
+
+        has_precise_duration = bool(
+            getattr(source.info, "video_duration", None)
+            or getattr(source.info, "audio_sample_count", None)
+        )
+        if has_precise_duration:
+            return duration_frames
+
+        duration_ms = getattr(source.info, "duration_ms", None)
+        if duration_ms and duration_ms > 0:
+            return max(0, self._ms_to_frames_nearest(duration_ms, fps))
+        return duration_frames
 
     def _source_duration_time(self, source: MediaFile, fps: float) -> str:
         """Return frame-aligned source duration for FCPXML asset metadata."""
         return self._frames_to_time(self._source_duration_frames(source, fps), fps)
 
+    def _source_frame_duration_time(self, source: MediaFile, fps: float) -> str:
+        """Return a relink-safe FCPXML frameDuration for a source format.
+
+        FCP uses this value as part of relink compatibility. Do not use
+        duration/frame-count drift compensation here; that can make FCP reject
+        the original media as a different frame rate.
+        """
+        return self._fps_to_frame_duration(fps)
+
+    def _source_available_duration(self, source: MediaFile) -> Fraction:
+        durations: list[Fraction] = []
+        duration_ms = getattr(source.info, "duration_ms", None)
+        if duration_ms and duration_ms > 0:
+            durations.append(Fraction(duration_ms, 1000))
+
+        sample_rate = (
+            getattr(source.info, "audio_sample_rate", None)
+            or getattr(source.info, "sample_rate", None)
+        )
+        sample_count = getattr(source.info, "audio_sample_count", None)
+        if sample_rate and sample_count and sample_rate > 0 and sample_count > 0:
+            durations.append(Fraction(sample_count, sample_rate))
+
+        return min(durations) if durations else Fraction(0, 1)
+
+    def _source_actual_video_duration(self, source: MediaFile) -> Fraction:
+        if not source.info:
+            return Fraction(0, 1)
+
+        video_duration = getattr(source.info, "video_duration", None)
+        if video_duration:
+            parsed_duration = self._time_fraction(video_duration)
+            if parsed_duration > 0:
+                return parsed_duration
+
+        return self._source_available_duration(source)
+
+    def _source_retime_correction(
+        self,
+        source: MediaFile,
+        fps: float,
+        track: Track | None = None,
+    ) -> _RetimeCorrection | None:
+        if not source.is_video or not source.info:
+            return None
+
+        actual_duration = self._source_actual_video_duration(source)
+        if actual_duration <= 0:
+            return None
+
+        track_speed = getattr(track, "sync_drift_retime_speed", None) if track else None
+        if track_speed and track_speed > 0:
+            speed = Fraction(str(track_speed)).limit_denominator(1_000_000_000)
+            if abs(speed - 1) < Fraction(1, 100000):
+                return None
+            if abs(speed - 1) > MAX_MULTICAM_RETIME_SPEED_DELTA:
+                return None
+            return _RetimeCorrection(
+                speed=speed,
+                nominal_duration=actual_duration * speed,
+                actual_duration=actual_duration,
+                drift=actual_duration * (speed - 1),
+            )
+
+        frame_count = getattr(source.info, "video_frame_count", None)
+        if not frame_count or frame_count <= 0:
+            return None
+
+        frame_duration = self._fps_to_frame_duration_fraction(fps)
+        nominal_duration = frame_count * frame_duration
+        drift = nominal_duration - actual_duration
+        if abs(drift) < MIN_MULTICAM_RETIME_DRIFT:
+            return None
+
+        speed = nominal_duration / actual_duration
+        if abs(speed - 1) > MAX_MULTICAM_RETIME_SPEED_DELTA:
+            return None
+
+        return _RetimeCorrection(
+            speed=speed,
+            nominal_duration=nominal_duration,
+            actual_duration=actual_duration,
+            drift=drift,
+        )
+
+    def _clamp_retimed_timeline_frames(
+        self,
+        source: MediaFile,
+        source_fps: float,
+        timeline_fps: float,
+        timeline_frames: int,
+        track: Track | None = None,
+    ) -> int:
+        retime = self._source_retime_correction(source, source_fps, track)
+        if not retime or timeline_frames <= 0:
+            return timeline_frames
+
+        asset_duration = self._time_fraction(self._source_duration_time(source, source_fps))
+        if asset_duration <= 0:
+            return timeline_frames
+
+        # A speed-up timeMap consumes more source time than timeline time.
+        # Keep the retimed source value inside the real asset duration so FCP
+        # relink does not reject the original media as too short.
+        safe_timeline_duration = asset_duration / retime.speed
+        timeline_frame_duration = self._fps_to_frame_duration_fraction(timeline_fps)
+        safe_timeline_frames = int(safe_timeline_duration / timeline_frame_duration)
+        return max(0, min(timeline_frames, safe_timeline_frames))
+
+    def _add_linear_retime_if_needed(
+        self,
+        clip: ET.Element,
+        source: MediaFile,
+        fps: float,
+        clip_duration: Fraction,
+        track: Track | None = None,
+    ) -> None:
+        if clip_duration <= 0:
+            return
+
+        retime = self._source_retime_correction(source, fps, track)
+        if not retime:
+            return
+
+        time_map = ET.SubElement(
+            clip,
+            "timeMap",
+            frameSampling="floor",
+        )
+        ET.SubElement(
+            time_map,
+            "timept",
+            time="0s",
+            value="0s",
+            interp="linear",
+        )
+        ET.SubElement(
+            time_map,
+            "timept",
+            time=self._fraction_to_time(clip_duration),
+            value=self._fraction_to_time(clip_duration * retime.speed),
+            interp="linear",
+        )
+
+    def _duration_to_frames_floor(self, duration: Fraction, fps: float) -> int:
+        if duration <= 0:
+            return 0
+        return max(0, int(duration / self._fps_to_frame_duration_fraction(fps)))
+
     def _clamp_frame(self, frame: int, max_frames: int) -> int:
         return max(0, min(frame, max_frames))
 
-    def _time_to_seconds(self, value: str | None) -> float:
-        if not value:
-            return 0.0
-        raw = value[:-1] if value.endswith("s") else value
-        if "/" in raw:
-            num, den = raw.split("/", 1)
-            den_float = float(den)
-            if den_float == 0:
-                return 0.0
-            return float(num) / den_float
-        return float(raw)
+    def _fps_to_frame_duration_fraction(self, fps: float) -> Fraction:
+        if abs(fps - 23.976) < 0.01:
+            return Fraction(1001, 24000)
+        if abs(fps - 29.97) < 0.01:
+            return Fraction(1001, 30000)
+        if abs(fps - 59.94) < 0.01:
+            return Fraction(1001, 60000)
+        return Fraction(1, int(round(fps)))
 
-    def _validate_asset_clip_bounds(self, root: ET.Element) -> None:
-        """Ensure exported asset clips do not reference beyond source duration."""
-        asset_durations: dict[str, float] = {}
-        for asset in root.findall("./resources/asset"):
-            asset_id = asset.get("id")
-            duration = asset.get("duration")
-            if asset_id and duration:
-                asset_durations[asset_id] = self._time_to_seconds(duration)
+    def _source_frames_to_timeline_frames_floor(
+        self,
+        source_frames: int,
+        source_fps: float,
+        timeline_fps: float,
+    ) -> int:
+        """Return how many timeline frames fit within a source frame span."""
+        if source_frames <= 0:
+            return 0
+        source_duration = source_frames * self._fps_to_frame_duration_fraction(source_fps)
+        timeline_frame_duration = self._fps_to_frame_duration_fraction(timeline_fps)
+        return max(0, int(source_duration / timeline_frame_duration))
 
-        for clip in root.findall(".//asset-clip"):
-            ref = clip.get("ref")
-            if ref not in asset_durations:
+    def _add_spatial_conform_if_needed(
+        self,
+        clip: ET.Element,
+        source: MediaFile,
+        sequence_width: int | None,
+        sequence_height: int | None,
+    ) -> None:
+        """Make cross-raster placement deterministic in FCP imports."""
+        if not source.is_video or not sequence_width or not sequence_height:
+            return
+        if source.info.width == sequence_width and source.info.height == sequence_height:
+            return
+        ET.SubElement(clip, "adjust-conform", type="fit")
+
+    def _validate_no_disabled_clips(self, root: ET.Element) -> list[str]:
+        """Return errors for disabled clips in delivery FCPXML exports."""
+        errors: list[str] = []
+        for clip in root.iter():
+            if clip.get("enabled") != "0":
+                continue
+            name = clip.get("name") or clip.tag
+            start = clip.get("start") or "unknown"
+            duration = clip.get("duration") or "unknown"
+            errors.append(
+                f"{clip.tag} {name} start={start} duration={duration} has enabled=0"
+            )
+        return errors
+
+    def _validate_sequence_spine_duration(self, root: ET.Element) -> list[str]:
+        """Return errors when a sequence duration disagrees with its spine."""
+        errors: list[str] = []
+        for sequence in root.findall("./library/event/project/sequence"):
+            sequence_duration = self._time_fraction(sequence.get("duration"))
+            spine = sequence.find("spine")
+            if spine is None:
                 continue
 
-            start = self._time_to_seconds(clip.get("start"))
-            duration = self._time_to_seconds(clip.get("duration"))
-            asset_duration = asset_durations[ref]
-            if start + duration > asset_duration + 1e-6:
-                name = clip.get("name") or ref
-                raise ValueError(
-                    "FCPXML asset clip exceeds source duration: "
-                    f"{name} start={start:.6f}s duration={duration:.6f}s "
-                    f"asset_duration={asset_duration:.6f}s"
+            cursor = Fraction(0, 1)
+            max_end = Fraction(0, 1)
+            for child in list(spine):
+                duration = self._time_fraction(child.get("duration"))
+                if duration <= 0:
+                    continue
+
+                offset_attr = child.get("offset")
+                start = self._time_fraction(offset_attr) if offset_attr else cursor
+                end = start + duration
+                max_end = max(max_end, end)
+                cursor = end
+
+            if sequence_duration != max_end:
+                errors.append(
+                    "sequence duration="
+                    f"{sequence_duration}s spine end={max_end}s"
                 )
+
+        return errors
+
+    def _validate_asset_reference_bounds(self, root: ET.Element) -> list[str]:
+        """Return errors for asset-clips that read past their asset duration."""
+        asset_durations: dict[str, Fraction] = {}
+        for asset in root.findall("./resources/asset"):
+            asset_id = asset.get("id")
+            duration = self._time_fraction(asset.get("duration"))
+            if asset_id and duration > 0:
+                asset_durations[asset_id] = duration
+
+        errors: list[str] = []
+        tolerance = Fraction(1, 1000)
+        for clip in root.iter("asset-clip"):
+            ref = clip.get("ref")
+            asset_duration = asset_durations.get(ref or "")
+            if asset_duration is None:
+                continue
+            start = self._time_fraction(clip.get("start"))
+            duration = self._time_fraction(clip.get("duration"))
+            time_map_values = [
+                self._time_fraction(timept.get("value"))
+                for timept in clip.findall("./timeMap/timept")
+            ]
+            end = start + max(time_map_values) if time_map_values else start + duration
+            if end > asset_duration + tolerance:
+                name = clip.get("name") or ref or "asset-clip"
+                errors.append(
+                    f"{name} end={end}s exceeds asset duration={asset_duration}s"
+                )
+        return errors
+
+    def _fraction_to_time(self, value: Fraction) -> str:
+        if value.denominator == 1:
+            return f"{value.numerator}s"
+        return f"{value.numerator}/{value.denominator}s"
 
     def _time_fraction(self, value: str | None) -> Fraction:
         if not value:
@@ -1391,87 +2255,6 @@ class FCPXMLExporter(ProjectExporter):
             return Fraction(int(numerator), int(denominator))
         return Fraction(raw)
 
-    def _validate_time_domains(self, root: ET.Element) -> list[str]:
-        """Validate generated FCPXML times against their format frame grids."""
-        errors: list[str] = []
-        format_frame_duration: dict[str, Fraction] = {}
-        asset_frame_duration: dict[str, Fraction] = {}
-
-        resources = root.find("resources")
-        if resources is None:
-            return ["missing resources"]
-
-        for fmt in resources.findall("format"):
-            fmt_id = fmt.get("id")
-            if not fmt_id:
-                continue
-            frame_duration = fmt.get("frameDuration")
-            if frame_duration:
-                format_frame_duration[fmt_id] = self._time_fraction(frame_duration)
-
-        for asset in resources.findall("asset"):
-            asset_id = asset.get("id")
-            fmt_id = asset.get("format")
-            if not asset_id or not fmt_id or asset.get("hasVideo") != "1":
-                continue
-            frame_duration = format_frame_duration.get(fmt_id)
-            if frame_duration is None:
-                continue
-            asset_frame_duration[asset_id] = frame_duration
-            for attr in ("start", "duration"):
-                value = asset.get(attr)
-                if value and not self._is_frame_multiple(value, frame_duration):
-                    errors.append(
-                        f"asset {asset_id} {attr}={value} not aligned to {frame_duration}"
-                    )
-
-        sequence = root.find("./library/event/project/sequence")
-        if sequence is None:
-            return errors
-
-        sequence_frame_duration = format_frame_duration.get(sequence.get("format") or "")
-        if sequence_frame_duration is not None:
-            duration = sequence.get("duration")
-            if duration and not self._is_frame_multiple(duration, sequence_frame_duration):
-                errors.append(
-                    f"sequence duration={duration} not aligned to {sequence_frame_duration}"
-                )
-
-        for clip in root.findall(".//asset-clip"):
-            ref = clip.get("ref")
-            source_frame_duration = asset_frame_duration.get(ref or "")
-            for attr in ("start", "duration"):
-                value = clip.get(attr)
-                if (
-                    value
-                    and source_frame_duration
-                    and not self._is_frame_multiple(value, source_frame_duration)
-                ):
-                    errors.append(
-                        f"asset-clip {ref} {attr}={value} "
-                        f"not aligned to {source_frame_duration}"
-                    )
-
-        for clip in sequence.findall(".//asset-clip"):
-            ref = clip.get("ref")
-            offset = clip.get("offset")
-            if (
-                offset
-                and sequence_frame_duration
-                and not self._is_frame_multiple(offset, sequence_frame_duration)
-            ):
-                errors.append(
-                    f"asset-clip {ref} offset={offset} "
-                    f"not aligned to {sequence_frame_duration}"
-                )
-
-        return errors
-
-    def _is_frame_multiple(self, time_value: str, frame_duration: Fraction) -> bool:
-        if frame_duration == 0:
-            return True
-        return (self._time_fraction(time_value) / frame_duration).denominator == 1
-
     def _ms_to_frames(self, ms: int | float, fps: float) -> int:
         """Convert milliseconds to frame count.
 
@@ -1480,12 +2263,7 @@ class FCPXMLExporter(ProjectExporter):
         return int(self._ms_to_exact_frames(ms, fps))
 
     def _ms_to_frames_nearest(self, ms: int | float, fps: float) -> int:
-        """Convert milliseconds to the nearest frame count.
-
-        This is used for FCPXML edit boundaries. It keeps exported ranges as
-        close as possible to the source segment while making them divisible by
-        the project frame duration.
-        """
+        """Convert milliseconds to the nearest frame count."""
         frames = self._ms_to_exact_frames(ms, fps)
         if frames >= 0:
             return math.floor(frames + 0.5)
@@ -1503,23 +2281,8 @@ class FCPXMLExporter(ProjectExporter):
             return ms * fps / 1000
 
     def _ms_to_frames_ceil(self, ms: int | float, fps: float) -> int:
-        """Convert milliseconds to frame count (ceil).
-
-        Like ``_ms_to_frames`` but rounds up so the resulting frame span
-        always covers the full millisecond duration.
-        """
+        """Convert milliseconds to frame count (ceil)."""
         return math.ceil(self._ms_to_exact_frames(ms, fps))
-
-    def _frames_to_ms(self, frames: int, fps: float) -> float:
-        """Convert frame count back to milliseconds for a given FCP frame rate."""
-        if abs(fps - 23.976) < 0.01:
-            return frames * 1001 * 1000 / 24000
-        elif abs(fps - 29.97) < 0.01:
-            return frames * 1001 * 1000 / 30000
-        elif abs(fps - 59.94) < 0.01:
-            return frames * 1001 * 1000 / 60000
-        else:
-            return frames * 1000 / fps
 
     def _frames_to_time(self, frames: int, fps: float) -> str:
         """Convert frame count to FCPXML time format.
@@ -1548,11 +2311,6 @@ class FCPXMLExporter(ProjectExporter):
         frames = self._ms_to_frames(ms, fps)
         return self._frames_to_time(frames, fps)
 
-    def _ms_to_time_nearest(self, ms: int | float, fps: float) -> str:
-        """Convert milliseconds to FCPXML time at the nearest frame boundary."""
-        frames = self._ms_to_frames_nearest(ms, fps)
-        return self._frames_to_time(frames, fps)
-
     def _fps_to_frame_duration(self, fps: float) -> str:
         """Convert FPS to frame duration format.
 
@@ -1575,6 +2333,19 @@ class FCPXMLExporter(ProjectExporter):
         else:
             fps_int = int(round(fps))
             return f"1/{fps_int}s"
+
+    def _fps_to_conform_rate(self, fps: float) -> str:
+        """Return the FCP ``conform-rate srcFrameRate`` string for *fps*.
+
+        FCP uses fixed labels for source frame rates (e.g. "29.97", "60").
+        """
+        for ref, label in (
+            (23.976, "23.98"), (24.0, "24"), (25.0, "25"), (29.97, "29.97"),
+            (30.0, "30"), (50.0, "50"), (59.94, "59.94"), (60.0, "60"),
+        ):
+            if abs(fps - ref) < 0.05:
+                return label
+        return f"{fps:.2f}".rstrip("0").rstrip(".")
 
     def _get_format_name(self, width: int, height: int, fps: float) -> str:
         """Generate FCP format name.

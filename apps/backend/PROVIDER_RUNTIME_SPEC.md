@@ -10,6 +10,7 @@
 - `codex exec -m gpt-5.5 -c 'model_reasoning_effort="xhigh"' ...` 는 실제 응답을 반환했다.
 - `claude -p --model claude-opus-4-6 --effort medium ...` 는 실제 응답을 반환했다.
 - 현재 `eogum` 은 provider 이름만 넘기고, model/effort 는 `auto-video-edit` 내부 구현에 묻혀 있다.
+- 현재 Codex 기본 프로필은 `gpt-5.5 + xhigh` 로 설정한다. 실제 provider smoke 는 환경별로 `doctor --probe-providers` 에서 확인한다.
 
 현재 구현 상태:
 

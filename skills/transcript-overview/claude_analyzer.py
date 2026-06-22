@@ -59,6 +59,9 @@ OVERVIEW_PROMPT = '''당신은 전문 영상 편집자이자 스토리 분석가
    - payoff_segments: 뒤 세그먼트 번호들
    - description: 왜 함께 유지해야 하는지
    - strength: required(반드시), strong(강력 권장), moderate(권장)
+   - 중요: setup_segments와 payoff_segments에는 반드시 정수 segment 번호만 넣으세요.
+   - 금지: 챕터 제목, 주제명, "다음 챕터", "본론", "Interaction Model 구조 설명" 같은 문자열을 넣지 마세요.
+   - 정확한 뒤 세그먼트 번호를 모르면 그 dependency는 만들지 마세요.
 5. **pacing_notes**: 페이싱 메모
    - slow_sections: 느리지만 필수적인 구간 (start_segment, end_segment, note)
    - high_energy_sections: 에너지 높은 구간
@@ -102,6 +105,8 @@ OVERVIEW_PROMPT = '''당신은 전문 영상 편집자이자 스토리 분석가
 **중요**:
 - 챕터는 빠짐없이 전체 자막을 커버해야 합니다.
 - 의존성은 편집 시 함께 유지해야 하는 쌍만 식별하세요.
+- 모든 segment 참조 필드(start_segment, end_segment, segment_index, references, setup_segments, payoff_segments)는 정수만 사용하세요.
+- 잘못된 예: {{"setup_segments": [20], "payoff_segments": ["Thinking Machines 본론"]}}. payoff_segments에는 이런 문자열을 절대 넣지 마세요.
 - 핵심 순간은 절대 자르면 안 되는 부분입니다.
 - JSON만 출력하세요.'''
 
@@ -149,6 +154,12 @@ CHAPTER_DETAIL_PROMPT = '''당신은 전문 영상 편집자이자 스토리 분
 5. **dependencies**: 이 챕터 내 또는 다른 챕터와의 의존성
 6. **pacing**: 느린 구간, 고에너지 구간
 
+## segment 번호 규칙
+- segment를 참조하는 모든 필드에는 반드시 정수 segment 번호만 넣으세요.
+- setup_segments와 payoff_segments는 정수 배열이어야 합니다. 예: [25, 26], [98, 99]
+- 챕터 제목, 주제명, "다음 챕터", "본론", "Interaction Model 구조 설명" 같은 문자열은 절대 넣지 마세요.
+- 다른 챕터와의 의존성이 있어도 정확한 segment 번호를 모르면 dependency를 만들지 마세요.
+
 ## 출력 형식 (JSON):
 ```json
 {{
@@ -170,6 +181,12 @@ CHAPTER_DETAIL_PROMPT = '''당신은 전문 영상 편집자이자 스토리 분
   "high_energy_sections": [{{"start_segment": 40, "end_segment": 45, "note": "핵심 설명"}}]
 }}
 ```
+
+잘못된 출력 예시:
+```json
+{{"setup_segments": [20], "payoff_segments": ["Thinking Machines 본론"]}}
+```
+위처럼 payoff_segments에 문자열을 넣으면 안 됩니다. 정확한 정수 segment 번호만 사용하세요.
 
 JSON만 출력하세요.'''
 

@@ -267,6 +267,12 @@ def main():
         "--context",
         help="Path to storyline.json from transcript-overview (Pass 1)",
     )
+    parser.add_argument(
+        "--edit-intensity",
+        choices=["light", "normal", "heavy"],
+        default="normal",
+        help="Cut editing intensity (light, normal, or heavy)",
+    )
 
     args = parser.parse_args()
 
@@ -297,10 +303,19 @@ def main():
 
     # Analyze with chosen provider
     print(f"\nAnalyzing podcast with {args.provider.upper()} for entertainment value...")
+    print(f"Edit intensity: {args.edit_intensity}")
     if args.provider == "claude":
-        result = analyze_with_claude(segments, storyline_context=storyline_context)
+        result = analyze_with_claude(
+            segments,
+            storyline_context=storyline_context,
+            edit_intensity=args.edit_intensity,
+        )
     else:
-        result = analyze_with_codex(segments, storyline_context=storyline_context)
+        result = analyze_with_codex(
+            segments,
+            storyline_context=storyline_context,
+            edit_intensity=args.edit_intensity,
+        )
 
     # Print report
     print_analysis_report(result.cuts, result.keeps, segments)

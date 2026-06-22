@@ -20,6 +20,44 @@ CHUNK_SIZE = 80
 CHUNK_OVERLAP = 5
 
 
+def _edit_intensity_guidance(edit_intensity: str = "normal") -> str:
+    normalized = edit_intensity if edit_intensity in {"light", "normal", "heavy"} else "normal"
+    labels = {
+        "light": "적게 편집",
+        "normal": "일반 편집",
+        "heavy": "많이 편집",
+    }
+    details = {
+        "light": [
+            "- 메타 발화, 명백한 실수, 긴 침묵, 완전 중복 위주로만 cut하세요.",
+            "- 약한 반복이나 보충 설명은 남은 흐름이 자연스러우면 keep하세요.",
+        ],
+        "normal": [
+            "- 중복, 필러, 불완전 문장, 늘어지는 구간을 균형 있게 제거하세요.",
+            "- 설명 흐름과 전환 문장은 적극적으로 보존하세요.",
+        ],
+        "heavy": [
+            "- 핵심을 직접 강화하지 않는 반복, 느슨한 보충 설명, 낮은 정보 밀도 구간까지 cut 후보로 보세요.",
+            "- 그래도 남은 결과가 요약 조각처럼 끊기면 안 됩니다.",
+            "- 맥락 연결용 bridge segment는 짧더라도 keep하세요.",
+        ],
+    }
+    lines = [
+        "## 컷 편집 강도 지시 (최우선)",
+        f"- 선택된 편집 강도: {labels[normalized]}",
+        "- 이 강도에 맞춰 cut/keep을 판단하세요.",
+        "- 단, 최종 결과에서 남은 segment들의 맥락이 자연스럽게 이어지는 것을 항상 우선하세요.",
+        "- 질문만 남거나 답변만 남는 컷, setup 없이 payoff만 남는 컷, 전환 문장 제거로 흐름이 끊기는 컷은 피하세요.",
+        "- 강도 때문에 애매한 세그먼트를 자를 수는 있지만, 앞뒤 연결이 어색해지면 keep을 선택하세요.",
+        *details[normalized],
+    ]
+    return "\n".join(lines)
+
+
+def _apply_edit_intensity_guidance(prompt: str, edit_intensity: str = "normal") -> str:
+    return _edit_intensity_guidance(edit_intensity) + "\n\n" + prompt
+
+
 CHUNK_ANALYSIS_PROMPT = '''당신은 영상 편집 전문가입니다. 아래 자막 세그먼트들을 분석해서 어떤 부분을 잘라야 하는지 판단해주세요.
 
 ## 자막 세그먼트들:
@@ -160,6 +198,7 @@ def analyze_chunk(
     chunk_num: int,
     total_chunks: int,
     storyline_context: dict | None = None,
+    edit_intensity: str = "normal",
 ) -> tuple[list[dict], list[dict]]:
     """Analyze a chunk of segments using Claude (2-step prompt, no flow review).
 
@@ -181,6 +220,8 @@ def analyze_chunk(
         end_idx = segments[-1].index
         context_text = format_filtered_context_for_prompt(storyline_context, start_idx, end_idx)
         prompt = context_text + "\n\n" + prompt
+
+    prompt = _apply_edit_intensity_guidance(prompt, edit_intensity)
 
     print(f"  Processing chunk {chunk_num}/{total_chunks} ({len(segments)} segments)...")
 
@@ -208,6 +249,7 @@ def analyze_with_claude(
     segments: list[SubtitleSegment],
     keep_alternatives: bool = False,
     storyline_context: dict | None = None,
+    edit_intensity: str = "normal",
 ) -> AnalysisResult:
     """Analyze subtitle segments using Claude CLI.
 
@@ -230,6 +272,8 @@ def analyze_with_claude(
 
         if keep_alternatives:
             prompt += "\n\n추가로, 좋은 대안이 있는 경우 'has_alternative': true와 'alternative_to': [segment_index]를 추가해주세요."
+
+        prompt = _apply_edit_intensity_guidance(prompt, edit_intensity)
 
         response = call_claude(prompt)
 
@@ -261,7 +305,13 @@ def analyze_with_claude(
 
         all_cuts, all_keeps = process_chunks_parallel(
             segments, CHUNK_SIZE, CHUNK_OVERLAP,
-            analyze_fn=lambda chunk, num, total: analyze_chunk(chunk, num, total, storyline_context),
+            analyze_fn=lambda chunk, num, total: analyze_chunk(
+                chunk,
+                num,
+                total,
+                storyline_context,
+                edit_intensity,
+            ),
             max_workers=5,
         )
 

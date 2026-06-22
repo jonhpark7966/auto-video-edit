@@ -27,6 +27,7 @@ from avid.provider_runtime import probe_provider, provider_config_payload, resol
 
 
 _VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".wmv"}
+MAX_REVIEW_GAP_PADDING_MS = 500
 
 
 def _backend_root() -> Path:
@@ -101,6 +102,7 @@ def _sync_result_payload(result: Any) -> dict[str, Any]:
         "confidence": result.confidence,
         "method": result.method,
         "standard_score": result.standard_score,
+        "retime_speed": getattr(result, "retime_speed", None),
         "diagnostics": getattr(result, "diagnostics", {}),
     }
 
@@ -236,33 +238,12 @@ async def cmd_transcribe(args: argparse.Namespace) -> dict[str, Any]:
     print(f"  세그먼트: {len(result.segments)}개")
     print(f"\n완료: {srt_path}")
 
-    artifacts = {"srt": str(srt_path)}
-    intermediate_outputs = [
-        ("srt_raw", result.raw_srt, f"{video_path.stem}_1_raw.srt"),
-        ("srt_aligned", result.aligned_srt, f"{video_path.stem}_2_aligned.srt"),
-        ("srt_refined", result.refined_srt, f"{video_path.stem}_3_refined.srt"),
-    ]
-    for artifact_key, content, filename in intermediate_outputs:
-        if not content:
-            continue
-        intermediate_path = output_dir / filename
-        intermediate_path.write_text(content, encoding="utf-8")
-        artifacts[artifact_key] = str(intermediate_path)
-
-    metadata = result.metadata or {}
     return _payload(
         "transcribe",
-        artifacts=artifacts,
+        artifacts={"srt": str(srt_path)},
         stats={
             "segments": len(result.segments),
             "language": args.language,
-            "progress_history": result.progress_history,
-            "metadata": metadata,
-            "aligned": metadata.get("aligned"),
-            "refined": result.refined,
-            "has_raw_srt": bool(result.raw_srt),
-            "has_aligned_srt": bool(result.aligned_srt),
-            "has_refined_srt": bool(result.refined_srt),
         },
     )
 
@@ -400,6 +381,7 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
         print(f"  컨텍스트: {context_path.name}")
     if extra_sources:
         print(f"  추가 소스: {len(extra_sources)}개")
+    print(f"  편집 강도: {args.edit_intensity}")
 
     project, project_path, sync_results = await service.analyze(
         srt_path=srt_path,
@@ -411,6 +393,7 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
         provider_effort=args.provider_effort,
         extra_sources=extra_sources,
         extra_offsets=extra_offsets,
+        edit_intensity=args.edit_intensity,
     )
 
     fcpxml_path = Path(args.output).resolve() if args.output else output_dir / f"{srt_path.stem}_subtitle_cut.fcpxml"
@@ -507,6 +490,7 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
         print(f"  컨텍스트: {context_path.name}")
     if extra_sources:
         print(f"  추가 소스: {len(extra_sources)}개")
+    print(f"  편집 강도: {args.edit_intensity}")
     print(f"  출력 디렉토리: {output_dir}")
     print(f"  모드: {export_mode} ({'모든 편집 적용' if export_mode == 'final' else '검토용 disabled'})")
 
@@ -522,6 +506,7 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
         provider_effort=args.provider_effort,
         extra_sources=extra_sources,
         extra_offsets=extra_offsets,
+        edit_intensity=args.edit_intensity,
     )
 
     report_path = output_dir / f"{audio_path.stem}.report.md"
@@ -1023,6 +1008,7 @@ def _build_review_segments_payload(project_json_path: Path, project: Any) -> dic
     if not project.transcription or not project.transcription.segments:
         raise RuntimeError("review-segments requires transcription.segments in project JSON")
 
+    adjusted_boundaries = _adjust_review_segment_boundaries(project.transcription.segments)
     indexed_decisions: dict[int, list[Any]] = {}
     for decision in project.edit_decisions:
         if decision.source_segment_index is None:
@@ -1030,29 +1016,20 @@ def _build_review_segments_payload(project_json_path: Path, project: Any) -> dic
         indexed_decisions.setdefault(int(decision.source_segment_index), []).append(decision)
 
     legacy_overlap_fallback = not indexed_decisions
-    adjusted_boundaries = _adjust_review_segment_boundaries(project.transcription.segments)
     review_segments = []
     for position, segment in enumerate(project.transcription.segments):
-        if segment.end_ms <= segment.start_ms:
-            print(
-                "경고: review-segments 에서 잘못된 시간 범위의 transcript segment 를 건너뜁니다: "
-                f"index={getattr(segment, 'index', None)!r}, start_ms={segment.start_ms}, end_ms={segment.end_ms}",
-                file=sys.stderr,
-            )
-            continue
-
         segment_index = _segment_identity(segment, position)
+        start_ms, end_ms = adjusted_boundaries.get(segment_index, (segment.start_ms, segment.end_ms))
         decision = None
         if legacy_overlap_fallback:
             decision = _match_overlap_review_decision(project, segment.start_ms, segment.end_ms)
         else:
             decision = _select_review_decision(indexed_decisions.get(segment_index, []))
-        adjusted_start_ms, adjusted_end_ms = adjusted_boundaries.get(segment_index, (segment.start_ms, segment.end_ms))
 
         review_segments.append({
             "index": segment_index,
-            "start_ms": adjusted_start_ms,
-            "end_ms": adjusted_end_ms,
+            "start_ms": start_ms,
+            "end_ms": end_ms,
             "raw_start_ms": segment.start_ms,
             "raw_end_ms": segment.end_ms,
             "text": segment.text,
@@ -1082,6 +1059,51 @@ def cmd_review_segments(args: argparse.Namespace) -> dict[str, Any]:
     payload = _build_review_segments_payload(project_json_path, project)
     print(f"리뷰 세그먼트 생성 완료: {payload['stats']['segments']}개")
     return payload
+
+
+
+def _load_speaker_source_map(path: str) -> dict[str, str]:
+    resolved_path = Path(path).resolve()
+    if not resolved_path.exists():
+        print(f"오류: speaker source map JSON을 찾을 수 없습니다: {resolved_path}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        data = json.loads(resolved_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(f"오류: speaker source map JSON을 읽을 수 없습니다: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if not isinstance(data, dict):
+        print("오류: speaker source map JSON은 object 여야 합니다", file=sys.stderr)
+        sys.exit(1)
+
+    return {
+        str(speaker): str(source_key)
+        for speaker, source_key in data.items()
+        if source_key is not None
+    }
+
+
+def _apply_multicam_export_args(project: Any, args: argparse.Namespace) -> None:
+    switching = getattr(args, "multicam_switching", None)
+    speaker_map_path = getattr(args, "speaker_source_map", None)
+    audio_source_key = getattr(args, "audio_source_key", None)
+    if not switching and not speaker_map_path and not audio_source_key:
+        return
+
+    from avid.models.project import MulticamSettings
+
+    current = project.multicam_settings or MulticamSettings()
+    project.multicam_settings = MulticamSettings(
+        switching=switching or current.switching,
+        speaker_source_map=(
+            _load_speaker_source_map(speaker_map_path)
+            if speaker_map_path
+            else dict(current.speaker_source_map)
+        ),
+        audio_source_key=audio_source_key or current.audio_source_key,
+    )
 
 
 async def _export_project_artifacts(
@@ -1150,6 +1172,7 @@ def cmd_apply_evaluation(args: argparse.Namespace) -> dict[str, Any]:
 async def cmd_export_project(args: argparse.Namespace) -> dict[str, Any]:
     project_json_path, project = _load_project_or_exit(args.project_json)
     output_dir = Path(args.output_dir).resolve()
+    _apply_multicam_export_args(project, args)
 
     artifacts = await _export_project_artifacts(
         project,
@@ -1471,6 +1494,7 @@ def main() -> None:
     p_subcut.add_argument("--final", action="store_true", help="최종 편집본 (모든 편집 적용, 기본: 검토용 disabled)")
     p_subcut.add_argument("--extra-source", action="append", default=[], help="추가 소스 파일 (반복 가능)")
     p_subcut.add_argument("--offset", action="append", default=[], help="수동 오프셋 ms (--extra-source 순서 대응)")
+    p_subcut.add_argument("--edit-intensity", choices=["light", "normal", "heavy"], default="normal", help="컷 편집 강도")
     _add_machine_output_flags(p_subcut)
 
     p_podcast = subparsers.add_parser("podcast-cut", help="팟캐스트 편집 (재미 기준)")
@@ -1484,6 +1508,7 @@ def main() -> None:
     p_podcast.add_argument("--final", action="store_true", help="최종 편집본 (모든 편집 적용, 기본: 검토용 disabled)")
     p_podcast.add_argument("--extra-source", action="append", default=[], help="추가 소스 파일 (반복 가능)")
     p_podcast.add_argument("--offset", action="append", default=[], help="수동 오프셋 ms (--extra-source 순서 대응)")
+    p_podcast.add_argument("--edit-intensity", choices=["light", "normal", "heavy"], default="normal", help="컷 편집 강도")
     _add_machine_output_flags(p_podcast)
 
     p_review_segments = subparsers.add_parser("review-segments", help="project JSON 에서 review payload 생성")
@@ -1502,6 +1527,21 @@ def main() -> None:
     p_export_project.add_argument("-o", "--output", type=str, help="출력 FCPXML 경로")
     p_export_project.add_argument("--silence-mode", choices=["cut", "disabled"], default="cut", help="무음 처리 방식")
     p_export_project.add_argument("--content-mode", choices=["cut", "disabled"], default="disabled", help="콘텐츠 컷 처리 방식")
+    p_export_project.add_argument(
+        "--multicam-switching",
+        choices=["none", "follow_speaker", "conservative_follow_speaker"],
+        help="멀티캠 speaker 기반 전환 규칙",
+    )
+    p_export_project.add_argument(
+        "--speaker-source-map",
+        type=str,
+        help="speaker -> source_key JSON 파일",
+    )
+    p_export_project.add_argument(
+        "--audio-source-key",
+        type=str,
+        help="오디오를 유지할 source_key (기본: primary)",
+    )
     _add_machine_output_flags(p_export_project)
 
     p_rebuild_multicam = subparsers.add_parser("rebuild-multicam", help="기존 avid project의 extra source 를 재구성")

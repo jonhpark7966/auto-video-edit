@@ -42,6 +42,7 @@ def process_chunks_parallel(
 
     # Submit all chunks to executor
     results: dict[int, tuple[list[dict], list[dict]]] = {}
+    failures: list[str] = []
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_chunk_num = {
@@ -55,8 +56,16 @@ def process_chunks_parallel(
                 cuts, keeps = future.result()
                 results[chunk_num] = (cuts, keeps)
             except Exception as e:
-                print(f"  Warning: Chunk {chunk_num + 1}/{total_chunks} failed: {e}")
-                # Skip failed chunk, continue with others
+                chunk = chunks[chunk_num]
+                start = getattr(chunk[0], "index", "?") if chunk else "?"
+                end = getattr(chunk[-1], "index", "?") if chunk else "?"
+                failures.append(
+                    f"Chunk {chunk_num + 1}/{total_chunks} failed "
+                    f"for segment range {start}-{end}: {type(e).__name__}: {e}"
+                )
+
+    if failures:
+        raise RuntimeError("Parallel chunk processing failed:\n" + "\n".join(failures))
 
     # Merge results in chunk order, dedup by segment_index
     all_cuts = []

@@ -110,6 +110,26 @@ def format_context_for_prompt(storyline: dict) -> str:
     return "\n".join(lines)
 
 
+def _coerce_segment_index(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _coerce_segment_indices(values: object) -> list[int]:
+    if not isinstance(values, list):
+        return []
+    indices: list[int] = []
+    for value in values:
+        index = _coerce_segment_index(value)
+        if index is not None:
+            indices.append(index)
+    return indices
+
+
 def filter_context_for_range(storyline: dict, start_idx: int, end_idx: int) -> dict:
     """Filter storyline context for a specific segment index range.
 
@@ -135,40 +155,75 @@ def filter_context_for_range(storyline: dict, start_idx: int, end_idx: int) -> d
 
     # Filter chapters that overlap with range
     for ch in storyline.get("chapters", []):
-        ch_start = ch.get("start_segment", 0)
-        ch_end = ch.get("end_segment", 0)
-        if ch_start <= end_idx and ch_end >= start_idx:
-            filtered["chapters"].append(ch)
+        ch_start = _coerce_segment_index(ch.get("start_segment"))
+        ch_end = _coerce_segment_index(ch.get("end_segment"))
+        if (
+            ch_start is not None
+            and ch_end is not None
+            and ch_start <= end_idx
+            and ch_end >= start_idx
+        ):
+            filtered["chapters"].append({
+                **ch,
+                "start_segment": ch_start,
+                "end_segment": ch_end,
+            })
 
     # Filter key moments within range
     for km in storyline.get("key_moments", []):
-        seg_idx = km.get("segment_index", 0)
-        if start_idx <= seg_idx <= end_idx:
-            filtered["key_moments"].append(km)
+        seg_idx = _coerce_segment_index(km.get("segment_index"))
+        if seg_idx is not None and start_idx <= seg_idx <= end_idx:
+            filtered["key_moments"].append({
+                **km,
+                "segment_index": seg_idx,
+                "references": _coerce_segment_indices(km.get("references", [])),
+            })
 
     # Filter dependencies that touch the range
     for dep in storyline.get("dependencies", []):
-        setup_segs = dep.get("setup_segments", [])
-        payoff_segs = dep.get("payoff_segments", [])
+        setup_segs = _coerce_segment_indices(dep.get("setup_segments", []))
+        payoff_segs = _coerce_segment_indices(dep.get("payoff_segments", []))
         all_segs = setup_segs + payoff_segs
 
         # Include if any segment falls within the range
         if any(start_idx <= s <= end_idx for s in all_segs):
-            filtered["dependencies"].append(dep)
+            filtered["dependencies"].append({
+                **dep,
+                "setup_segments": setup_segs,
+                "payoff_segments": payoff_segs,
+            })
 
     # Filter pacing notes
     pacing = storyline.get("pacing_notes", {})
     for section in pacing.get("slow_sections", []):
-        s_start = section.get("start_segment", 0)
-        s_end = section.get("end_segment", 0)
-        if s_start <= end_idx and s_end >= start_idx:
-            filtered["pacing_notes"]["slow_sections"].append(section)
+        s_start = _coerce_segment_index(section.get("start_segment"))
+        s_end = _coerce_segment_index(section.get("end_segment"))
+        if (
+            s_start is not None
+            and s_end is not None
+            and s_start <= end_idx
+            and s_end >= start_idx
+        ):
+            filtered["pacing_notes"]["slow_sections"].append({
+                **section,
+                "start_segment": s_start,
+                "end_segment": s_end,
+            })
 
     for section in pacing.get("high_energy_sections", []):
-        s_start = section.get("start_segment", 0)
-        s_end = section.get("end_segment", 0)
-        if s_start <= end_idx and s_end >= start_idx:
-            filtered["pacing_notes"]["high_energy_sections"].append(section)
+        s_start = _coerce_segment_index(section.get("start_segment"))
+        s_end = _coerce_segment_index(section.get("end_segment"))
+        if (
+            s_start is not None
+            and s_end is not None
+            and s_start <= end_idx
+            and s_end >= start_idx
+        ):
+            filtered["pacing_notes"]["high_energy_sections"].append({
+                **section,
+                "start_segment": s_start,
+                "end_segment": s_end,
+            })
 
     return filtered
 
