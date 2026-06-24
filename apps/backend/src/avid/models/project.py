@@ -3,7 +3,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -28,6 +28,10 @@ class TranscriptSegment(BaseModel):
     )
     speaker: str | None = Field(
         default=None, description="Speaker label from diarization"
+    )
+    overlap_protection: dict[str, Any] | None = Field(
+        default=None,
+        description="Overlap protection metadata passed through from Chalna",
     )
 
 

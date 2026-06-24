@@ -25,6 +25,7 @@ from avid.models.timeline import EditDecision, EditOriginKind, EditReason, EditT
 from avid.models.track import Track, TrackType
 from avid.services.audio_sync import AudioSyncService, SyncResult
 from avid.services.provider_env import build_provider_subprocess_env
+from avid.services.transcript_segments import load_segments_json
 
 
 def _int_or_none(value: object) -> int | None:
@@ -113,6 +114,7 @@ class SubtitleSegment:
     end_ms: int
     text: str
     speaker: str | None = None
+    overlap_protection: dict | None = None
 
 
 def _find_project_root() -> Path:
@@ -184,6 +186,7 @@ class PodcastCutService:
         edit_intensity: str = "normal",
         edit_decision_version: str = "legacy",
         segmentation_boundary_rule: str = "word_boundary",
+        segments_json_path: Path | None = None,
     ) -> tuple[Project, dict[str, Path], list[SyncResult]]:
         """Process a podcast audio file through the full workflow.
 
@@ -208,6 +211,10 @@ class PodcastCutService:
         audio_path = Path(audio_path).resolve()
         if not audio_path.exists():
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
+        if segments_json_path is not None:
+            segments_json_path = Path(segments_json_path).resolve()
+            if not segments_json_path.exists():
+                raise FileNotFoundError(f"Segments JSON not found: {segments_json_path}")
 
         if output_dir is None:
             output_dir = audio_path.parent
@@ -231,8 +238,12 @@ class PodcastCutService:
         else:
             raise ValueError("No SRT provided and transcription skipped")
 
-        # Parse SRT
-        segments = self._parse_srt(srt_path)
+        # Parse transcript segments
+        segments = (
+            self._segments_from_json(segments_json_path)
+            if segments_json_path is not None
+            else self._parse_srt(srt_path)
+        )
         print(f"  Parsed {len(segments)} segments")
 
         # Step 2: Run podcast-cut skill via subprocess
@@ -596,6 +607,23 @@ class PodcastCutService:
 
         return segments
 
+    def _segments_from_json(self, segments_json_path: Path) -> list[SubtitleSegment]:
+        return [
+            SubtitleSegment(
+                index=int(segment["index"]),
+                start_ms=int(segment["start_ms"]),
+                end_ms=int(segment["end_ms"]),
+                text=str(segment["text"]),
+                speaker=segment.get("speaker"),
+                overlap_protection=(
+                    segment.get("overlap_protection")
+                    if isinstance(segment.get("overlap_protection"), dict)
+                    else None
+                ),
+            )
+            for segment in load_segments_json(segments_json_path)
+        ]
+
     @staticmethod
     def _extract_speaker(text: str) -> tuple[str | None, str]:
         """Extract speaker label from subtitle text if present."""
@@ -711,6 +739,7 @@ class PodcastCutService:
                     end_ms=seg.end_ms,
                     text=seg.text,
                     speaker=seg.speaker,
+                    overlap_protection=seg.overlap_protection,
                 )
                 for seg in segments
             ],

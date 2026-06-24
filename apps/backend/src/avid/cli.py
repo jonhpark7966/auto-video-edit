@@ -357,6 +357,7 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
     video_path = Path(args.input).resolve()
     srt_path = Path(args.srt).resolve()
     context_path = Path(args.context).resolve() if args.context else None
+    segments_json_path = Path(args.segments_json).resolve() if args.segments_json else None
 
     if not video_path.exists():
         print(f"오류: 비디오 파일을 찾을 수 없습니다: {video_path}", file=sys.stderr)
@@ -366,6 +367,9 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
         sys.exit(1)
     if context_path and not context_path.exists():
         print(f"오류: Context 파일을 찾을 수 없습니다: {context_path}", file=sys.stderr)
+        sys.exit(1)
+    if segments_json_path and not segments_json_path.exists():
+        print(f"오류: Segments JSON 파일을 찾을 수 없습니다: {segments_json_path}", file=sys.stderr)
         sys.exit(1)
 
     output_dir = Path(args.output_dir) if args.output_dir else video_path.parent
@@ -380,6 +384,8 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
     print(f"  모드: {export_mode} ({'모든 편집 적용' if export_mode == 'final' else '검토용 disabled'})")
     if context_path:
         print(f"  컨텍스트: {context_path.name}")
+    if segments_json_path:
+        print(f"  Segments JSON: {segments_json_path.name}")
     if extra_sources:
         print(f"  추가 소스: {len(extra_sources)}개")
     print(f"  편집 강도: {args.edit_intensity}")
@@ -399,6 +405,7 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
         edit_intensity=args.edit_intensity,
         edit_decision_version=args.edit_decision_version,
         segmentation_boundary_rule=args.segmentation_boundary_rule,
+        segments_json_path=segments_json_path,
     )
 
     fcpxml_path = Path(args.output).resolve() if args.output else output_dir / f"{srt_path.stem}_subtitle_cut.fcpxml"
@@ -468,6 +475,7 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
     audio_path = Path(args.input).resolve()
     srt_path = Path(args.srt).resolve() if args.srt else None
     context_path = Path(args.context).resolve() if args.context else None
+    segments_json_path = Path(args.segments_json).resolve() if args.segments_json else None
 
     if not audio_path.exists():
         print(f"오류: 오디오 파일을 찾을 수 없습니다: {audio_path}", file=sys.stderr)
@@ -477,6 +485,9 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
         sys.exit(1)
     if context_path and not context_path.exists():
         print(f"오류: Context 파일을 찾을 수 없습니다: {context_path}", file=sys.stderr)
+        sys.exit(1)
+    if segments_json_path and not segments_json_path.exists():
+        print(f"오류: Segments JSON 파일을 찾을 수 없습니다: {segments_json_path}", file=sys.stderr)
         sys.exit(1)
 
     output_dir = Path(args.output_dir) if args.output_dir else audio_path.parent
@@ -494,6 +505,8 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
         print(f"  chalna로 자막 생성 예정")
     if context_path:
         print(f"  컨텍스트: {context_path.name}")
+    if segments_json_path:
+        print(f"  Segments JSON: {segments_json_path.name}")
     if extra_sources:
         print(f"  추가 소스: {len(extra_sources)}개")
     print(f"  편집 강도: {args.edit_intensity}")
@@ -517,6 +530,7 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
         edit_intensity=args.edit_intensity,
         edit_decision_version=args.edit_decision_version,
         segmentation_boundary_rule=args.segmentation_boundary_rule,
+        segments_json_path=segments_json_path,
     )
 
     report_path = output_dir / f"{audio_path.stem}.report.md"
@@ -1172,7 +1186,7 @@ def _build_review_segments_payload(project_json_path: Path, project: Any) -> dic
         else:
             decision = _select_review_decision(indexed_decisions.get(segment_index, []))
 
-        review_segments.append({
+        review_segment = {
             "index": segment_index,
             "start_ms": start_ms,
             "end_ms": end_ms,
@@ -1182,7 +1196,11 @@ def _build_review_segments_payload(project_json_path: Path, project: Any) -> dic
             "speaker": segment.speaker,
             "ai": _review_ai_payload(decision) if decision else None,
             "human": None,
-        })
+        }
+        overlap_protection = getattr(segment, "overlap_protection", None)
+        if isinstance(overlap_protection, dict):
+            review_segment["overlap_protection"] = overlap_protection
+        review_segments.append(review_segment)
 
     return _payload(
         "review-segments",
@@ -1675,6 +1693,7 @@ def main() -> None:
     p_subcut = subparsers.add_parser("subtitle-cut", help="자막 기반 컷 편집")
     p_subcut.add_argument("input", type=str, help="입력 영상 파일")
     p_subcut.add_argument("--srt", type=str, required=True, help="SRT 자막 파일 (필수)")
+    p_subcut.add_argument("--segments-json", type=str, help="metadata-preserving transcript segments JSON")
     p_subcut.add_argument("--context", type=str, help="storyline.json 경로 (Pass 1 결과)")
     p_subcut.add_argument("--provider", choices=["claude", "codex"], default="codex", help="AI 프로바이더 (기본: codex)")
     p_subcut.add_argument("--provider-model", type=str, help="provider model override")
@@ -1692,6 +1711,7 @@ def main() -> None:
     p_podcast = subparsers.add_parser("podcast-cut", help="팟캐스트 편집 (재미 기준)")
     p_podcast.add_argument("input", type=str, help="입력 오디오/영상 파일")
     p_podcast.add_argument("--srt", type=str, help="SRT 자막 파일 (없으면 chalna로 생성)")
+    p_podcast.add_argument("--segments-json", type=str, help="metadata-preserving transcript segments JSON")
     p_podcast.add_argument("--context", type=str, help="storyline.json 경로 (Pass 1 결과)")
     p_podcast.add_argument("--provider", choices=["claude", "codex"], default="codex", help="AI 프로바이더 (기본: codex)")
     p_podcast.add_argument("--provider-model", type=str, help="provider model override")

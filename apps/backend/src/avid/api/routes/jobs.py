@@ -62,6 +62,8 @@ async def create_subtitle_cut_job(
 ) -> JobCreateResponse:
     _validate_file(req.video_path, "video_path")
     _validate_file(req.srt_path, "srt_path")
+    if req.segments_json_path:
+        _validate_file(req.segments_json_path, "segments_json_path")
     if req.context_path:
         _validate_file(req.context_path, "context_path")
     job = mgr.create_job(JobType.SUBTITLE_CUT, req.model_dump())
@@ -76,6 +78,8 @@ async def create_podcast_cut_job(
     _validate_file(req.audio_path, "audio_path")
     if req.srt_path:
         _validate_file(req.srt_path, "srt_path")
+    if req.segments_json_path:
+        _validate_file(req.segments_json_path, "segments_json_path")
     if req.context_path:
         _validate_file(req.context_path, "context_path")
     job = mgr.create_job(JobType.PODCAST_CUT, req.model_dump())

@@ -17,6 +17,7 @@ from avid.models.project import Project, Transcription, TranscriptSegment
 from avid.models.timeline import EditDecision, EditOriginKind, EditReason, EditType, TimeRange
 from avid.services.audio_sync import AudioSyncService, SyncResult
 from avid.services.provider_env import build_provider_subprocess_env
+from avid.services.transcript_segments import load_segments_json
 
 
 def _find_project_root() -> Path:
@@ -64,6 +65,7 @@ class SubtitleCutService:
         edit_intensity: str = "normal",
         edit_decision_version: str = "legacy",
         segmentation_boundary_rule: str = "word_boundary",
+        segments_json_path: Path | None = None,
     ) -> tuple[Project, Path, list[SyncResult]]:
         """Analyze subtitles and return Project with content + silence decisions.
 
@@ -95,6 +97,10 @@ class SubtitleCutService:
             raise FileNotFoundError(f"SRT file not found: {srt_path}")
         if not video_path.exists():
             raise FileNotFoundError(f"Video file not found: {video_path}")
+        if segments_json_path is not None:
+            segments_json_path = Path(segments_json_path).resolve()
+            if not segments_json_path.exists():
+                raise FileNotFoundError(f"Segments JSON not found: {segments_json_path}")
 
         if output_dir is None:
             output_dir = srt_path.parent
@@ -164,7 +170,11 @@ class SubtitleCutService:
 
         # Step 2: Parse SRT and find silence gaps
         print("  Step 2: Finding silence gaps from SRT...")
-        srt_segments = _parse_srt(srt_path)
+        srt_segments = (
+            load_segments_json(segments_json_path)
+            if segments_json_path is not None
+            else _parse_srt(srt_path)
+        )
 
         # Get total video duration for trailing silence detection
         video_track = next(
@@ -195,11 +205,16 @@ class SubtitleCutService:
                             index=seg["index"],
                             start_ms=seg["start_ms"],
                             end_ms=seg["end_ms"],
-                            text=seg["text"],
-                            speaker=seg.get("speaker"),
-                        )
-                        for seg in srt_segments
-                    ],
+                        text=seg["text"],
+                        speaker=seg.get("speaker"),
+                        overlap_protection=(
+                            seg.get("overlap_protection")
+                            if isinstance(seg.get("overlap_protection"), dict)
+                            else None
+                        ),
+                    )
+                    for seg in srt_segments
+                ],
                 )
 
         # Step 4: Add silence CUT decisions

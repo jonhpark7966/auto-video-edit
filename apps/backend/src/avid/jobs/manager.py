@@ -187,6 +187,7 @@ class JobManager:
         p = job.params
         srt_path = Path(p["srt_path"])
         video_path = Path(p["video_path"])
+        segments_json_path = Path(p["segments_json_path"]) if p.get("segments_json_path") else None
         context_path = Path(p["context_path"]) if p.get("context_path") else None
         provider = p.get("provider", "codex")
         export_mode = p.get("export_mode", "review")
@@ -201,7 +202,7 @@ class JobManager:
         job.message = "Analyzing subtitles..."
         job.progress = 10
 
-        project, project_path = await service.analyze(
+        project, project_path, _sync_results = await service.analyze(
             srt_path=srt_path,
             video_path=video_path,
             output_dir=output_dir,
@@ -209,6 +210,7 @@ class JobManager:
             provider=provider,
             extra_sources=extra_sources,
             extra_offsets=extra_offsets,
+            segments_json_path=segments_json_path,
         )
 
         job.progress = 70
@@ -252,6 +254,7 @@ class JobManager:
         p = job.params
         audio_path = Path(p["audio_path"])
         srt_path = Path(p["srt_path"]) if p.get("srt_path") else None
+        segments_json_path = Path(p["segments_json_path"]) if p.get("segments_json_path") else None
         context_path = Path(p["context_path"]) if p.get("context_path") else None
         provider = p.get("provider", "codex")
         export_mode = p.get("export_mode", "review")
@@ -266,7 +269,7 @@ class JobManager:
         job.message = "Processing podcast..."
         job.progress = 10
 
-        project, outputs = await service.process(
+        project, outputs, _sync_results = await service.process(
             audio_path=audio_path,
             output_dir=output_dir,
             srt_path=srt_path,
@@ -276,6 +279,7 @@ class JobManager:
             provider=provider,
             extra_sources=extra_sources,
             extra_offsets=extra_offsets,
+            segments_json_path=segments_json_path,
         )
 
         output_files = {k: str(v) for k, v in outputs.items()}

@@ -29,6 +29,7 @@ class OverviewRequest(BaseModel):
 class SubtitleCutRequest(BaseModel):
     video_path: str = Field(..., description="Path to video file")
     srt_path: str = Field(..., description="Path to SRT file")
+    segments_json_path: str | None = Field(None, description="Path to transcript segments JSON")
     context_path: str | None = Field(None, description="Path to storyline.json")
     provider: str = Field("codex", description="AI provider")
     export_mode: str = Field("review", description="Export mode (review/final)")
@@ -39,6 +40,7 @@ class SubtitleCutRequest(BaseModel):
 class PodcastCutRequest(BaseModel):
     audio_path: str = Field(..., description="Path to audio/video file")
     srt_path: str | None = Field(None, description="Path to existing SRT file")
+    segments_json_path: str | None = Field(None, description="Path to transcript segments JSON")
     context_path: str | None = Field(None, description="Path to storyline.json")
     provider: str = Field("codex", description="AI provider")
     export_mode: str = Field("review", description="Export mode (review/final)")
