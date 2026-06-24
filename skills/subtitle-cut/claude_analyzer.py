@@ -12,7 +12,7 @@ skills_dir = Path(__file__).parent.parent
 if str(skills_dir) not in sys.path:
     sys.path.insert(0, str(skills_dir))
 
-from _common import SubtitleSegment, AnalysisResult, call_claude, parse_json_response, format_context_for_prompt, format_filtered_context_for_prompt, process_chunks_parallel
+from _common import SubtitleSegment, AnalysisResult, call_claude, parse_json_response, format_context_for_prompt, format_filtered_context_for_prompt, process_chunks_parallel, apply_boundary_aware_prompt, apply_boundary_repair, format_segments_with_boundary_metadata, is_boundary_aware_version, normalize_edit_decision_version
 
 
 # Chunk size for processing large transcripts
@@ -184,8 +184,14 @@ reason 값: "duplicate", "incomplete", "filler", "best_take", "unique"
 JSON만 출력하세요.'''
 
 
-def format_segments_for_prompt(segments: list[SubtitleSegment]) -> str:
+def format_segments_for_prompt(
+    segments: list[SubtitleSegment],
+    edit_decision_version: str = "legacy",
+) -> str:
     """Format segments for the Claude prompt."""
+    if is_boundary_aware_version(edit_decision_version):
+        return format_segments_with_boundary_metadata(segments)
+
     lines = []
     for seg in segments:
         time_str = f"{seg.start_ms // 1000}s - {seg.end_ms // 1000}s"
@@ -199,6 +205,7 @@ def analyze_chunk(
     total_chunks: int,
     storyline_context: dict | None = None,
     edit_intensity: str = "normal",
+    edit_decision_version: str = "legacy",
 ) -> tuple[list[dict], list[dict]]:
     """Analyze a chunk of segments using Claude (2-step prompt, no flow review).
 
@@ -211,7 +218,8 @@ def analyze_chunk(
     Returns:
         Tuple of (cuts, keeps) lists
     """
-    segments_text = format_segments_for_prompt(segments)
+    edit_decision_version = normalize_edit_decision_version(edit_decision_version)
+    segments_text = format_segments_for_prompt(segments, edit_decision_version)
     prompt = CHUNK_ANALYSIS_PROMPT.format(segments=segments_text)
 
     # Inject filtered storyline context for this chunk's range
@@ -221,6 +229,7 @@ def analyze_chunk(
         context_text = format_filtered_context_for_prompt(storyline_context, start_idx, end_idx)
         prompt = context_text + "\n\n" + prompt
 
+    prompt = apply_boundary_aware_prompt(prompt, edit_decision_version=edit_decision_version)
     prompt = _apply_edit_intensity_guidance(prompt, edit_intensity)
 
     print(f"  Processing chunk {chunk_num}/{total_chunks} ({len(segments)} segments)...")
@@ -237,10 +246,19 @@ def analyze_chunk(
         reason = item.get("reason", "")
         note = item.get("note", "")
 
-        if action == "cut":
-            cuts.append({"segment_index": seg_idx, "reason": reason, "note": note})
+        entry = {"segment_index": seg_idx, "reason": reason, "note": note}
+        resolved_action, entry = apply_boundary_repair(
+            item,
+            entry,
+            action,
+            edit_decision_version=edit_decision_version,
+        )
+
+        if resolved_action == "cut":
+            cuts.append(entry)
         else:
-            keeps.append({"segment_index": seg_idx, "is_best_take": reason == "best_take", "note": note})
+            entry["is_best_take"] = reason == "best_take"
+            keeps.append(entry)
 
     return cuts, keeps
 
@@ -250,6 +268,7 @@ def analyze_with_claude(
     keep_alternatives: bool = False,
     storyline_context: dict | None = None,
     edit_intensity: str = "normal",
+    edit_decision_version: str = "legacy",
 ) -> AnalysisResult:
     """Analyze subtitle segments using Claude CLI.
 
@@ -261,9 +280,11 @@ def analyze_with_claude(
     Returns:
         AnalysisResult with cuts and keeps
     """
+    edit_decision_version = normalize_edit_decision_version(edit_decision_version)
+
     # Small transcript: single call with full 3-step prompt
     if len(segments) <= 150:
-        segments_text = format_segments_for_prompt(segments)
+        segments_text = format_segments_for_prompt(segments, edit_decision_version)
         prompt = ANALYSIS_PROMPT.format(segments=segments_text)
 
         if storyline_context:
@@ -273,6 +294,7 @@ def analyze_with_claude(
         if keep_alternatives:
             prompt += "\n\n추가로, 좋은 대안이 있는 경우 'has_alternative': true와 'alternative_to': [segment_index]를 추가해주세요."
 
+        prompt = apply_boundary_aware_prompt(prompt, edit_decision_version=edit_decision_version)
         prompt = _apply_edit_intensity_guidance(prompt, edit_intensity)
 
         response = call_claude(prompt)
@@ -293,10 +315,19 @@ def analyze_with_claude(
             reason = item.get("reason", "")
             note = item.get("note", "")
 
-            if action == "cut":
-                cuts.append({"segment_index": seg_idx, "reason": reason, "note": note})
+            entry = {"segment_index": seg_idx, "reason": reason, "note": note}
+            resolved_action, entry = apply_boundary_repair(
+                item,
+                entry,
+                action,
+                edit_decision_version=edit_decision_version,
+            )
+
+            if resolved_action == "cut":
+                cuts.append(entry)
             else:
-                keeps.append({"segment_index": seg_idx, "is_best_take": reason == "best_take", "note": note})
+                entry["is_best_take"] = reason == "best_take"
+                keeps.append(entry)
 
         return AnalysisResult(cuts=cuts, keeps=keeps, raw_response=response)
     else:
@@ -311,6 +342,7 @@ def analyze_with_claude(
                 total,
                 storyline_context,
                 edit_intensity,
+                edit_decision_version,
             ),
             max_workers=5,
         )

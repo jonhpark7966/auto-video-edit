@@ -129,6 +129,7 @@ class ChalnaTranscriptionService:
         language: str = "ko",
         use_alignment: bool = True,
         use_llm_refinement: bool = False,
+        segmentation_boundary_rule: str = "word_boundary",
         context: str | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> ChalnaResult:
@@ -158,6 +159,7 @@ class ChalnaTranscriptionService:
             language=language,
             use_alignment=use_alignment,
             use_llm_refinement=use_llm_refinement,
+            segmentation_boundary_rule=segmentation_boundary_rule,
             context=context,
         )
 
@@ -175,6 +177,7 @@ class ChalnaTranscriptionService:
         language: str,
         use_alignment: bool,
         use_llm_refinement: bool,
+        segmentation_boundary_rule: str,
         context: str | None,
     ) -> str:
         """Submit a transcription request to the async endpoint.
@@ -189,6 +192,7 @@ class ChalnaTranscriptionService:
                     "language": language,
                     "use_alignment": str(use_alignment).lower(),
                     "use_llm_refinement": str(use_llm_refinement).lower(),
+                    "segmentation_boundary_rule": segmentation_boundary_rule,
                     "output_format": "json",  # Request JSON format for segments
                     "include_intermediate": "true",
                 }

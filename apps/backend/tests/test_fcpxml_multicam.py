@@ -1,7 +1,8 @@
 import asyncio
+import json
 import xml.etree.ElementTree as ET
 
-from avid.export.fcpxml import FCPXMLExporter
+from avid.export.fcpxml import FCPXMLExporter, _TimelineClipPlan
 from avid.models.media import MediaFile, MediaInfo
 from avid.models.project import Project
 from avid.models.timeline import EditDecision, EditReason, EditType, TimeRange
@@ -17,6 +18,11 @@ def _video_source(
     sample_rate: int | None = 48_000,
     audio_channels: int | None = 2,
     audio_sources: int | None = 1,
+    video_frame_count: int | None = None,
+    timecode: str | None = None,
+    timecode_rate: str | None = None,
+    timecode_start_frames: int | None = None,
+    timecode_start_seconds: str | None = None,
 ) -> MediaFile:
     return MediaFile(
         id=source_id,
@@ -30,6 +36,11 @@ def _video_source(
             sample_rate=sample_rate,
             audio_channels=audio_channels,
             audio_sources=audio_sources,
+            video_frame_count=video_frame_count,
+            timecode=timecode,
+            timecode_rate=timecode_rate,
+            timecode_start_frames=timecode_start_frames,
+            timecode_start_seconds=timecode_start_seconds,
         ),
     )
 
@@ -100,6 +111,62 @@ def test_single_source_export_keeps_asset_clip_timeline(tmp_path):
     assert root.find("./resources/media") is None
     assert not root.findall("./library/event/project/sequence/spine/mc-clip")
     assert len(root.findall("./library/event/project/sequence/spine/asset-clip")) == 1
+    asset = root.find("./resources/asset")
+    assert asset is not None
+    assert asset.get("start") == "0s"
+
+
+def test_timecoded_multicam_source_start_matches_asset_and_angle_clip(tmp_path):
+    main = _video_source(
+        tmp_path,
+        "main",
+        "A001_06212101_C002.mov",
+        duration_ms=10_000,
+        fps=60.0,
+        video_frame_count=600,
+        timecode="21:01:07:00",
+        timecode_rate="60/1",
+        timecode_start_frames=4_540_020,
+        timecode_start_seconds="4540020/60",
+    )
+    extra = _video_source(
+        tmp_path,
+        "extra",
+        "A001_06212101_D247.mov",
+        duration_ms=10_000,
+        fps=60.0,
+        video_frame_count=600,
+        timecode="21:01:12:00",
+        timecode_rate="60/1",
+        timecode_start_frames=4_540_320,
+        timecode_start_seconds="4540320/60",
+    )
+    project = Project(
+        name="Timecoded Multicam Test",
+        source_files=[main, extra],
+        tracks=[
+            Track(id="main_video", source_file_id="main", track_type=TrackType.VIDEO),
+            Track(id="main_audio", source_file_id="main", track_type=TrackType.AUDIO),
+            Track(id="extra_video", source_file_id="extra", track_type=TrackType.VIDEO),
+            Track(id="extra_audio", source_file_id="extra", track_type=TrackType.AUDIO),
+        ],
+    )
+
+    output_path = tmp_path / "out.fcpxml"
+    asyncio.run(FCPXMLExporter().export(project, output_path))
+
+    root = ET.parse(output_path).getroot()
+    assets = {
+        asset.get("id"): asset
+        for asset in root.findall("./resources/asset")
+        if asset.get("id")
+    }
+    assert assets
+
+    for angle_clip in root.findall(".//mc-angle/asset-clip"):
+        asset = assets[angle_clip.get("ref")]
+        assert asset.get("start") != "0s"
+        assert angle_clip.get("start") == asset.get("start")
 
 
 def test_asset_audio_metadata_uses_source_values(tmp_path):
@@ -225,6 +292,30 @@ def test_timeline_boundaries_use_nearest_primary_frames(tmp_path):
     assert clip.get("duration") == "292/60s"
 
 
+def test_timeline_plan_duration_uses_explicit_offsets():
+    exporter = FCPXMLExporter()
+    timeline_plan = [
+        _TimelineClipPlan(
+            source_start_ms=0,
+            source_end_ms=2_000,
+            start_frames=0,
+            duration_frames=120,
+            timeline_offset_frames=57,
+            enabled=True,
+        ),
+        _TimelineClipPlan(
+            source_start_ms=2_000,
+            source_end_ms=3_000,
+            start_frames=120,
+            duration_frames=60,
+            timeline_offset_frames=177,
+            enabled=True,
+        ),
+    ]
+
+    assert exporter._timeline_plan_duration_frames(timeline_plan) == 237
+
+
 def test_connected_clip_duration_uses_primary_frame_boundary_for_mixed_rate(tmp_path):
     exporter = FCPXMLExporter()
     parent = ET.Element("asset-clip", format="r1")
@@ -268,12 +359,35 @@ def test_mixed_rate_multicam_angle_uses_primary_frame_boundary(tmp_path):
     asyncio.run(FCPXMLExporter().export(project, output_path))
 
     root = ET.parse(output_path).getroot()
+    formats = {
+        item.get("id"): item
+        for item in root.findall("./resources/format")
+        if item.get("id")
+    }
+    multicam = root.find("./resources/media/multicam")
+    assert multicam is not None
+    base_format = formats[multicam.get("format")]
+    assert base_format.get("frameDuration") == "1001/30000s"
+
+    main_angle = root.findall(".//mc-angle")[0]
     extra_angle = root.findall(".//mc-angle")[1]
+    main_clip = main_angle.find("./asset-clip")
     clip = extra_angle.find("./asset-clip")
 
+    assert main_clip is not None
+    main_conform = main_clip.find("./conform-rate")
+    assert main_conform is not None
+    assert main_conform.get("srcFrameRate") == "60"
     assert clip is not None
     assert clip.get("start") == "0/30000s"
     assert clip.get("duration") == "226/60s"
+    assert clip.find("./conform-rate") is None
+
+    spine_clip = root.find("./library/event/project/sequence/spine/mc-clip")
+    assert spine_clip is not None
+    spine_conform = spine_clip.find("./conform-rate")
+    assert spine_conform is not None
+    assert spine_conform.get("srcFrameRate") == "29.97"
 
 
 def test_refresh_primary_source_media_updates_info_without_changing_id(tmp_path, monkeypatch):
@@ -326,3 +440,76 @@ def test_refresh_primary_source_media_updates_info_without_changing_id(tmp_path,
     assert project.source_files[0].original_name == "source.mp4"
     assert project.source_files[0].info.duration_ms == 305_000
     assert [track.source_file_id for track in project.tracks] == ["main", "main"]
+
+
+def test_rebuild_multicam_from_manifest_uses_metadata_without_source_files(tmp_path, monkeypatch):
+    from avid import cli
+
+    project = Project(
+        name="Manifest Multicam Test",
+        source_files=[
+            _video_source(tmp_path, "main", "old_source.mp4", duration_ms=10_000),
+        ],
+        tracks=[
+            Track(id="main_video", source_file_id="main", track_type=TrackType.VIDEO),
+            Track(id="main_audio", source_file_id="main", track_type=TrackType.AUDIO),
+        ],
+    )
+
+    primary_info = tmp_path / "primary_media_info.json"
+    extra_info = tmp_path / "extra_media_info.json"
+    media_info = {
+        "duration_ms": 10_000,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30.0,
+        "sample_rate": 48_000,
+        "audio_channels": 2,
+        "audio_sources": 1,
+    }
+    primary_info.write_text(json.dumps({"media_info": media_info}), encoding="utf-8")
+    extra_info.write_text(json.dumps({"media_info": media_info}), encoding="utf-8")
+    manifest = tmp_path / "multicam_sources.json"
+    manifest.write_text(
+        json.dumps({
+            "schema_version": "avid.multicam_sources.v1",
+            "primary": {
+                "original_name": "primary.mp4",
+                "path_hint": str(tmp_path / "missing_primary.mp4"),
+                "media_info_path": str(primary_info),
+                "audio_proxy_path": str(tmp_path / "primary.flac"),
+            },
+            "extras": [
+                {
+                    "original_name": "extra.mov",
+                    "path_hint": str(tmp_path / "missing_extra.mov"),
+                    "media_info_path": str(extra_info),
+                    "audio_proxy_path": str(tmp_path / "extra.flac"),
+                    "offset_ms": 1234,
+                }
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    async def fake_estimate_drift(self, main_path, extra_path, initial_offset_ms):
+        return None
+
+    monkeypatch.setattr(
+        "avid.services.audio_sync.AudioSyncService.estimate_drift",
+        fake_estimate_drift,
+    )
+
+    sync_results = asyncio.run(cli._rebuild_multicam_from_manifest_in_place(project, manifest))
+
+    assert len(sync_results) == 1
+    assert sync_results[0].offset_ms == 1234
+    assert project.source_files[0].original_name == "primary.mp4"
+    assert project.source_files[1].original_name == "extra.mov"
+    assert project.source_files[1].path == tmp_path / "missing_extra.mov"
+    extra_offsets = [
+        track.offset_ms
+        for track in project.tracks
+        if track.source_file_id == project.source_files[1].id
+    ]
+    assert extra_offsets == [1234, 1234]

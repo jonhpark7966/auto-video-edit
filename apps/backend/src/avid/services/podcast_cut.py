@@ -182,6 +182,8 @@ class PodcastCutService:
         extra_sources: list[Path] | None = None,
         extra_offsets: dict[str, int] | None = None,
         edit_intensity: str = "normal",
+        edit_decision_version: str = "legacy",
+        segmentation_boundary_rule: str = "word_boundary",
     ) -> tuple[Project, dict[str, Path], list[SyncResult]]:
         """Process a podcast audio file through the full workflow.
 
@@ -198,6 +200,7 @@ class PodcastCutService:
             extra_sources: Additional media files to sync and include.
             extra_offsets: Manual offset overrides ``{filename: ms}``.
             edit_intensity: Cut editing intensity (light, normal, heavy).
+            edit_decision_version: Edit decision prompt/parser version.
 
         Returns:
             Tuple of (Project, dict of output paths, sync results)
@@ -219,7 +222,11 @@ class PodcastCutService:
             print(f"Using existing SRT: {srt_path}")
         elif not skip_transcription:
             print("Step 1: Transcribing with chalna...")
-            srt_path = await self._transcribe_with_chalna(audio_path, output_dir)
+            srt_path = await self._transcribe_with_chalna(
+                audio_path,
+                output_dir,
+                segmentation_boundary_rule=segmentation_boundary_rule,
+            )
             outputs["srt_raw"] = srt_path
         else:
             raise ValueError("No SRT provided and transcription skipped")
@@ -240,6 +247,7 @@ class PodcastCutService:
             provider_effort=provider_effort,
             storyline_path=storyline_path,
             edit_intensity=edit_intensity,
+            edit_decision_version=edit_decision_version,
         )
 
         # Step 3: Parse skill output → content decisions
@@ -260,7 +268,10 @@ class PodcastCutService:
             segments=segments,
             content_decisions=content_decisions,
             silence_regions=silence_regions,
+            segmentation_boundary_rule=segmentation_boundary_rule,
         )
+        project.edit_decision_version = edit_decision_version
+        project.segmentation_boundary_rule = segmentation_boundary_rule
 
         # Step 5b: Sync extra sources (if any)
         if extra_sources:
@@ -315,6 +326,7 @@ class PodcastCutService:
         provider_effort: str | None = None,
         storyline_path: Path | None = None,
         edit_intensity: str = "normal",
+        edit_decision_version: str = "legacy",
     ) -> None:
         """Run podcast-cut skill as subprocess.
 
@@ -327,6 +339,7 @@ class PodcastCutService:
             provider_effort: Optional provider effort override
             storyline_path: Optional storyline.json path
             edit_intensity: Cut editing intensity (light, normal, heavy)
+            edit_decision_version: Edit decision prompt/parser version
 
         Raises:
             RuntimeError: If skill fails
@@ -352,13 +365,14 @@ class PodcastCutService:
                 cmd.extend(["--context", str(storyline_path)])
 
         cmd.extend(["--edit-intensity", edit_intensity])
+        cmd.extend(["--edit-decision-version", edit_decision_version])
 
         result = await asyncio.to_thread(
             subprocess.run,
             cmd,
             capture_output=True,
             text=True,
-            timeout=1800,  # 30 min timeout
+            timeout=7200,  # 120 min timeout
             cwd=str(script_dir),
             env=build_provider_subprocess_env(
                 provider,
@@ -443,6 +457,7 @@ class PodcastCutService:
                     else EditOriginKind.CONTENT_SEGMENT
                 ),
                 source_segment_index=ed.get("source_segment_index"),
+                boundary=ed.get("boundary") if isinstance(ed.get("boundary"), dict) else None,
             ))
 
         if skipped:
@@ -469,6 +484,7 @@ class PodcastCutService:
         self,
         audio_path: Path,
         output_dir: Path,
+        segmentation_boundary_rule: str = "word_boundary",
     ) -> Path:
         """Transcribe audio using Chalna API (async job + polling).
 
@@ -503,6 +519,7 @@ class PodcastCutService:
             result = await service.transcribe_async(
                 audio_path=upload_path,
                 language="ko",
+                segmentation_boundary_rule=segmentation_boundary_rule,
             )
         finally:
             if temp_audio and temp_audio.exists():
@@ -659,6 +676,7 @@ class PodcastCutService:
         segments: list[SubtitleSegment],
         content_decisions: list[EditDecision],
         silence_regions: list[SilenceRegion],
+        segmentation_boundary_rule: str = "word_boundary",
     ) -> Project:
         """Build final Project with all edit decisions."""
         file_id = str(uuid.uuid5(uuid.NAMESPACE_URL, str(audio_path)))
@@ -726,6 +744,7 @@ class PodcastCutService:
             source_files=[media_file],
             tracks=[video_track, audio_track],
             transcription=transcription,
+            segmentation_boundary_rule=segmentation_boundary_rule,
             edit_decisions=all_decisions,
         )
 

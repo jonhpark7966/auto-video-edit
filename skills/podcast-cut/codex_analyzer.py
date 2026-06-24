@@ -20,6 +20,11 @@ from _common import (
     format_filtered_context_for_prompt,
     format_podcast_context_for_prompt,
     process_chunks_parallel,
+    apply_boundary_aware_prompt,
+    apply_boundary_repair,
+    format_segments_with_boundary_metadata,
+    is_boundary_aware_version,
+    normalize_edit_decision_version,
 )
 from models import PodcastAnalysisResult
 
@@ -27,6 +32,8 @@ from models import PodcastAnalysisResult
 # Chunk size for processing large transcripts
 CHUNK_SIZE = 80  # Process 80 segments at a time
 CHUNK_OVERLAP = 5  # Overlap to maintain context
+LLM_TIMEOUT_SECONDS = 600
+LLM_MAX_ATTEMPTS = 3
 
 
 def _edit_intensity_guidance(edit_intensity: str = "normal") -> str:
@@ -178,8 +185,14 @@ def _apply_podcast_principles(context_text: str) -> str:
     return context_text
 
 
-def format_segments_for_prompt(segments: list[SubtitleSegment]) -> str:
+def format_segments_for_prompt(
+    segments: list[SubtitleSegment],
+    edit_decision_version: str = "legacy",
+) -> str:
     """Format segments for the Codex prompt."""
+    if is_boundary_aware_version(edit_decision_version):
+        return format_segments_with_boundary_metadata(segments)
+
     lines = []
     for i, seg in enumerate(segments):
         prev_seg = segments[i - 1] if i > 0 else None
@@ -238,43 +251,10 @@ def _validate_decision_coverage(
         )
 
 
-def analyze_chunk(
-    segments: list[SubtitleSegment],
-    chunk_num: int,
-    total_chunks: int,
-    storyline_context: dict | None = None,
-    edit_intensity: str = "normal",
+def _parse_podcast_analysis_response(
+    response: str,
+    edit_decision_version: str,
 ) -> tuple[list[dict], list[dict]]:
-    """Analyze a chunk of segments using Codex.
-
-    Args:
-        segments: Chunk of segments to analyze
-        chunk_num: Current chunk number
-        total_chunks: Total number of chunks
-        storyline_context: Optional full storyline dict (will be filtered for chunk range)
-
-    Returns:
-        Tuple of (cuts, keeps) lists
-    """
-    segments_text = format_segments_for_prompt(segments)
-    prompt = PODCAST_ANALYSIS_PROMPT.format(segments=segments_text)
-
-    # Inject filtered storyline context for this chunk's range
-    if storyline_context and segments:
-        start_idx = segments[0].index
-        end_idx = segments[-1].index
-        context_text = format_filtered_context_for_prompt(storyline_context, start_idx, end_idx)
-        context_text = _apply_podcast_principles(context_text)
-        prompt = context_text + "\n\n" + prompt
-
-    prompt = _apply_edit_intensity_guidance(prompt, edit_intensity)
-
-    print(f"  Processing chunk {chunk_num}/{total_chunks} ({len(segments)} segments)...")
-
-    # Call Codex with longer timeout for large chunks
-    response = call_codex(prompt, timeout=300)  # 5 minutes
-
-    # Parse response
     data = parse_json_response(response)
 
     cuts = []
@@ -294,7 +274,14 @@ def analyze_chunk(
             "note": note,
         }
 
-        if action == "cut":
+        resolved_action, entry = apply_boundary_repair(
+            item,
+            entry,
+            action,
+            edit_decision_version=edit_decision_version,
+        )
+
+        if resolved_action == "cut":
             cuts.append(entry)
         else:
             keeps.append(entry)
@@ -302,10 +289,105 @@ def analyze_chunk(
     return cuts, keeps
 
 
+def _analyze_prompt_once(
+    prompt: str,
+    segments: list[SubtitleSegment],
+    edit_decision_version: str,
+) -> tuple[str, list[dict], list[dict]]:
+    response = call_codex(prompt, timeout=LLM_TIMEOUT_SECONDS)
+    cuts, keeps = _parse_podcast_analysis_response(response, edit_decision_version)
+    _validate_decision_coverage(segments, cuts, keeps)
+    return response, cuts, keeps
+
+
+def _retry_analysis(call_once, label: str):
+    last_error: Exception | None = None
+    for attempt in range(1, LLM_MAX_ATTEMPTS + 1):
+        try:
+            return call_once()
+        except Exception as e:
+            last_error = e
+            if attempt >= LLM_MAX_ATTEMPTS:
+                break
+            print(
+                f"  {label} failed on attempt {attempt}/{LLM_MAX_ATTEMPTS}: "
+                f"{type(e).__name__}: {e}; retrying..."
+            )
+
+    assert last_error is not None
+    raise last_error
+
+
+def analyze_chunk_once(
+    segments: list[SubtitleSegment],
+    chunk_num: int,
+    total_chunks: int,
+    storyline_context: dict | None = None,
+    edit_intensity: str = "normal",
+    edit_decision_version: str = "legacy",
+) -> tuple[list[dict], list[dict]]:
+    """Analyze a chunk of segments using Codex.
+
+    Args:
+        segments: Chunk of segments to analyze
+        chunk_num: Current chunk number
+        total_chunks: Total number of chunks
+        storyline_context: Optional full storyline dict (will be filtered for chunk range)
+
+    Returns:
+        Tuple of (cuts, keeps) lists
+    """
+    edit_decision_version = normalize_edit_decision_version(edit_decision_version)
+    segments_text = format_segments_for_prompt(segments, edit_decision_version)
+    prompt = PODCAST_ANALYSIS_PROMPT.format(segments=segments_text)
+
+    # Inject filtered storyline context for this chunk's range
+    if storyline_context and segments:
+        start_idx = segments[0].index
+        end_idx = segments[-1].index
+        context_text = format_filtered_context_for_prompt(storyline_context, start_idx, end_idx)
+        context_text = _apply_podcast_principles(context_text)
+        prompt = context_text + "\n\n" + prompt
+
+    prompt = apply_boundary_aware_prompt(
+        prompt,
+        edit_decision_version=edit_decision_version,
+        include_entertainment_score=True,
+    )
+    prompt = _apply_edit_intensity_guidance(prompt, edit_intensity)
+
+    _, cuts, keeps = _analyze_prompt_once(prompt, segments, edit_decision_version)
+    return cuts, keeps
+
+
+def analyze_chunk(
+    segments: list[SubtitleSegment],
+    chunk_num: int,
+    total_chunks: int,
+    storyline_context: dict | None = None,
+    edit_intensity: str = "normal",
+    edit_decision_version: str = "legacy",
+) -> tuple[list[dict], list[dict]]:
+    """Analyze a chunk of segments using Codex with retry."""
+    print(f"  Processing chunk {chunk_num}/{total_chunks} ({len(segments)} segments)...")
+    return _retry_analysis(
+        lambda: analyze_chunk_once(
+            segments,
+            chunk_num,
+            total_chunks,
+            storyline_context,
+            edit_intensity,
+            edit_decision_version,
+        ),
+        f"chunk {chunk_num}/{total_chunks}",
+    )
+
+
 def analyze_with_codex(
     segments: list[SubtitleSegment],
     storyline_context: dict | None = None,
     edit_intensity: str = "normal",
+    edit_decision_version: str = "legacy",
 ) -> PodcastAnalysisResult:
     """Analyze podcast segments using Codex CLI.
 
@@ -318,10 +400,12 @@ def analyze_with_codex(
     Returns:
         PodcastAnalysisResult with cuts, keeps, and entertainment scores
     """
+    edit_decision_version = normalize_edit_decision_version(edit_decision_version)
+
     # Process in chunks if too many segments
     if len(segments) <= CHUNK_SIZE:
         # Small enough to process at once
-        segments_text = format_segments_for_prompt(segments)
+        segments_text = format_segments_for_prompt(segments, edit_decision_version)
         prompt = PODCAST_ANALYSIS_PROMPT.format(segments=segments_text)
 
         # Inject storyline context if available
@@ -329,40 +413,17 @@ def analyze_with_codex(
             context_text = format_podcast_context_for_prompt(storyline_context)
             prompt = context_text + "\n\n" + prompt
 
+        prompt = apply_boundary_aware_prompt(
+            prompt,
+            edit_decision_version=edit_decision_version,
+            include_entertainment_score=True,
+        )
         prompt = _apply_edit_intensity_guidance(prompt, edit_intensity)
 
-        response = call_codex(prompt, timeout=300)
-
-        try:
-            data = parse_json_response(response)
-        except (ValueError, Exception) as e:
-            print(f"Failed to parse Codex response: {e}")
-            print(f"Response: {response[:500]}")
-            raise
-
-        all_cuts = []
-        all_keeps = []
-
-        for item in data.get("analysis", []):
-            seg_idx = item.get("segment_index")
-            action = item.get("action")
-            reason = item.get("reason", "")
-            entertainment_score = item.get("entertainment_score", 5)
-            note = item.get("note", "")
-
-            entry = {
-                "segment_index": seg_idx,
-                "reason": reason,
-                "entertainment_score": entertainment_score,
-                "note": note,
-            }
-
-            if action == "cut":
-                all_cuts.append(entry)
-            else:
-                all_keeps.append(entry)
-
-        _validate_decision_coverage(segments, all_cuts, all_keeps)
+        response, all_cuts, all_keeps = _retry_analysis(
+            lambda: _analyze_prompt_once(prompt, segments, edit_decision_version),
+            "full transcript",
+        )
         return PodcastAnalysisResult(cuts=all_cuts, keeps=all_keeps, raw_response=response)
     else:
         # Parallel chunk processing
@@ -374,6 +435,7 @@ def analyze_with_codex(
                 total,
                 storyline_context,
                 edit_intensity,
+                edit_decision_version,
             ),
             max_workers=5,
         )

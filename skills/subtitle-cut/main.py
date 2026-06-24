@@ -29,7 +29,7 @@ skills_dir = Path(__file__).parent.parent
 if str(skills_dir) not in sys.path:
     sys.path.insert(0, str(skills_dir))
 
-from _common import parse_srt_file, get_video_info, load_storyline
+from _common import parse_srt_file, get_video_info, load_storyline, normalize_edit_decision_version
 from claude_analyzer import analyze_with_claude
 from codex_analyzer import analyze_with_codex
 
@@ -61,6 +61,7 @@ def generate_project_json(
     video_info: dict | None = None,
     source_file_id: str | None = None,
     edit_type: str = "disabled",
+    edit_decision_version: str = "legacy",
 ) -> dict:
     """Generate project JSON from Claude's analysis.
 
@@ -72,6 +73,7 @@ def generate_project_json(
         video_info: Video metadata (optional)
         source_file_id: Existing source file ID (optional)
         edit_type: "cut" or "disabled" - determines how content edits are handled
+        edit_decision_version: Edit decision prompt/parser version
     """
     if source_file_id is None:
         source_file_id = generate_deterministic_uuid(source_video_path)
@@ -112,6 +114,7 @@ def generate_project_json(
             },
         ],
         "transcription": None,
+        "edit_decision_version": normalize_edit_decision_version(edit_decision_version),
         "edit_decisions": [],
     }
 
@@ -145,6 +148,9 @@ def generate_project_json(
             "origin_kind": "content_segment",
             "source_segment_index": seg_idx,
         }
+        if cut.get("boundary"):
+            edit_decision["boundary"] = cut["boundary"]
+
         project["edit_decisions"].append(edit_decision)
 
     return project
@@ -237,6 +243,12 @@ def main():
         default="normal",
         help="Cut editing intensity (light, normal, or heavy)",
     )
+    parser.add_argument(
+        "--edit-decision-version",
+        choices=["legacy", "boundary_aware_v1"],
+        default="legacy",
+        help="Edit decision prompt/parser version (default: legacy)",
+    )
 
     args = parser.parse_args()
 
@@ -268,12 +280,14 @@ def main():
     # Analyze with chosen provider
     print(f"\nAnalyzing with {args.provider.upper()}...")
     print(f"Edit intensity: {args.edit_intensity}")
+    print(f"Edit decision version: {args.edit_decision_version}")
     if args.provider == "claude":
         result = analyze_with_claude(
             segments,
             keep_alternatives=args.keep_alternatives,
             storyline_context=storyline_context,
             edit_intensity=args.edit_intensity,
+            edit_decision_version=args.edit_decision_version,
         )
     else:
         result = analyze_with_codex(
@@ -281,6 +295,7 @@ def main():
             keep_alternatives=args.keep_alternatives,
             storyline_context=storyline_context,
             edit_intensity=args.edit_intensity,
+            edit_decision_version=args.edit_decision_version,
         )
 
     # Print report
@@ -310,6 +325,7 @@ def main():
         video_info=video_info,
         source_file_id=args.source_id,
         edit_type=args.edit_type,
+        edit_decision_version=args.edit_decision_version,
     )
 
     # Save

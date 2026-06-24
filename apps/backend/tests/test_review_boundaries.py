@@ -1,4 +1,5 @@
 from avid.cli import _apply_evaluation_index_patch, _build_review_segments_payload
+from avid.export.fcpxml import FCPXMLExporter
 from avid.models.project import Project, TranscriptSegment, Transcription
 from avid.models.timeline import EditDecision, EditOriginKind, EditReason, EditType, TimeRange
 from avid.models.track import Track, TrackType
@@ -63,6 +64,34 @@ def test_review_segments_split_gaps_at_midpoints(tmp_path):
         (9_000, 12_000),
     ]
     assert payload["segments"][1]["ai"]["action"] == "cut"
+
+
+def test_review_segments_keep_source_boundaries_for_applied_boundary_rule(tmp_path):
+    project = _project_with_segments()
+    project.segmentation_boundary_rule = "low_energy_gap_v1"
+
+    payload = _build_review_segments_payload(tmp_path / "project.avid.json", project)
+
+    assert [(s["start_ms"], s["end_ms"]) for s in payload["segments"]] == [
+        (0, 2_000),
+        (4_000, 6_000),
+        (9_000, 12_000),
+    ]
+    assert payload["stats"]["boundary_strategy"] == "source_transcript_boundaries"
+    assert payload["stats"]["segmentation_boundary_rule"] == "low_energy_gap_v1"
+
+
+def test_export_review_ranges_keep_source_boundaries_for_applied_boundary_rule():
+    project = _project_with_segments()
+    project.segmentation_boundary_rule = "midpoint_gap"
+
+    ranges = FCPXMLExporter()._review_segment_ranges(project)
+
+    assert ranges == [
+        (1, 0, 2_000),
+        (2, 4_000, 6_000),
+        (3, 9_000, 12_000),
+    ]
 
 
 def test_apply_evaluation_uses_adjusted_boundaries_and_removes_overlapping_silence(tmp_path):

@@ -95,6 +95,16 @@ class Project(BaseModel):
         default=None, description="Transcription result"
     )
 
+    # Edit decision prompt/parser version used for content decisions.
+    edit_decision_version: Literal["legacy", "boundary_aware_v1"] = "legacy"
+
+    # Timestamp boundary rule applied to transcription segments before editing.
+    segmentation_boundary_rule: Literal[
+        "word_boundary",
+        "midpoint_gap",
+        "low_energy_gap_v1",
+    ] = "word_boundary"
+
     # Edit decisions on unified timeline
     edit_decisions: list[EditDecision] = Field(
         default_factory=list, description="Editing decisions on unified timeline"
@@ -336,6 +346,7 @@ class Project(BaseModel):
                 speed_factor=decision.speed_factor,
                 origin_kind=decision.origin_kind,
                 source_segment_index=decision.source_segment_index,
+                boundary=decision.boundary,
             )
             self.edit_decisions.append(remapped_decision)
 

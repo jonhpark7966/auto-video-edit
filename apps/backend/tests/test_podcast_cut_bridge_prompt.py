@@ -1,6 +1,9 @@
 import importlib.util
+import json
 import sys
 from pathlib import Path
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -27,6 +30,20 @@ def _load_module(name: str, path: Path):
 codex_analyzer = _load_module("podcast_cut_codex_analyzer", PODCAST_DIR / "codex_analyzer.py")
 claude_analyzer = _load_module("podcast_cut_claude_analyzer", PODCAST_DIR / "claude_analyzer.py")
 podcast_main = _load_module("podcast_cut_main", PODCAST_DIR / "main.py")
+
+
+def _analysis_response(*items: dict) -> str:
+    return json.dumps({"analysis": list(items)})
+
+
+def _analysis_item(segment_index: int, action: str = "keep") -> dict:
+    return {
+        "segment_index": segment_index,
+        "action": action,
+        "reason": "test",
+        "entertainment_score": 5,
+        "note": "test",
+    }
 
 
 def test_format_segments_for_prompt_includes_ms_gap_and_speaker():
@@ -118,6 +135,85 @@ def test_bridge_cut_decisions_are_preserved_in_project_json():
 
 def test_bridge_protection_postprocessor_is_not_exposed():
     assert not hasattr(podcast_main, "protect_bridge_cuts")
+
+
+def test_codex_chunk_retries_twice_then_succeeds_with_600s_timeout(monkeypatch):
+    segments = [
+        SubtitleSegment(index=1, start_ms=0, end_ms=1000, text="first", speaker="A"),
+        SubtitleSegment(index=2, start_ms=1000, end_ms=2000, text="second", speaker="A"),
+    ]
+    timeouts = []
+
+    def fake_call_codex(prompt, timeout):
+        timeouts.append(timeout)
+        if len(timeouts) < 3:
+            raise TimeoutError("provider timeout")
+        return _analysis_response(_analysis_item(1, "keep"), _analysis_item(2, "cut"))
+
+    monkeypatch.setattr(codex_analyzer, "call_codex", fake_call_codex)
+
+    cuts, keeps = codex_analyzer.analyze_chunk(segments, 1, 1)
+
+    assert timeouts == [600, 600, 600]
+    assert [item["segment_index"] for item in cuts] == [2]
+    assert [item["segment_index"] for item in keeps] == [1]
+
+
+def test_codex_chunk_retries_missing_coverage(monkeypatch):
+    segments = [
+        SubtitleSegment(index=1, start_ms=0, end_ms=1000, text="first", speaker="A"),
+        SubtitleSegment(index=2, start_ms=1000, end_ms=2000, text="second", speaker="A"),
+    ]
+    responses = [
+        _analysis_response(_analysis_item(1, "keep")),
+        _analysis_response(_analysis_item(1, "keep"), _analysis_item(2, "keep")),
+    ]
+    timeouts = []
+
+    def fake_call_codex(prompt, timeout):
+        timeouts.append(timeout)
+        return responses.pop(0)
+
+    monkeypatch.setattr(codex_analyzer, "call_codex", fake_call_codex)
+
+    cuts, keeps = codex_analyzer.analyze_chunk(segments, 1, 1)
+
+    assert timeouts == [600, 600]
+    assert cuts == []
+    assert [item["segment_index"] for item in keeps] == [1, 2]
+
+
+def test_codex_chunk_raises_after_three_failures(monkeypatch):
+    segments = [SubtitleSegment(index=1, start_ms=0, end_ms=1000, text="first", speaker="A")]
+    timeouts = []
+
+    def fake_call_codex(prompt, timeout):
+        timeouts.append(timeout)
+        raise TimeoutError("provider timeout")
+
+    monkeypatch.setattr(codex_analyzer, "call_codex", fake_call_codex)
+
+    with pytest.raises(TimeoutError):
+        codex_analyzer.analyze_chunk(segments, 1, 1)
+
+    assert timeouts == [600, 600, 600]
+
+
+def test_claude_chunk_uses_600s_timeout(monkeypatch):
+    segments = [SubtitleSegment(index=1, start_ms=0, end_ms=1000, text="first", speaker="A")]
+    timeouts = []
+
+    def fake_call_claude(prompt, timeout):
+        timeouts.append(timeout)
+        return _analysis_response(_analysis_item(1, "keep"))
+
+    monkeypatch.setattr(claude_analyzer, "call_claude", fake_call_claude)
+
+    cuts, keeps = claude_analyzer.analyze_chunk(segments, 1, 1)
+
+    assert timeouts == [600]
+    assert cuts == []
+    assert [item["segment_index"] for item in keeps] == [1]
 
 
 def test_fcpxml_merges_adjacent_enabled_review_segments_for_same_speaker():

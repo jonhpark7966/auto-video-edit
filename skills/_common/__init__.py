@@ -35,6 +35,16 @@ from .adaptive import (
     dedupe_by_segment_index,
     is_recoverable_analysis_error,
 )
+from .edit_decision import (
+    ALLOWED_EDIT_DECISION_VERSIONS,
+    EDIT_DECISION_VERSION_BOUNDARY_AWARE_V1,
+    EDIT_DECISION_VERSION_LEGACY,
+    apply_boundary_aware_prompt,
+    apply_boundary_repair,
+    format_segments_with_boundary_metadata,
+    is_boundary_aware_version,
+    normalize_edit_decision_version,
+)
 
 __all__ = [
     "SubtitleSegment",
@@ -64,4 +74,12 @@ __all__ = [
     "count_text_tokens",
     "dedupe_by_segment_index",
     "is_recoverable_analysis_error",
+    "ALLOWED_EDIT_DECISION_VERSIONS",
+    "EDIT_DECISION_VERSION_BOUNDARY_AWARE_V1",
+    "EDIT_DECISION_VERSION_LEGACY",
+    "apply_boundary_aware_prompt",
+    "apply_boundary_repair",
+    "format_segments_with_boundary_metadata",
+    "is_boundary_aware_version",
+    "normalize_edit_decision_version",
 ]

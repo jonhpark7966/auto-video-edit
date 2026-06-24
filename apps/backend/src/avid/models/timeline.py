@@ -137,3 +137,7 @@ class EditDecision(BaseModel):
         ge=0,
         description="Stable transcript segment index for reviewable content decisions",
     )
+    boundary: dict | None = Field(
+        default=None,
+        description="Optional boundary-aware LLM metadata for this edit decision",
+    )

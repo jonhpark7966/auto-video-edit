@@ -247,6 +247,12 @@ class FCPXMLExporter(ProjectExporter):
         if not valid:
             return []
 
+        if project.segmentation_boundary_rule != "word_boundary":
+            return [
+                (segment_index, start_ms, end_ms)
+                for _, segment_index, start_ms, end_ms in valid
+            ]
+
         starts = {position: start_ms for position, _, start_ms, _ in valid}
         ends = {position: end_ms for position, _, _, end_ms in valid}
 
@@ -720,7 +726,7 @@ class FCPXMLExporter(ProjectExporter):
             asset_attrs = {
                 "id": asset_id,
                 "name": source_file.original_name.rsplit(".", 1)[0],  # Name without extension
-                "start": "0s",
+                "start": self._source_start_time(source_file),
                 "hasVideo": "1" if source_file.is_video else "0",
                 "format": src_format_id,
                 "hasAudio": "1" if has_audio else "0",
@@ -838,7 +844,13 @@ class FCPXMLExporter(ProjectExporter):
         self,
         timeline_plan: list[_TimelineClipPlan],
     ) -> int:
-        return sum(clip.duration_frames for clip in timeline_plan)
+        if not timeline_plan:
+            return 0
+        return max(
+            clip.timeline_offset_frames + clip.duration_frames
+            for clip in timeline_plan
+            if clip.duration_frames > 0
+        )
 
     def _segments_to_timeline_plan(
         self,
@@ -1349,9 +1361,9 @@ class FCPXMLExporter(ProjectExporter):
             legacy_grid_time = not bool(
                 source.info and getattr(source.info, "video_frame_count", None)
             )
-            clip_start_time = (
-                self._frames_to_time(0, source_fps) if legacy_grid_time else "0s"
-            )
+            clip_start_time = self._source_clip_start_time(source, source_fps, 0)
+            if not self._source_timecode_origin(source) and legacy_grid_time:
+                clip_start_time = self._frames_to_time(0, source_fps)
             clip_duration_time = self._frames_to_time(source_timeline_frames, base_fps)
             if legacy_grid_time and source.info and source.info.duration_ms:
                 clip_duration_time = self._frames_to_time(
@@ -1689,7 +1701,7 @@ class FCPXMLExporter(ProjectExporter):
                 "ref": extra_asset_id,
                 "lane": str(lane),
                 "offset": self._frames_to_time(local_offset_frames, primary_fps),
-                "start": self._frames_to_time(extra_start_frames, extra_fps),
+                "start": self._source_clip_start_time(source, extra_fps, extra_start_frames),
                 "duration": self._frames_to_time(duration_frames, primary_fps),
                 "format": extra_format_id,
                 "tcFormat": "NDF",
@@ -1979,6 +1991,28 @@ class FCPXMLExporter(ProjectExporter):
         """Return frame-aligned source duration for FCPXML asset metadata."""
         return self._frames_to_time(self._source_duration_frames(source, fps), fps)
 
+    def _source_start_time(self, source: MediaFile) -> str:
+        """Return the source media-range start used by FCP relink."""
+        value = getattr(getattr(source, "info", None), "timecode_start_seconds", None)
+        if value:
+            return value if str(value).endswith("s") else f"{value}s"
+        return "0s"
+
+    def _source_timecode_origin(self, source: MediaFile) -> Fraction:
+        value = getattr(getattr(source, "info", None), "timecode_start_seconds", None)
+        if not value:
+            return Fraction(0, 1)
+        return self._time_fraction(value if str(value).endswith("s") else f"{value}s")
+
+    def _source_clip_start_time(self, source: MediaFile, fps: float, start_frames: int) -> str:
+        origin = self._source_timecode_origin(source)
+        if origin <= 0:
+            return self._frames_to_time(start_frames, fps)
+        if start_frames == 0:
+            return self._source_start_time(source)
+        frame_duration = self._fps_to_frame_duration_fraction(fps)
+        return self._fraction_to_time(origin + start_frames * frame_duration)
+
     def _source_frame_duration_time(self, source: MediaFile, fps: float) -> str:
         """Return a relink-safe FCPXML frameDuration for a source format.
 
@@ -2213,20 +2247,22 @@ class FCPXMLExporter(ProjectExporter):
 
     def _validate_asset_reference_bounds(self, root: ET.Element) -> list[str]:
         """Return errors for asset-clips that read past their asset duration."""
-        asset_durations: dict[str, Fraction] = {}
+        asset_ranges: dict[str, tuple[Fraction, Fraction]] = {}
         for asset in root.findall("./resources/asset"):
             asset_id = asset.get("id")
+            start = self._time_fraction(asset.get("start"))
             duration = self._time_fraction(asset.get("duration"))
             if asset_id and duration > 0:
-                asset_durations[asset_id] = duration
+                asset_ranges[asset_id] = (start, start + duration)
 
         errors: list[str] = []
         tolerance = Fraction(1, 1000)
         for clip in root.iter("asset-clip"):
             ref = clip.get("ref")
-            asset_duration = asset_durations.get(ref or "")
-            if asset_duration is None:
+            asset_range = asset_ranges.get(ref or "")
+            if asset_range is None:
                 continue
+            asset_start, asset_end = asset_range
             start = self._time_fraction(clip.get("start"))
             duration = self._time_fraction(clip.get("duration"))
             time_map_values = [
@@ -2234,10 +2270,10 @@ class FCPXMLExporter(ProjectExporter):
                 for timept in clip.findall("./timeMap/timept")
             ]
             end = start + max(time_map_values) if time_map_values else start + duration
-            if end > asset_duration + tolerance:
+            if start < asset_start - tolerance or end > asset_end + tolerance:
                 name = clip.get("name") or ref or "asset-clip"
                 errors.append(
-                    f"{name} end={end}s exceeds asset duration={asset_duration}s"
+                    f"{name} range={start}-{end}s exceeds asset range={asset_start}-{asset_end}s"
                 )
         return errors
 

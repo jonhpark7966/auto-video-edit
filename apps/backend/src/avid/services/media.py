@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import re
 import subprocess
 from fractions import Fraction
 from pathlib import Path
@@ -82,6 +83,45 @@ def _duration_ms(duration: Fraction) -> int:
     return int(duration * 1000)
 
 
+def _stream_timecode(stream: dict) -> str | None:
+    tags = stream.get("tags") if isinstance(stream.get("tags"), dict) else {}
+    value = tags.get("timecode") or tags.get("TIMECODE")
+    return str(value).strip() if value else None
+
+
+def _extract_timecode(payload: dict) -> str | None:
+    streams = payload.get("streams") or []
+    for stream in streams:
+        if stream.get("codec_type") == "video":
+            value = _stream_timecode(stream)
+            if value:
+                return value
+    for stream in streams:
+        if stream.get("codec_type") == "data":
+            value = _stream_timecode(stream)
+            if value:
+                return value
+    format_tags = payload.get("format", {}).get("tags")
+    if isinstance(format_tags, dict):
+        value = format_tags.get("timecode") or format_tags.get("TIMECODE")
+        if value:
+            return str(value).strip()
+    return None
+
+
+def _parse_timecode_start(timecode: str, rate: Fraction) -> tuple[int, str] | None:
+    match = re.match(r"^(\d+):(\d{2}):(\d{2})[:;](\d{2})$", timecode.strip())
+    if not match or rate <= 0:
+        return None
+    hours, minutes, seconds, frames = (int(part) for part in match.groups())
+    nominal_fps = int(round(float(rate)))
+    if nominal_fps <= 0 or frames >= nominal_fps:
+        return None
+    total_frames = ((hours * 3600 + minutes * 60 + seconds) * nominal_fps) + frames
+    start_units = total_frames * rate.denominator
+    return total_frames, f"{start_units}/{rate.numerator}"
+
+
 class MediaService:
     """FFmpeg-based media operations service."""
 
@@ -112,6 +152,7 @@ class MediaService:
             raise RuntimeError(f"ffprobe failed: {result.stderr}")
 
         data = json.loads(result.stdout)
+        streams = data.get("streams", [])
 
         # Extract duration from format
         format_duration = data.get("format", {}).get("duration")
@@ -133,8 +174,9 @@ class MediaService:
         video_duration = None
         start_time = data.get("format", {}).get("start_time")
         time_base = None
+        timecode_rate_fraction = None
 
-        for stream in data.get("streams", []):
+        for stream in streams:
             if stream.get("codec_type") == "video":
                 width = stream.get("width")
                 height = stream.get("height")
@@ -145,6 +187,9 @@ class MediaService:
                 fps = float(fps_fraction) if fps_fraction else (
                     _rate_to_float(stream.get("avg_frame_rate"))
                     or _rate_to_float(stream.get("r_frame_rate"))
+                )
+                timecode_rate_fraction = (
+                    _rate_to_fraction(stream.get("r_frame_rate")) or fps_fraction
                 )
                 if fps_fraction:
                     frame_duration = f"{fps_fraction.denominator}/{fps_fraction.numerator}"
@@ -184,6 +229,18 @@ class MediaService:
         if len(sample_rates) == 1:
             sample_rate = next(iter(sample_rates))
 
+        timecode = _extract_timecode(data)
+        timecode_rate = (
+            f"{timecode_rate_fraction.numerator}/{timecode_rate_fraction.denominator}"
+            if timecode_rate_fraction else None
+        )
+        parsed_timecode = (
+            _parse_timecode_start(timecode, timecode_rate_fraction)
+            if timecode and timecode_rate_fraction else None
+        )
+        timecode_start_frames = parsed_timecode[0] if parsed_timecode else None
+        timecode_start_seconds = parsed_timecode[1] if parsed_timecode else None
+
         return MediaInfo(
             duration_ms=video_duration_ms or format_duration_ms,
             width=width,
@@ -199,6 +256,10 @@ class MediaService:
             audio_sample_count=audio_sample_count,
             start_time=start_time,
             time_base=time_base,
+            timecode=timecode,
+            timecode_rate=timecode_rate if timecode else None,
+            timecode_start_frames=timecode_start_frames,
+            timecode_start_seconds=timecode_start_seconds,
         )
 
     async def create_media_file(self, path: Path) -> MediaFile:

@@ -26,6 +26,10 @@ class MediaInfo(BaseModel):
     audio_sample_count: int | None = Field(None, description="Audio stream sample count")
     start_time: str | None = Field(None, description="Container or stream start time")
     time_base: str | None = Field(None, description="Video stream time base")
+    timecode: str | None = Field(None, description="Embedded source timecode, e.g. 21:01:07:00")
+    timecode_rate: str | None = Field(None, description="Timecode rate as a rational, e.g. 30000/1001")
+    timecode_start_frames: int | None = Field(None, description="Source timecode start as labelled frames")
+    timecode_start_seconds: str | None = Field(None, description="Source timecode start as rational seconds")
 
     @property
     def duration_seconds(self) -> float:

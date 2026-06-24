@@ -654,8 +654,7 @@ class AudioSyncService:
 
     async def _ensure_wav(self, path: Path, tmpdir: Path, prefix: str) -> Path:
         """Return a WAV version of *path*.  Extracts audio if it is a video."""
-        audio_exts = {".wav", ".flac", ".ogg", ".mp3", ".m4a", ".aac", ".opus"}
-        if path.suffix.lower() in audio_exts:
+        if path.suffix.lower() == ".wav":
             return path
         wav_path = tmpdir / f"{prefix}_{path.stem}.wav"
         return await self._media.extract_audio(path, wav_path)

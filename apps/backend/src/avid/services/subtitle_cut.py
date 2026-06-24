@@ -62,6 +62,8 @@ class SubtitleCutService:
         extra_sources: list[Path] | None = None,
         extra_offsets: dict[str, int] | None = None,
         edit_intensity: str = "normal",
+        edit_decision_version: str = "legacy",
+        segmentation_boundary_rule: str = "word_boundary",
     ) -> tuple[Project, Path, list[SyncResult]]:
         """Analyze subtitles and return Project with content + silence decisions.
 
@@ -77,6 +79,8 @@ class SubtitleCutService:
             extra_sources: Additional media files to sync and include.
             extra_offsets: Manual offset overrides ``{filename: ms}``.
             edit_intensity: Cut editing intensity (light, normal, heavy).
+            edit_decision_version: Edit decision prompt/parser version.
+            segmentation_boundary_rule: Timestamp boundary rule applied upstream.
 
         Returns:
             Tuple of (Project with edit_decisions, path to .avid.json, sync results)
@@ -118,6 +122,7 @@ class SubtitleCutService:
                 cmd.extend(["--context", str(storyline_path)])
 
         cmd.extend(["--edit-intensity", edit_intensity])
+        cmd.extend(["--edit-decision-version", edit_decision_version])
 
         result = await asyncio.to_thread(
             subprocess.run,
@@ -143,6 +148,8 @@ class SubtitleCutService:
             raise RuntimeError(f"subtitle-cut did not produce output: {project_output}")
 
         project = Project.load(project_output)
+        project.edit_decision_version = edit_decision_version
+        project.segmentation_boundary_rule = segmentation_boundary_rule
         content_count = len(project.edit_decisions)
         print(f"  Content decisions: {content_count}")
         sync_results: list[SyncResult] = []

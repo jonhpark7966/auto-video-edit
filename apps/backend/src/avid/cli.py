@@ -8,6 +8,7 @@ Usage:
     avid-cli review-segments --project-json project.avid.json
     avid-cli apply-evaluation --project-json project.avid.json --evaluation evaluation.json --output-project-json out.avid.json
     avid-cli reexport --project-json project.avid.json --output-dir out
+    avid-cli create-proxy <input> --output output_360p.mp4 --mode preserve-timecode-proxy
 """
 
 import argparse
@@ -382,6 +383,8 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
     if extra_sources:
         print(f"  추가 소스: {len(extra_sources)}개")
     print(f"  편집 강도: {args.edit_intensity}")
+    print(f"  Edit decision version: {args.edit_decision_version}")
+    print(f"  Segmentation boundary rule: {args.segmentation_boundary_rule}")
 
     project, project_path, sync_results = await service.analyze(
         srt_path=srt_path,
@@ -394,6 +397,8 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
         extra_sources=extra_sources,
         extra_offsets=extra_offsets,
         edit_intensity=args.edit_intensity,
+        edit_decision_version=args.edit_decision_version,
+        segmentation_boundary_rule=args.segmentation_boundary_rule,
     )
 
     fcpxml_path = Path(args.output).resolve() if args.output else output_dir / f"{srt_path.stem}_subtitle_cut.fcpxml"
@@ -442,6 +447,7 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
         stats={
             "edit_decisions": len(project.edit_decisions),
             "extra_sources": len(sync_results),
+            "edit_decision_version": args.edit_decision_version,
         },
         provider_config=provider_config,
     )
@@ -491,6 +497,8 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
     if extra_sources:
         print(f"  추가 소스: {len(extra_sources)}개")
     print(f"  편집 강도: {args.edit_intensity}")
+    print(f"  Edit decision version: {args.edit_decision_version}")
+    print(f"  Segmentation boundary rule: {args.segmentation_boundary_rule}")
     print(f"  출력 디렉토리: {output_dir}")
     print(f"  모드: {export_mode} ({'모든 편집 적용' if export_mode == 'final' else '검토용 disabled'})")
 
@@ -507,6 +515,8 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
         extra_sources=extra_sources,
         extra_offsets=extra_offsets,
         edit_intensity=args.edit_intensity,
+        edit_decision_version=args.edit_decision_version,
+        segmentation_boundary_rule=args.segmentation_boundary_rule,
     )
 
     report_path = output_dir / f"{audio_path.stem}.report.md"
@@ -542,6 +552,7 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
         stats={
             "edit_decisions": len(project.edit_decisions),
             "extra_sources": len(sync_results),
+            "edit_decision_version": args.edit_decision_version,
         },
         provider_config=provider_config,
     )
@@ -748,6 +759,7 @@ def _apply_evaluation_index_patch(project: Any, eval_segments: list[dict[str, An
                 active_audio_track_ids=primary_audio_track_ids,
                 origin_kind=origin_kind,
                 source_segment_index=seg_index,
+                boundary=ai.get("boundary") if isinstance(ai.get("boundary"), dict) else None,
             ))
             cuts_added += 1
 
@@ -881,6 +893,119 @@ async def _rebuild_multicam_in_place(
     )
 
 
+def _manifest_media_info(media_info_path: Path):
+    from avid.models.media import MediaInfo
+
+    payload = json.loads(media_info_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"media_info must be a JSON object: {media_info_path}")
+
+    media_info = payload.get("media_info", payload)
+    if not isinstance(media_info, dict):
+        raise ValueError(f"media_info payload missing object: {media_info_path}")
+    return MediaInfo(**media_info)
+
+
+def _manifest_path(value: object, *, field_name: str) -> Path:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"source manifest entry missing {field_name}")
+    return Path(value).expanduser().resolve()
+
+
+def _manifest_media_file(entry: dict[str, Any]):
+    from avid.models.media import MediaFile
+
+    media_info_path = _manifest_path(entry.get("media_info_path"), field_name="media_info_path")
+    media_info = _manifest_media_info(media_info_path)
+    original_name = (
+        str(entry.get("original_name") or entry.get("filename") or "").strip()
+        or Path(str(entry.get("path_hint") or media_info_path.stem)).name
+    )
+    path_hint_raw = str(entry.get("path_hint") or original_name).strip()
+    path_hint = Path(path_hint_raw).expanduser()
+    if not path_hint.is_absolute():
+        path_hint = path_hint.resolve()
+
+    return MediaFile(
+        path=path_hint,
+        original_name=original_name,
+        info=media_info,
+    )
+
+
+async def _rebuild_multicam_from_manifest_in_place(
+    project,
+    manifest_path: Path,
+) -> list[Any]:
+    from avid.models.media import MediaFile
+    from avid.services.audio_sync import AudioSyncService, SyncResult
+
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("source manifest must be a JSON object")
+
+    primary_entry = payload.get("primary")
+    extra_entries = payload.get("extras")
+    if not isinstance(primary_entry, dict):
+        raise ValueError("source manifest missing primary object")
+    if not isinstance(extra_entries, list) or not extra_entries:
+        raise ValueError("source manifest requires at least one extra source")
+
+    primary_file: MediaFile = _manifest_media_file(primary_entry)
+    if project.source_files:
+        primary_source = project.source_files[0]
+        primary_source.path = primary_file.path
+        primary_source.original_name = primary_file.original_name
+        primary_source.info = primary_file.info
+    else:
+        project.add_source_file(primary_file)
+
+    primary_audio_proxy = _manifest_path(primary_entry.get("audio_proxy_path"), field_name="audio_proxy_path")
+    sync_service = AudioSyncService()
+    results: list[Any] = []
+
+    for index, raw_entry in enumerate(extra_entries):
+        if not isinstance(raw_entry, dict):
+            raise ValueError(f"source manifest extras[{index}] must be an object")
+
+        extra_file: MediaFile = _manifest_media_file(raw_entry)
+        extra_audio_proxy = _manifest_path(raw_entry.get("audio_proxy_path"), field_name="audio_proxy_path")
+        offset_value = raw_entry.get("offset_ms")
+
+        if offset_value is None:
+            sync_result = await sync_service.find_offset(primary_audio_proxy, extra_audio_proxy)
+            sync_result.source_name = extra_file.original_name
+        else:
+            offset_ms = int(offset_value)
+            sync_result = SyncResult(
+                offset_ms=offset_ms,
+                confidence=1.0,
+                method="manual",
+                standard_score=0.0,
+                source_name=extra_file.original_name,
+                diagnostics={
+                    "selected_method": "manual",
+                    "selected_offset_ms": offset_ms,
+                    "manual_override": True,
+                    "main_path": str(primary_audio_proxy),
+                    "extra_path": str(extra_audio_proxy),
+                },
+            )
+            drift = await sync_service.estimate_drift(primary_audio_proxy, extra_audio_proxy, offset_ms)
+            sync_result.diagnostics["drift"] = drift
+            if drift and isinstance(drift.get("retime_speed"), (float, int)):
+                sync_result.retime_speed = float(drift["retime_speed"])
+
+        created_tracks = project.add_source_file(extra_file)
+        for track in created_tracks:
+            project.set_track_offset(track.id, sync_result.offset_ms)
+            if sync_result.retime_speed is not None:
+                track.sync_drift_retime_speed = sync_result.retime_speed
+        results.append(sync_result)
+
+    return results
+
+
 def _load_project_or_exit(project_json_path: str) -> tuple[Path, Any]:
     from avid.models.project import Project
 
@@ -933,6 +1058,7 @@ def _review_ai_payload(decision: Any) -> dict[str, Any]:
         "edit_type": decision.edit_type.value,
         "origin_kind": decision.origin_kind.value if decision.origin_kind else None,
         "source_segment_index": decision.source_segment_index,
+        "boundary": decision.boundary,
     }
 
 
@@ -1004,11 +1130,31 @@ def _adjust_review_segment_boundaries(segments: list[Any]) -> dict[int, tuple[in
     return adjusted
 
 
+def _raw_review_segment_boundaries(segments: list[Any]) -> dict[int, tuple[int, int]]:
+    ranges: dict[int, tuple[int, int]] = {}
+    for position, segment in enumerate(segments):
+        segment_index = _segment_identity(segment, position)
+        try:
+            start_ms = int(segment.start_ms)
+            end_ms = int(segment.end_ms)
+        except (TypeError, ValueError):
+            continue
+        if end_ms > start_ms:
+            ranges[segment_index] = (start_ms, end_ms)
+    return ranges
+
+
 def _build_review_segments_payload(project_json_path: Path, project: Any) -> dict[str, Any]:
     if not project.transcription or not project.transcription.segments:
         raise RuntimeError("review-segments requires transcription.segments in project JSON")
 
-    adjusted_boundaries = _adjust_review_segment_boundaries(project.transcription.segments)
+    segmentation_boundary_rule = getattr(project, "segmentation_boundary_rule", "word_boundary")
+    if segmentation_boundary_rule == "word_boundary":
+        adjusted_boundaries = _adjust_review_segment_boundaries(project.transcription.segments)
+        boundary_strategy = "midpoint_between_transcript_segments"
+    else:
+        adjusted_boundaries = _raw_review_segment_boundaries(project.transcription.segments)
+        boundary_strategy = "source_transcript_boundaries"
     indexed_decisions: dict[int, list[Any]] = {}
     for decision in project.edit_decisions:
         if decision.source_segment_index is None:
@@ -1044,7 +1190,8 @@ def _build_review_segments_payload(project_json_path: Path, project: Any) -> dic
             "segments": len(review_segments),
             "indexed_decisions": sum(len(items) for items in indexed_decisions.values()),
             "legacy_overlap_fallback": legacy_overlap_fallback,
-            "boundary_strategy": "midpoint_between_transcript_segments",
+            "boundary_strategy": boundary_strategy,
+            "segmentation_boundary_rule": segmentation_boundary_rule,
         },
         schema_version="review-segments/v1",
         project_json=str(project_json_path),
@@ -1190,22 +1337,45 @@ async def cmd_export_project(args: argparse.Namespace) -> dict[str, Any]:
 
 async def cmd_rebuild_multicam(args: argparse.Namespace) -> dict[str, Any]:
     project_json_path, project = _load_project_or_exit(args.project_json)
-    source_path = _resolve_source_path_or_exit(args.source)
     output_project_json = Path(args.output_project_json).resolve()
     output_project_json.parent.mkdir(parents=True, exist_ok=True)
 
-    extra_sources, extra_offsets = _parse_extra_sources(args)
-    if not extra_sources:
-        print("오류: rebuild-multicam 에는 최소 한 개 이상의 --extra-source 가 필요합니다", file=sys.stderr)
+    source_manifest = getattr(args, "source_manifest", None)
+    if source_manifest and args.source:
+        print("오류: --source-manifest 와 --source 는 함께 사용할 수 없습니다", file=sys.stderr)
+        sys.exit(1)
+    if source_manifest and args.extra_source:
+        print("오류: --source-manifest 와 --extra-source 는 함께 사용할 수 없습니다", file=sys.stderr)
+        sys.exit(1)
+    if source_manifest and args.offset:
+        print("오류: --source-manifest 와 --offset 은 함께 사용할 수 없습니다. manifest 의 offset_ms 를 사용하세요", file=sys.stderr)
         sys.exit(1)
 
     stripped_sources = _strip_extra_sources(project)
-    sync_results = await _rebuild_multicam_in_place(
-        project,
-        source_path,
-        extra_sources,
-        extra_offsets or {},
-    )
+    if source_manifest:
+        manifest_path = Path(source_manifest).expanduser().resolve()
+        if not manifest_path.exists():
+            print(f"오류: source manifest 를 찾을 수 없습니다: {manifest_path}", file=sys.stderr)
+            sys.exit(1)
+        sync_results = await _rebuild_multicam_from_manifest_in_place(project, manifest_path)
+        extra_source_count = len(sync_results)
+    else:
+        if not args.source:
+            print("오류: rebuild-multicam 에는 --source 또는 --source-manifest 가 필요합니다", file=sys.stderr)
+            sys.exit(1)
+        source_path = _resolve_source_path_or_exit(args.source)
+        extra_sources, extra_offsets = _parse_extra_sources(args)
+        if not extra_sources:
+            print("오류: rebuild-multicam 에는 최소 한 개 이상의 --extra-source 가 필요합니다", file=sys.stderr)
+            sys.exit(1)
+        sync_results = await _rebuild_multicam_in_place(
+            project,
+            source_path,
+            extra_sources,
+            extra_offsets or {},
+        )
+        extra_source_count = len(extra_sources)
+
     saved_project_json = project.save(output_project_json)
     diagnostics_path = _write_sync_diagnostics(
         output_project_json.parent,
@@ -1223,7 +1393,7 @@ async def cmd_rebuild_multicam(args: argparse.Namespace) -> dict[str, Any]:
         "rebuild-multicam",
         artifacts=artifacts,
         stats={
-            "extra_sources": len(extra_sources),
+            "extra_sources": extra_source_count,
             "stripped_extra_sources": stripped_sources,
         },
     )
@@ -1322,6 +1492,26 @@ async def cmd_reexport(args: argparse.Namespace) -> dict[str, Any]:
 
 def cmd_version(_args: argparse.Namespace) -> dict[str, Any]:
     return _payload("version")
+
+
+def cmd_create_proxy(args: argparse.Namespace) -> dict[str, Any]:
+    from avid.services.proxy import create_proxy
+
+    input_path = Path(args.input).resolve()
+    output_path = Path(args.output).resolve()
+    stats = create_proxy(
+        input_path,
+        output_path,
+        mode=args.mode,
+        height=args.height,
+        encoder=args.encoder,
+    )
+    print(f"프록시 생성 완료: {output_path}")
+    return _payload(
+        "create-proxy",
+        artifacts={"proxy": str(output_path)},
+        stats=stats,
+    )
 
 
 async def cmd_doctor(args: argparse.Namespace) -> dict[str, Any]:
@@ -1495,6 +1685,8 @@ def main() -> None:
     p_subcut.add_argument("--extra-source", action="append", default=[], help="추가 소스 파일 (반복 가능)")
     p_subcut.add_argument("--offset", action="append", default=[], help="수동 오프셋 ms (--extra-source 순서 대응)")
     p_subcut.add_argument("--edit-intensity", choices=["light", "normal", "heavy"], default="normal", help="컷 편집 강도")
+    p_subcut.add_argument("--edit-decision-version", choices=["legacy", "boundary_aware_v1"], default="legacy", help="Edit decision prompt/parser version")
+    p_subcut.add_argument("--segmentation-boundary-rule", choices=["word_boundary", "midpoint_gap", "low_energy_gap_v1"], default="word_boundary", help="Segmentation timestamp boundary rule")
     _add_machine_output_flags(p_subcut)
 
     p_podcast = subparsers.add_parser("podcast-cut", help="팟캐스트 편집 (재미 기준)")
@@ -1509,6 +1701,8 @@ def main() -> None:
     p_podcast.add_argument("--extra-source", action="append", default=[], help="추가 소스 파일 (반복 가능)")
     p_podcast.add_argument("--offset", action="append", default=[], help="수동 오프셋 ms (--extra-source 순서 대응)")
     p_podcast.add_argument("--edit-intensity", choices=["light", "normal", "heavy"], default="normal", help="컷 편집 강도")
+    p_podcast.add_argument("--edit-decision-version", choices=["legacy", "boundary_aware_v1"], default="legacy", help="Edit decision prompt/parser version")
+    p_podcast.add_argument("--segmentation-boundary-rule", choices=["word_boundary", "midpoint_gap", "low_energy_gap_v1"], default="word_boundary", help="Segmentation timestamp boundary rule")
     _add_machine_output_flags(p_podcast)
 
     p_review_segments = subparsers.add_parser("review-segments", help="project JSON 에서 review payload 생성")
@@ -1546,7 +1740,8 @@ def main() -> None:
 
     p_rebuild_multicam = subparsers.add_parser("rebuild-multicam", help="기존 avid project의 extra source 를 재구성")
     p_rebuild_multicam.add_argument("--project-json", required=True, type=str, help="입력 avid project JSON")
-    p_rebuild_multicam.add_argument("--source", required=True, type=str, help="메인 소스 파일 경로")
+    p_rebuild_multicam.add_argument("--source", type=str, help="메인 소스 파일 경로")
+    p_rebuild_multicam.add_argument("--source-manifest", type=str, help="오디오 프록시와 미디어 메타데이터 manifest 경로")
     p_rebuild_multicam.add_argument("--extra-source", action="append", default=[], help="추가 소스 파일 (반복 가능)")
     p_rebuild_multicam.add_argument("--offset", action="append", default=[], help="수동 오프셋 ms (--extra-source 순서 대응)")
     p_rebuild_multicam.add_argument("--output-project-json", required=True, type=str, help="재구성 후 저장할 avid project JSON")
@@ -1568,6 +1763,24 @@ def main() -> None:
     p_reexport.add_argument("--silence-mode", choices=["cut", "disabled"], default="cut", help="무음 처리 방식")
     p_reexport.add_argument("--content-mode", choices=["cut", "disabled"], default="disabled", help="콘텐츠 컷 처리 방식")
     _add_machine_output_flags(p_reexport)
+
+    p_create_proxy = subparsers.add_parser("create-proxy", help="FCP relink 용 360p proxy 생성")
+    p_create_proxy.add_argument("input", type=str, help="입력 원본 미디어")
+    p_create_proxy.add_argument("-o", "--output", required=True, type=str, help="출력 proxy 경로")
+    p_create_proxy.add_argument(
+        "--mode",
+        choices=["zero-timecode-proxy", "preserve-timecode-proxy"],
+        required=True,
+        help="timecode 처리 방식",
+    )
+    p_create_proxy.add_argument("--height", type=int, default=360, help="출력 높이 (기본: 360)")
+    p_create_proxy.add_argument(
+        "--encoder",
+        choices=["auto", "h264_nvenc", "libx264"],
+        default="auto",
+        help="비디오 인코더 (기본: auto)",
+    )
+    _add_machine_output_flags(p_create_proxy)
 
     p_version = subparsers.add_parser("version", help="avid 버전 정보 출력")
     _add_machine_output_flags(p_version)
@@ -1607,6 +1820,8 @@ def main() -> None:
             payload = _run_handler(args, cmd_clear_extra_sources, is_async=False)
         elif args.command == "reexport":
             payload = _run_handler(args, cmd_reexport, is_async=True)
+        elif args.command == "create-proxy":
+            payload = _run_handler(args, cmd_create_proxy, is_async=False)
         elif args.command == "version":
             payload = _run_handler(args, cmd_version, is_async=False)
         elif args.command == "doctor":
