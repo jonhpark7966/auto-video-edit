@@ -120,3 +120,94 @@ def test_apply_evaluation_uses_adjusted_boundaries_and_removes_overlapping_silen
         if decision.reason == EditReason.SILENCE
     ]
     assert silence_cuts == []
+
+
+def test_review_segments_include_junction_repair_annotation_without_edit_decision(tmp_path):
+    project = _project_with_segments()
+    project.edit_decisions = [
+        decision
+        for decision in project.edit_decisions
+        if decision.source_segment_index != 2
+    ]
+    project.review_decision_annotations = {
+        "2": {
+            "ai": {
+                "action": "keep",
+                "reason": "sentence_completion",
+                "confidence": 0.9,
+                "note": "Junction guard repair",
+                "edit_type": "cut",
+                "origin_kind": "content_segment",
+                "source_segment_index": 2,
+                "junction_repair": {
+                    "applied": True,
+                    "type": "sentence_completion",
+                    "original_action": "cut",
+                    "repaired_from": "cut",
+                    "repaired_to": "keep",
+                    "original_reason": "filler",
+                    "original_note": "LLM cut",
+                    "original_edit_type": "cut",
+                    "original_origin_kind": "content_segment",
+                    "linked_segment_indices": [1, 2],
+                    "reason": "previous_keep_sentence_was_incomplete",
+                    "user_apply_junction_repair": True,
+                },
+            }
+        }
+    }
+
+    payload = _build_review_segments_payload(tmp_path / "project.avid.json", project)
+
+    segment = payload["segments"][1]
+    assert segment["ai"]["action"] == "keep"
+    assert segment["ai"]["junction_repair"]["original_action"] == "cut"
+
+
+def test_apply_evaluation_can_disable_junction_repair_and_restore_original_cut(tmp_path):
+    project = _project_with_segments()
+    project.edit_decisions = [
+        decision
+        for decision in project.edit_decisions
+        if decision.source_segment_index != 2
+    ]
+    project.review_decision_annotations = {
+        "2": {
+            "ai": {
+                "action": "keep",
+                "reason": "sentence_completion",
+                "confidence": 0.9,
+                "note": "Junction guard repair",
+                "edit_type": "cut",
+                "origin_kind": "content_segment",
+                "source_segment_index": 2,
+                "junction_repair": {
+                    "applied": True,
+                    "type": "sentence_completion",
+                    "original_action": "cut",
+                    "repaired_from": "cut",
+                    "repaired_to": "keep",
+                    "original_reason": "filler",
+                    "original_note": "LLM cut",
+                    "original_edit_type": "cut",
+                    "original_origin_kind": "content_segment",
+                    "linked_segment_indices": [1, 2],
+                    "reason": "previous_keep_sentence_was_incomplete",
+                    "user_apply_junction_repair": True,
+                },
+            }
+        }
+    }
+    payload = _build_review_segments_payload(tmp_path / "project.avid.json", project)
+    payload["segments"][1]["ai"]["junction_repair"]["user_apply_junction_repair"] = False
+
+    _apply_evaluation_index_patch(project, payload["segments"])
+
+    content_cuts = [
+        decision
+        for decision in project.edit_decisions
+        if decision.source_segment_index == 2 and decision.reason != EditReason.SILENCE
+    ]
+    assert len(content_cuts) == 1
+    assert content_cuts[0].reason == EditReason.FILLER
+    assert content_cuts[0].note == "LLM cut"

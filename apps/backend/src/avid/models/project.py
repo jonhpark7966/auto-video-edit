@@ -113,6 +113,10 @@ class Project(BaseModel):
     edit_decisions: list[EditDecision] = Field(
         default_factory=list, description="Editing decisions on unified timeline"
     )
+    review_decision_annotations: dict[str, dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Review-only decision annotations for segments without edit decisions",
+    )
 
     # Export-time multicam behavior. Source keys are stable UI/API keys:
     # "primary", "extra:0", "extra:1", ...
@@ -351,6 +355,7 @@ class Project(BaseModel):
                 origin_kind=decision.origin_kind,
                 source_segment_index=decision.source_segment_index,
                 boundary=decision.boundary,
+                junction_repair=decision.junction_repair,
             )
             self.edit_decisions.append(remapped_decision)
 

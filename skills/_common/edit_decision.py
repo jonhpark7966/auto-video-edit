@@ -1,6 +1,7 @@
 """Edit decision version helpers shared by cut skills."""
 
 from typing import Any
+import re
 
 from .srt_parser import SubtitleSegment
 
@@ -214,3 +215,421 @@ def apply_boundary_repair(
         suffix = "Boundary risk accepted by LLM."
         entry["note"] = f"{note} {suffix}".strip() if note else suffix
     return "cut", entry
+
+
+def _entry_segment_index(entry: dict[str, Any]) -> int | None:
+    value = entry.get("segment_index")
+    if isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _append_boundary_risk_note(entry: dict[str, Any]) -> None:
+    note = str(entry.get("note") or "").strip()
+    suffix = "Boundary risk accepted by LLM."
+    if suffix in note:
+        return
+    entry["note"] = f"{note} {suffix}".strip() if note else suffix
+
+
+def _neighbor_index(
+    index: int | None,
+    *,
+    offset: int,
+    position_by_index: dict[int, int],
+    segment_indices: list[int],
+) -> int | None:
+    if index is None or index not in position_by_index:
+        return None
+    position = position_by_index[index] + offset
+    if position < 0 or position >= len(segment_indices):
+        return None
+    return segment_indices[position]
+
+
+def resolve_boundary_repairs(
+    items: list[dict[str, Any]],
+    entries: list[dict[str, Any]],
+    actions: list[Any],
+    *,
+    segment_indices: list[int],
+    edit_decision_version: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Resolve boundary repair decisions after seeing neighboring actions.
+
+    `apply_boundary_repair` is intentionally kept for older call sites that apply
+    a single decision immediately. This batch resolver is for analyzers that can
+    inspect the whole chunk before deciding whether a weak CUT should be promoted
+    because an adjacent segment is also kept.
+    """
+    decisions: list[dict[str, Any]] = []
+    position_by_index = {
+        index: position
+        for position, index in enumerate(segment_indices)
+    }
+
+    for item, entry, action in zip(items, entries, actions):
+        current_entry = dict(entry)
+        normalized_action = str(action or "").lower()
+
+        if is_boundary_aware_version(edit_decision_version):
+            boundary = normalize_boundary_metadata(item.get("boundary"))
+            if boundary is not None:
+                current_entry["boundary"] = boundary
+
+        decisions.append(
+            {
+                "entry": current_entry,
+                "action": normalized_action,
+                "segment_index": _entry_segment_index(current_entry),
+            }
+        )
+
+    if not is_boundary_aware_version(edit_decision_version):
+        cuts = [decision["entry"] for decision in decisions if decision["action"] == "cut"]
+        keeps = [decision["entry"] for decision in decisions if decision["action"] != "cut"]
+        return cuts, keeps
+
+    resolved_actions: dict[int, str] = {}
+    for decision in decisions:
+        index = decision["segment_index"]
+        if index is not None:
+            resolved_actions[index] = "cut" if decision["action"] == "cut" else "keep"
+
+    changed = True
+    while changed:
+        changed = False
+        for decision in decisions:
+            index = decision["segment_index"]
+            if index is None or resolved_actions.get(index) != "cut":
+                continue
+            if decision["action"] != "cut":
+                continue
+
+            boundary = decision["entry"].get("boundary")
+            if not isinstance(boundary, dict):
+                continue
+
+            repair = boundary.get("repair", BOUNDARY_REPAIR_NONE)
+            prev_index = _neighbor_index(
+                index,
+                offset=-1,
+                position_by_index=position_by_index,
+                segment_indices=segment_indices,
+            )
+            next_index = _neighbor_index(
+                index,
+                offset=1,
+                position_by_index=position_by_index,
+                segment_indices=segment_indices,
+            )
+
+            should_keep = False
+            if repair == "keep_with_prev":
+                should_keep = resolved_actions.get(prev_index) == "keep"
+            elif repair == "keep_with_next":
+                should_keep = resolved_actions.get(next_index) == "keep"
+            elif repair == "keep_with_neighbors":
+                should_keep = (
+                    resolved_actions.get(prev_index) == "keep"
+                    and resolved_actions.get(next_index) == "keep"
+                )
+
+            if should_keep:
+                resolved_actions[index] = "keep"
+                changed = True
+
+    cuts: list[dict[str, Any]] = []
+    keeps: list[dict[str, Any]] = []
+    for decision in decisions:
+        entry = decision["entry"]
+        index = decision["segment_index"]
+        action = resolved_actions.get(
+            index,
+            "cut" if decision["action"] == "cut" else "keep",
+        )
+        boundary = entry.get("boundary")
+
+        if action == "cut" and isinstance(boundary, dict):
+            if boundary.get("repair") == BOUNDARY_REPAIR_CUT_WITH_RISK:
+                _append_boundary_risk_note(entry)
+
+        if action == "cut":
+            cuts.append(entry)
+        else:
+            keeps.append(entry)
+
+    return cuts, keeps
+
+
+def _entry_by_index(items: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
+    indexed: dict[int, dict[str, Any]] = {}
+    for item in items:
+        index = _entry_segment_index(item)
+        if index is not None:
+            indexed[index] = item
+    return indexed
+
+
+def _clean_tail(text: str) -> str:
+    return re.sub(r"[\s\"'“”‘’.,!?…。]+$", "", str(text or "").strip())
+
+
+def _normalized_text(text: str) -> str:
+    return re.sub(r"\s+", " ", str(text or "").strip())
+
+
+def _duration_ms(segment: SubtitleSegment) -> int:
+    return max(0, int(segment.end_ms) - int(segment.start_ms))
+
+
+def _gap_ms(left: SubtitleSegment, right: SubtitleSegment) -> int:
+    return max(0, int(right.start_ms) - int(left.end_ms))
+
+
+_DANGLING_TAILS = (
+    "얘기를",
+    "이야기를",
+    "말을",
+    "설명을",
+    "생각을",
+    "부분을",
+    "것을",
+    "거를",
+    "걸",
+    "수",
+    "좀",
+    "이제",
+    "왜냐하면",
+    "때문에",
+    "라서",
+    "이라서",
+    "해서",
+    "하고",
+    "하고서",
+    "고",
+    "면",
+    "는데",
+    "하는",
+    "되면",
+)
+
+
+_COMPLETION_STARTS = (
+    "하겠습니다",
+    "해보겠습니다",
+    "해 보겠습니다",
+    "해보도록",
+    "해 보도록",
+    "하죠",
+    "할게요",
+    "해요",
+    "합니다",
+    "됩니다",
+    "되죠",
+    "되는",
+    "같아요",
+    "거죠",
+    "겁니다",
+    "드릴게요",
+    "가겠습니다",
+    "보겠습니다",
+)
+
+
+def _has_dangling_tail(text: str) -> bool:
+    tail = _clean_tail(text)
+    if not tail:
+        return False
+    if tail.endswith(_DANGLING_TAILS):
+        return True
+    return bool(re.search(r"(을|를|이|가|은|는|도|만|까지|부터|처럼|라고|다고|면서|는데|니까)$", tail))
+
+
+def _starts_with_completion(text: str) -> bool:
+    value = _normalized_text(text)
+    if not value:
+        return False
+    if value.startswith(_COMPLETION_STARTS):
+        return True
+    return bool(re.search(r"(하겠습니다|해보도록 하겠습니다|해보겠습니다|합니다|해요|됩니다|거죠|같아요)", value[:40]))
+
+
+def _looks_like_context_dependent_payoff(text: str) -> bool:
+    value = _normalized_text(text)
+    if len(value) > 40:
+        return False
+    patterns = (
+        r"^제가 .*(죠|잖아요|거든요)[.!?。]?$",
+        r"^저 .*(죠|잖아요|거든요)[.!?。]?$",
+        r"^그거죠[.!?。]?$",
+        r"^그렇죠[.!?。]?$",
+        r"^맞죠[.!?。]?$",
+        r"^정확합니다[.!?。]?$",
+    )
+    return any(re.search(pattern, value) for pattern in patterns)
+
+
+def _repair_payload(
+    *,
+    repair_type: str,
+    original_entry: dict[str, Any],
+    repaired_to: str,
+    linked_segment_indices: list[int],
+    reason: str,
+) -> dict[str, Any]:
+    original_action = str(original_entry.get("action") or "cut").lower()
+    return {
+        "applied": True,
+        "type": repair_type,
+        "original_action": original_action,
+        "repaired_from": original_action,
+        "repaired_to": repaired_to,
+        "original_reason": original_entry.get("reason"),
+        "original_note": original_entry.get("note"),
+        "linked_segment_indices": linked_segment_indices,
+        "reason": reason,
+        "user_apply_junction_repair": True,
+    }
+
+
+def _mark_repaired(
+    entry: dict[str, Any],
+    *,
+    repair_type: str,
+    repaired_to: str,
+    linked_segment_indices: list[int],
+    reason: str,
+) -> dict[str, Any]:
+    original = dict(entry)
+    repaired = dict(entry)
+    repaired["action"] = repaired_to
+    repaired["decision_source"] = "junction_guard"
+    repaired["junction_repair"] = _repair_payload(
+        repair_type=repair_type,
+        original_entry={**original, "action": original.get("action") or ("cut" if repaired_to == "keep" else "keep")},
+        repaired_to=repaired_to,
+        linked_segment_indices=linked_segment_indices,
+        reason=reason,
+    )
+    if repaired_to == "keep":
+        repaired["reason"] = repair_type
+    note = str(original.get("note") or "").strip()
+    suffix = f"Junction guard repair: {reason}"
+    repaired["note"] = f"{suffix} Original note: {note}".strip() if note else suffix
+    return repaired
+
+
+def apply_junction_coherence_guard(
+    segments: list[SubtitleSegment],
+    cuts: list[dict[str, Any]],
+    keeps: list[dict[str, Any]],
+    *,
+    max_sentence_gap_ms: int = 1500,
+    max_completion_duration_ms: int = 2500,
+    max_setup_segments: int = 2,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Repair narrow KEEP/CUT junctions that would leave incoherent final audio.
+
+    The guard is intentionally conservative. It only changes decisions when a
+    neighboring CUT clearly completes a kept sentence, or when a short payoff
+    KEEP would be orphaned by immediately preceding CUT setup segments.
+    """
+    cut_by_index = _entry_by_index(cuts)
+    keep_by_index = _entry_by_index(keeps)
+    action_by_index: dict[int, str] = {}
+    entry_by_index: dict[int, dict[str, Any]] = {}
+    for seg in segments:
+        action_by_index[seg.index] = "keep"
+    for index, entry in keep_by_index.items():
+        action_by_index[index] = "keep"
+        entry_by_index[index] = {**entry, "action": "keep"}
+    for index, entry in cut_by_index.items():
+        action_by_index[index] = "cut"
+        entry_by_index[index] = {**entry, "action": "cut"}
+
+    segment_by_index = {seg.index: seg for seg in segments}
+    repaired_entries: dict[int, dict[str, Any]] = {}
+    ordered_indices = [seg.index for seg in segments]
+
+    for left, right in zip(segments, segments[1:]):
+        if action_by_index.get(left.index) != "keep" or action_by_index.get(right.index) != "cut":
+            continue
+        if _gap_ms(left, right) > max_sentence_gap_ms:
+            continue
+        if _duration_ms(right) > max_completion_duration_ms:
+            continue
+        if not _has_dangling_tail(left.text) or not _starts_with_completion(right.text):
+            continue
+        original = entry_by_index.get(right.index)
+        if not original or isinstance(original.get("junction_repair"), dict):
+            continue
+        repaired_entries[right.index] = _mark_repaired(
+            original,
+            repair_type="sentence_completion",
+            repaired_to="keep",
+            linked_segment_indices=[left.index, right.index],
+            reason="previous_keep_sentence_was_incomplete",
+        )
+        action_by_index[right.index] = "keep"
+
+    for position, current in enumerate(segments):
+        if action_by_index.get(current.index) != "keep":
+            continue
+        if not _looks_like_context_dependent_payoff(current.text):
+            continue
+        if _duration_ms(current) > 2200:
+            continue
+
+        linked = [current.index]
+        promoted: list[int] = []
+        cursor = position - 1
+        while cursor >= 0 and len(promoted) < max_setup_segments:
+            previous = segments[cursor]
+            if action_by_index.get(previous.index) != "cut":
+                break
+            next_segment = segment_by_index[linked[0]]
+            if _gap_ms(previous, next_segment) > max_sentence_gap_ms:
+                break
+            original = entry_by_index.get(previous.index)
+            if original and not isinstance(original.get("junction_repair"), dict):
+                promoted.append(previous.index)
+                linked.insert(0, previous.index)
+            cursor -= 1
+
+        if not promoted:
+            continue
+        for index in promoted:
+            original = entry_by_index.get(index)
+            if not original:
+                continue
+            repaired_entries[index] = _mark_repaired(
+                original,
+                repair_type="setup_payoff",
+                repaired_to="keep",
+                linked_segment_indices=linked,
+                reason="kept_payoff_depends_on_cut_setup",
+            )
+            action_by_index[index] = "keep"
+
+    if not repaired_entries:
+        return cuts, keeps
+
+    repaired_cuts: list[dict[str, Any]] = []
+    repaired_keeps_by_index = _entry_by_index(keeps)
+    for cut in cuts:
+        index = _entry_segment_index(cut)
+        if index is not None and index in repaired_entries:
+            repaired_keeps_by_index[index] = repaired_entries[index]
+        else:
+            repaired_cuts.append(cut)
+
+    repaired_keeps: list[dict[str, Any]] = []
+    for index in ordered_indices:
+        entry = repaired_keeps_by_index.get(index)
+        if entry is not None:
+            repaired_keeps.append(entry)
+    return repaired_cuts, repaired_keeps

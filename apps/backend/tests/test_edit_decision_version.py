@@ -11,7 +11,9 @@ if str(SKILLS_DIR) not in sys.path:
 
 from _common import SubtitleSegment  # noqa: E402
 from _common.edit_decision import (  # noqa: E402
+    apply_junction_coherence_guard,
     apply_boundary_repair,
+    resolve_boundary_repairs,
     format_segments_with_boundary_metadata,
 )
 
@@ -125,3 +127,137 @@ def test_project_model_defaults_legacy_and_accepts_optional_boundary(tmp_path):
 
     assert loaded.edit_decision_version == "boundary_aware_v1"
     assert loaded.edit_decisions[0].boundary["repair"] == "none"
+
+
+def _boundary_decision(segment_index: int, action: str, repair: str) -> dict:
+    return {
+        "segment_index": segment_index,
+        "action": action,
+        "reason": "test",
+        "note": f"segment {segment_index}",
+        "boundary": {
+            "left_cut_ok": False,
+            "right_cut_ok": False,
+            "repair": repair,
+        },
+    }
+
+
+def _resolve_boundary_decisions(
+    *items: dict,
+    segment_indices: list[int],
+) -> tuple[list[dict], list[dict]]:
+    entries = [
+        {
+            "segment_index": item["segment_index"],
+            "reason": item["reason"],
+            "note": item["note"],
+        }
+        for item in items
+    ]
+    return resolve_boundary_repairs(
+        list(items),
+        entries,
+        [item["action"] for item in items],
+        segment_indices=segment_indices,
+        edit_decision_version="boundary_aware_v1",
+    )
+
+
+def test_batch_boundary_keep_with_next_promotes_only_when_next_is_keep():
+    cuts, keeps = _resolve_boundary_decisions(
+        _boundary_decision(1, "cut", "keep_with_next"),
+        _boundary_decision(2, "keep", "none"),
+        segment_indices=[1, 2],
+    )
+
+    assert cuts == []
+    assert [item["segment_index"] for item in keeps] == [1, 2]
+
+
+def test_batch_boundary_keep_with_next_stays_cut_when_next_is_cut():
+    cuts, keeps = _resolve_boundary_decisions(
+        _boundary_decision(1, "cut", "keep_with_next"),
+        _boundary_decision(2, "cut", "none"),
+        segment_indices=[1, 2],
+    )
+
+    assert [item["segment_index"] for item in cuts] == [1, 2]
+    assert keeps == []
+
+
+def test_batch_boundary_keep_with_prev_promotes_when_prev_is_keep():
+    cuts, keeps = _resolve_boundary_decisions(
+        _boundary_decision(1, "keep", "none"),
+        _boundary_decision(2, "cut", "keep_with_prev"),
+        segment_indices=[1, 2],
+    )
+
+    assert cuts == []
+    assert [item["segment_index"] for item in keeps] == [1, 2]
+
+
+def test_batch_boundary_keep_with_neighbors_requires_both_neighbors():
+    cuts, keeps = _resolve_boundary_decisions(
+        _boundary_decision(1, "keep", "none"),
+        _boundary_decision(2, "cut", "keep_with_neighbors"),
+        _boundary_decision(3, "cut", "none"),
+        segment_indices=[1, 2, 3],
+    )
+
+    assert [item["segment_index"] for item in cuts] == [2, 3]
+    assert [item["segment_index"] for item in keeps] == [1]
+
+    cuts, keeps = _resolve_boundary_decisions(
+        _boundary_decision(1, "keep", "none"),
+        _boundary_decision(2, "cut", "keep_with_neighbors"),
+        _boundary_decision(3, "keep", "none"),
+        segment_indices=[1, 2, 3],
+    )
+
+    assert cuts == []
+    assert [item["segment_index"] for item in keeps] == [1, 2, 3]
+
+
+def test_junction_guard_keeps_completion_segment_with_metadata():
+    segments = [
+        SubtitleSegment(index=473, start_ms=1_197_064, end_ms=1_204_784, text="조금 더 섞어서 얘기를"),
+        SubtitleSegment(index=474, start_ms=1_206_014, end_ms=1_207_224, text="해보도록 하겠습니다."),
+    ]
+    cuts = [
+        {
+            "segment_index": 474,
+            "reason": "filler",
+            "entertainment_score": 2,
+            "note": "formulaic closing",
+        }
+    ]
+    keeps = [
+        {
+            "segment_index": 473,
+            "reason": "engaging",
+            "entertainment_score": 7,
+            "note": "foreshadowing",
+        }
+    ]
+
+    repaired_cuts, repaired_keeps = apply_junction_coherence_guard(segments, cuts, keeps)
+
+    assert repaired_cuts == []
+    repaired = {item["segment_index"]: item for item in repaired_keeps}[474]
+    assert repaired["action"] == "keep"
+    assert repaired["decision_source"] == "junction_guard"
+    assert repaired["junction_repair"]["original_action"] == "cut"
+    assert repaired["junction_repair"]["repaired_to"] == "keep"
+    assert repaired["junction_repair"]["linked_segment_indices"] == [473, 474]
+
+
+def test_batch_boundary_cut_with_risk_stays_cut_and_records_note():
+    cuts, keeps = _resolve_boundary_decisions(
+        _boundary_decision(1, "cut", "cut_with_boundary_risk"),
+        segment_indices=[1],
+    )
+
+    assert keeps == []
+    assert [item["segment_index"] for item in cuts] == [1]
+    assert "Boundary risk accepted by LLM." in cuts[0]["note"]

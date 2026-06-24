@@ -68,6 +68,11 @@ def test_podcast_prompts_leave_bridge_decision_to_llm():
         assert "bridge 발화는 filler처럼 보여도 연결에 필요할 수 있습니다" in prompt
         assert "segmentation/chunk artifact" in prompt
         assert "이전/다음 segment와 합쳐 실제 문장으로 읽은 뒤 CUT/KEEP" in prompt
+        assert "다음/이전 KEEP segment의 문장을 완성하면 CUT하지 마세요" in prompt
+        assert "약간 그것만 좀" in prompt
+        assert "다르다고 생각해요" in prompt
+        assert "왜냐하면 AI 시대가" in prompt
+        assert "체감한다는 얘기가" in prompt
         assert "note에 앞뒤 연결이 자연스러운 이유" in prompt
 
 
@@ -271,3 +276,30 @@ def test_fcpxml_does_not_merge_enabled_review_segments_without_known_same_speake
         (3050, 3500, "enabled"),
         (3550, 3900, "enabled"),
     ]
+
+
+def test_mixed_speaker_guidance_is_injected_only_for_mixed_segments():
+    normal_segments = [
+        SubtitleSegment(index=1, start_ms=0, end_ms=1000, text="normal", speaker="speaker_0"),
+    ]
+    mixed_segments = [
+        SubtitleSegment(index=1, start_ms=0, end_ms=1000, text="mixed", speaker="mixed"),
+    ]
+
+    for analyzer in (codex_analyzer, claude_analyzer):
+        normal_prompt = analyzer.PODCAST_ANALYSIS_PROMPT.format(
+            segments=analyzer.format_segments_for_prompt(normal_segments)
+        )
+        mixed_prompt = analyzer.PODCAST_ANALYSIS_PROMPT.format(
+            segments=analyzer.format_segments_for_prompt(mixed_segments)
+        )
+
+        assert "## Mixed speaker handling" not in analyzer._apply_mixed_speaker_guidance(
+            normal_prompt, normal_segments
+        )
+        enriched = analyzer._apply_mixed_speaker_guidance(mixed_prompt, mixed_segments)
+        assert "## Mixed speaker handling" in enriched
+        assert (
+            "Do not classify a segment as `crosstalk` only because `speaker=mixed`."
+            in enriched
+        )

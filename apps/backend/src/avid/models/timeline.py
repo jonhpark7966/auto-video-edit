@@ -141,3 +141,7 @@ class EditDecision(BaseModel):
         default=None,
         description="Optional boundary-aware LLM metadata for this edit decision",
     )
+    junction_repair: dict | None = Field(
+        default=None,
+        description="Optional junction coherence guard metadata for this decision",
+    )

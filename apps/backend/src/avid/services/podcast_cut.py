@@ -264,6 +264,7 @@ class PodcastCutService:
         # Step 3: Parse skill output → content decisions
         print("Step 3: Parsing skill output...")
         content_decisions = self._parse_skill_output(skill_output)
+        review_decision_annotations = self._parse_review_decision_annotations(skill_output)
         print(f"  Generated {len(content_decisions)} content edit decisions")
 
         # Step 4: Find silence gaps from SRT
@@ -279,6 +280,7 @@ class PodcastCutService:
             segments=segments,
             content_decisions=content_decisions,
             silence_regions=silence_regions,
+            review_decision_annotations=review_decision_annotations,
             segmentation_boundary_rule=segmentation_boundary_rule,
         )
         project.edit_decision_version = edit_decision_version
@@ -469,12 +471,25 @@ class PodcastCutService:
                 ),
                 source_segment_index=ed.get("source_segment_index"),
                 boundary=ed.get("boundary") if isinstance(ed.get("boundary"), dict) else None,
+                junction_repair=ed.get("junction_repair") if isinstance(ed.get("junction_repair"), dict) else None,
             ))
 
         if skipped:
             print(f"  Warning: skipped {skipped} malformed entries from {avid_json_path}")
 
         return decisions
+
+    def _parse_review_decision_annotations(self, avid_json_path: Path) -> dict[str, dict]:
+        with open(avid_json_path, encoding="utf-8") as f:
+            data = json.load(f)
+        annotations = data.get("review_decision_annotations")
+        if not isinstance(annotations, dict):
+            return {}
+        return {
+            str(key): value
+            for key, value in annotations.items()
+            if isinstance(value, dict)
+        }
 
     _VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".wmv"}
 
@@ -704,6 +719,7 @@ class PodcastCutService:
         segments: list[SubtitleSegment],
         content_decisions: list[EditDecision],
         silence_regions: list[SilenceRegion],
+        review_decision_annotations: dict[str, dict] | None = None,
         segmentation_boundary_rule: str = "word_boundary",
     ) -> Project:
         """Build final Project with all edit decisions."""
@@ -775,6 +791,7 @@ class PodcastCutService:
             transcription=transcription,
             segmentation_boundary_rule=segmentation_boundary_rule,
             edit_decisions=all_decisions,
+            review_decision_annotations=review_decision_annotations or {},
         )
 
         return project

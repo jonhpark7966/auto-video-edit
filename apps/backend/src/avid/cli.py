@@ -678,6 +678,33 @@ def _origin_kind_from_value(value: Any, fallback: Any):
         return fallback
 
 
+def _effective_ai_decision(ai: dict[str, Any]) -> dict[str, Any]:
+    effective = dict(ai)
+    repair = effective.get("junction_repair")
+    if not isinstance(repair, dict):
+        return effective
+
+    apply_repair = repair.get("user_apply_junction_repair") is not False
+    if apply_repair:
+        repaired_to = repair.get("repaired_to")
+        if repaired_to in {"keep", "cut"}:
+            effective["action"] = repaired_to
+        return effective
+
+    original_action = repair.get("original_action") or repair.get("repaired_from")
+    if original_action in {"keep", "cut"}:
+        effective["action"] = original_action
+    if repair.get("original_reason") is not None:
+        effective["reason"] = repair.get("original_reason")
+    if repair.get("original_note") is not None:
+        effective["note"] = repair.get("original_note")
+    if repair.get("original_edit_type") is not None:
+        effective["edit_type"] = repair.get("original_edit_type")
+    if repair.get("original_origin_kind") is not None:
+        effective["origin_kind"] = repair.get("original_origin_kind")
+    return effective
+
+
 def _apply_evaluation_index_patch(project: Any, eval_segments: list[dict[str, Any]]) -> tuple[int, int, str]:
     from avid.models.timeline import EditDecision, EditOriginKind, EditReason, EditType, TimeRange
 
@@ -745,7 +772,7 @@ def _apply_evaluation_index_patch(project: Any, eval_segments: list[dict[str, An
     for seg_index in sorted(eval_by_index):
         seg = eval_by_index[seg_index]
         human = seg.get("human")
-        ai = seg.get("ai") or {}
+        ai = _effective_ai_decision(seg.get("ai") or {})
         action = (human or ai or {}).get("action", "keep")
         if action == "cut":
             segment = segment_lookup.get(seg_index)
@@ -774,6 +801,7 @@ def _apply_evaluation_index_patch(project: Any, eval_segments: list[dict[str, An
                 origin_kind=origin_kind,
                 source_segment_index=seg_index,
                 boundary=ai.get("boundary") if isinstance(ai.get("boundary"), dict) else None,
+                junction_repair=ai.get("junction_repair") if isinstance(ai.get("junction_repair"), dict) else None,
             ))
             cuts_added += 1
 
@@ -1073,7 +1101,17 @@ def _review_ai_payload(decision: Any) -> dict[str, Any]:
         "origin_kind": decision.origin_kind.value if decision.origin_kind else None,
         "source_segment_index": decision.source_segment_index,
         "boundary": decision.boundary,
+        "junction_repair": decision.junction_repair,
     }
+
+
+def _annotation_ai_payload(annotation: Any) -> dict[str, Any] | None:
+    if not isinstance(annotation, dict):
+        return None
+    ai = annotation.get("ai")
+    if not isinstance(ai, dict):
+        return None
+    return dict(ai)
 
 
 def _select_review_decision(candidates: list[Any]) -> Any | None:
@@ -1176,6 +1214,9 @@ def _build_review_segments_payload(project_json_path: Path, project: Any) -> dic
         indexed_decisions.setdefault(int(decision.source_segment_index), []).append(decision)
 
     legacy_overlap_fallback = not indexed_decisions
+    annotations = getattr(project, "review_decision_annotations", None)
+    if not isinstance(annotations, dict):
+        annotations = {}
     review_segments = []
     for position, segment in enumerate(project.transcription.segments):
         segment_index = _segment_identity(segment, position)
@@ -1186,6 +1227,16 @@ def _build_review_segments_payload(project_json_path: Path, project: Any) -> dic
         else:
             decision = _select_review_decision(indexed_decisions.get(segment_index, []))
 
+        annotation_ai = _annotation_ai_payload(
+            annotations.get(str(segment_index)) or annotations.get(segment_index)
+        )
+        decision_ai = _review_ai_payload(decision) if decision else None
+        if annotation_ai and decision_ai:
+            repair = annotation_ai.get("junction_repair")
+            if isinstance(repair, dict):
+                decision_ai["junction_repair"] = repair
+        ai_payload = decision_ai or annotation_ai
+
         review_segment = {
             "index": segment_index,
             "start_ms": start_ms,
@@ -1194,7 +1245,7 @@ def _build_review_segments_payload(project_json_path: Path, project: Any) -> dic
             "raw_end_ms": segment.end_ms,
             "text": segment.text,
             "speaker": segment.speaker,
-            "ai": _review_ai_payload(decision) if decision else None,
+            "ai": ai_payload,
             "human": None,
         }
         overlap_protection = getattr(segment, "overlap_protection", None)

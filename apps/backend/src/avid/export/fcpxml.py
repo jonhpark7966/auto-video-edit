@@ -206,6 +206,8 @@ class FCPXMLExporter(ProjectExporter):
                     speed_factor=decision.speed_factor,
                     origin_kind=decision.origin_kind,
                     source_segment_index=decision.source_segment_index,
+                    boundary=decision.boundary,
+                    junction_repair=decision.junction_repair,
                 )
                 new_decisions.append(new_decision)
             else:

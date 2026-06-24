@@ -68,6 +68,7 @@ def generate_project_json(
     segments: list,
     source_video_path: str,
     project_name: str,
+    keeps: list[dict] | None = None,
     video_info: dict | None = None,
     source_file_id: str | None = None,
     edit_type: str = "disabled",
@@ -126,10 +127,12 @@ def generate_project_json(
         "transcription": None,
         "edit_decision_version": normalize_edit_decision_version(edit_decision_version),
         "edit_decisions": [],
+        "review_decision_annotations": {},
     }
 
     video_track_id = f"{source_file_id}_video"
     audio_track_id = f"{source_file_id}_audio"
+    actual_edit_type = "mute" if edit_type == "disabled" else edit_type
 
     # Create segment lookup
     segment_map = {seg.index: seg for seg in segments}
@@ -139,9 +142,6 @@ def generate_project_json(
         seg = segment_map.get(seg_idx)
         if not seg:
             continue
-
-        # Convert edit_type: "disabled" -> "mute" (for avid model compatibility)
-        actual_edit_type = "mute" if edit_type == "disabled" else edit_type
 
         # Include entertainment_score in the note if present
         note = cut.get("note", "")
@@ -166,8 +166,35 @@ def generate_project_json(
         }
         if cut.get("boundary"):
             edit_decision["boundary"] = cut["boundary"]
+        if cut.get("junction_repair"):
+            edit_decision["junction_repair"] = cut["junction_repair"]
 
         project["edit_decisions"].append(edit_decision)
+
+    for item in [*cuts, *(keeps or [])]:
+        repair = item.get("junction_repair")
+        if not isinstance(repair, dict):
+            continue
+        seg_idx = item.get("segment_index")
+        if seg_idx is None:
+            continue
+        ai_payload = {
+            "action": item.get("action") or repair.get("repaired_to") or "keep",
+            "reason": item.get("reason", ""),
+            "confidence": 0.9,
+            "note": item.get("note", ""),
+            "edit_type": actual_edit_type,
+            "origin_kind": "content_segment",
+            "source_segment_index": seg_idx,
+            "junction_repair": {
+                **repair,
+                "original_edit_type": actual_edit_type,
+                "original_origin_kind": "content_segment",
+            },
+        }
+        if item.get("boundary"):
+            ai_payload["boundary"] = item["boundary"]
+        project["review_decision_annotations"][str(seg_idx)] = {"ai": ai_payload}
 
     return project
 
@@ -353,6 +380,7 @@ def main():
 
     project = generate_project_json(
         cuts=result.cuts,
+        keeps=result.keeps,
         segments=segments,
         source_video_path=str(video_path),
         project_name=f"Podcast Analysis - {srt_path.stem}",
