@@ -116,6 +116,15 @@ def _asset_duration(root, asset_name: str) -> str:
     raise AssertionError(f"missing asset {asset_name}")
 
 
+def _asset_start(root, asset_name: str) -> str:
+    for asset in root.findall("./resources/asset"):
+        if asset.get("name") == asset_name:
+            start = asset.get("start")
+            assert start is not None
+            return start
+    raise AssertionError(f"missing asset {asset_name}")
+
+
 def _asset_media_src(root, asset_name: str) -> str:
     for asset in root.findall("./resources/asset"):
         if asset.get("name") == asset_name:
@@ -383,6 +392,7 @@ def test_extra_source_drift_does_not_emit_in_angle_retime(
     assert _asset_media_src(root, "extra_0") == f"file://{extra.path.absolute()}"
 
     # 1:1 camera angle: duration == asset duration, no timeMap, no conform-rate.
+    assert _asset_duration(root, "extra_0") == "107735628/30000s"
     assert extra_clip.get("duration") == _asset_duration(root, "extra_0")
     assert extra_clip.find("timeMap") is None
     assert extra_clip.find("conform-rate") is None
@@ -393,6 +403,57 @@ def test_extra_source_drift_does_not_emit_in_angle_retime(
     assert FCPXMLExporter()._validate_asset_reference_bounds(root) == []
 
 
+def test_precise_cfr_asset_duration_keeps_counted_last_frame(tmp_path: Path) -> None:
+    source = _video_file(
+        "source",
+        tmp_path / "source.mp4",
+        "source.mp4",
+        duration_ms=10000,
+        width=1920,
+        height=1080,
+        fps=60.0,
+        frame_count=600,
+    )
+    camera = _video_file(
+        "c2793",
+        tmp_path / "C2793.MP4",
+        "C2793.MP4",
+        duration_ms=6512005,
+        width=3840,
+        height=2160,
+        fps=29.97002997002997,
+        frame_count=195165,
+    )
+    camera.info.video_duration = "13024011/2000"
+    camera.info.audio_sample_count = 312576264
+    camera.info.audio_sample_rate = 48000
+    camera.info.timecode = "10:29:41:16"
+    camera.info.timecode_rate = "30000/1001"
+    camera.info.timecode_start_frames = 1_133_446
+    camera.info.timecode_start_seconds = "1134579446/30000"
+    camera.info.timecode_source_kind = "rtmd"
+    camera.info.fcpxml_timecode_start_seconds = None
+    project = Project(
+        name="c2793_regression",
+        source_files=[source, camera],
+        tracks=[
+            Track(id="source_video", source_file_id="source", track_type=TrackType.VIDEO),
+            Track(id="camera_video", source_file_id="c2793", track_type=TrackType.VIDEO),
+        ],
+    )
+
+    root = FCPXMLExporter()._create_fcpxml_structure(project)
+    _, multicam = _multicam_media(root)
+    camera_format = _asset_format(root, "C2793")
+    camera_clip = multicam.findall("mc-angle")[1].find("asset-clip")
+
+    assert _format_frame_duration(root, camera_format) == "1001/30000s"
+    assert _asset_duration(root, "C2793") == "195360165/30000s"
+    assert _asset_start(root, "C2793") == "0s"
+    assert camera_clip is not None
+    assert camera_clip.get("start") == "0s"
+    assert camera_clip.get("duration") == "195360165/30000s"
+    assert FCPXMLExporter()._validate_asset_reference_bounds(root) == []
 
 
 def test_extra_source_audio_drift_speed_does_not_emit_retime(tmp_path: Path) -> None:
@@ -624,4 +685,3 @@ def test_multicam_conservative_follow_speaker_keeps_previous_angle_for_short_fin
     assert len(timeline_clips) == 1
     assert timeline_clips[0].get("duration") == "228/60s"
     assert [(source.get("angleID"), source.get("srcEnable")) for source in timeline_clips[0].findall("mc-source")] == [("a1", "all")]
-

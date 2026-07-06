@@ -30,6 +30,14 @@ class MediaInfo(BaseModel):
     timecode_rate: str | None = Field(None, description="Timecode rate as a rational, e.g. 30000/1001")
     timecode_start_frames: int | None = Field(None, description="Source timecode start as labelled frames")
     timecode_start_seconds: str | None = Field(None, description="Source timecode start as rational seconds")
+    timecode_source_kind: str | None = Field(
+        None,
+        description="Source of the embedded timecode: video, tmcd, rtmd, or format",
+    )
+    fcpxml_timecode_start_seconds: str | None = Field(
+        None,
+        description="FCPXML-compatible source timecode start as rational seconds",
+    )
 
     @property
     def duration_seconds(self) -> float:

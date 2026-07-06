@@ -19,7 +19,45 @@ def test_timecode_extraction_prefers_video_then_data_then_format():
     parsed = media_service._parse_timecode_start("21:01:07:00", Fraction(60, 1))
 
     assert media_service._extract_timecode(payload) == "03:00:00:00"
+    assert media_service._extract_timecode_info(payload) == ("03:00:00:00", "video")
     assert parsed == (4_540_020, "4540020/60")
+
+
+def test_media_timecode_info_classifies_tmcd_as_fcpxml_compatible():
+    payload = {
+        "streams": [
+            {
+                "codec_type": "data",
+                "codec_tag_string": "tmcd",
+                "tags": {"timecode": "02:00:00:00"},
+            },
+        ],
+    }
+
+    assert media_service._extract_timecode(payload) == "02:00:00:00"
+    assert media_service._extract_timecode_info(payload) == ("02:00:00:00", "tmcd")
+
+
+def test_media_timecode_info_classifies_rtmd_as_raw_only():
+    payload = {
+        "streams": [
+            {
+                "codec_type": "data",
+                "codec_tag_string": "rtmd",
+                "tags": {"timecode": "05:56:31:16"},
+            },
+        ],
+    }
+
+    assert media_service._extract_timecode(payload) == "05:56:31:16"
+    assert media_service._extract_timecode_info(payload) == ("05:56:31:16", "rtmd")
+
+
+def test_media_timecode_info_classifies_format_timecode_as_raw_only():
+    payload = {"format": {"tags": {"timecode": "01:00:00:00"}}, "streams": []}
+
+    assert media_service._extract_timecode(payload) == "01:00:00:00"
+    assert media_service._extract_timecode_info(payload) == ("01:00:00:00", "format")
 
 
 def test_proxy_zero_timecode_command_strips_metadata(monkeypatch, tmp_path):

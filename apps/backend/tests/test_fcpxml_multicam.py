@@ -23,6 +23,8 @@ def _video_source(
     timecode_rate: str | None = None,
     timecode_start_frames: int | None = None,
     timecode_start_seconds: str | None = None,
+    timecode_source_kind: str | None = None,
+    fcpxml_timecode_start_seconds: str | None = None,
 ) -> MediaFile:
     return MediaFile(
         id=source_id,
@@ -41,6 +43,8 @@ def _video_source(
             timecode_rate=timecode_rate,
             timecode_start_frames=timecode_start_frames,
             timecode_start_seconds=timecode_start_seconds,
+            timecode_source_kind=timecode_source_kind,
+            fcpxml_timecode_start_seconds=fcpxml_timecode_start_seconds,
         ),
     )
 
@@ -128,6 +132,8 @@ def test_timecoded_multicam_source_start_matches_asset_and_angle_clip(tmp_path):
         timecode_rate="60/1",
         timecode_start_frames=4_540_020,
         timecode_start_seconds="4540020/60",
+        timecode_source_kind="tmcd",
+        fcpxml_timecode_start_seconds="4540020/60",
     )
     extra = _video_source(
         tmp_path,
@@ -140,6 +146,8 @@ def test_timecoded_multicam_source_start_matches_asset_and_angle_clip(tmp_path):
         timecode_rate="60/1",
         timecode_start_frames=4_540_320,
         timecode_start_seconds="4540320/60",
+        timecode_source_kind="tmcd",
+        fcpxml_timecode_start_seconds="4540320/60",
     )
     project = Project(
         name="Timecoded Multicam Test",

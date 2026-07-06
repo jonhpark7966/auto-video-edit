@@ -89,24 +89,40 @@ def _stream_timecode(stream: dict) -> str | None:
     return str(value).strip() if value else None
 
 
-def _extract_timecode(payload: dict) -> str | None:
+def _data_stream_kind(stream: dict) -> str | None:
+    value = stream.get("codec_tag_string")
+    if not value:
+        return None
+    kind = str(value).strip().lower()
+    return kind if kind in {"tmcd", "rtmd"} else None
+
+
+def _extract_timecode_info(payload: dict) -> tuple[str | None, str | None]:
     streams = payload.get("streams") or []
     for stream in streams:
         if stream.get("codec_type") == "video":
             value = _stream_timecode(stream)
             if value:
-                return value
-    for stream in streams:
-        if stream.get("codec_type") == "data":
+                return value, "video"
+    for expected_kind in ("tmcd", "rtmd"):
+        for stream in streams:
+            if stream.get("codec_type") != "data":
+                continue
+            if _data_stream_kind(stream) != expected_kind:
+                continue
             value = _stream_timecode(stream)
             if value:
-                return value
+                return value, expected_kind
     format_tags = payload.get("format", {}).get("tags")
     if isinstance(format_tags, dict):
         value = format_tags.get("timecode") or format_tags.get("TIMECODE")
         if value:
-            return str(value).strip()
-    return None
+            return str(value).strip(), "format"
+    return None, None
+
+
+def _extract_timecode(payload: dict) -> str | None:
+    return _extract_timecode_info(payload)[0]
 
 
 def _parse_timecode_start(timecode: str, rate: Fraction) -> tuple[int, str] | None:
@@ -229,7 +245,7 @@ class MediaService:
         if len(sample_rates) == 1:
             sample_rate = next(iter(sample_rates))
 
-        timecode = _extract_timecode(data)
+        timecode, timecode_source_kind = _extract_timecode_info(data)
         timecode_rate = (
             f"{timecode_rate_fraction.numerator}/{timecode_rate_fraction.denominator}"
             if timecode_rate_fraction else None
@@ -240,6 +256,10 @@ class MediaService:
         )
         timecode_start_frames = parsed_timecode[0] if parsed_timecode else None
         timecode_start_seconds = parsed_timecode[1] if parsed_timecode else None
+        fcpxml_timecode_start_seconds = (
+            timecode_start_seconds
+            if timecode_source_kind in {"video", "tmcd"} else None
+        )
 
         return MediaInfo(
             duration_ms=video_duration_ms or format_duration_ms,
@@ -260,6 +280,8 @@ class MediaService:
             timecode_rate=timecode_rate if timecode else None,
             timecode_start_frames=timecode_start_frames,
             timecode_start_seconds=timecode_start_seconds,
+            timecode_source_kind=timecode_source_kind,
+            fcpxml_timecode_start_seconds=fcpxml_timecode_start_seconds,
         )
 
     async def create_media_file(self, path: Path) -> MediaFile:

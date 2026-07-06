@@ -735,7 +735,7 @@ class FCPXMLExporter(ProjectExporter):
             }
 
             if source_file.info and source_file.info.duration_ms:
-                asset_attrs["duration"] = self._source_duration_time(source_file, src_fps)
+                asset_attrs["duration"] = self._source_asset_duration_time(source_file, src_fps)
 
             # Add audio info if available
             if source_file.info:
@@ -909,7 +909,7 @@ class FCPXMLExporter(ProjectExporter):
             return []
 
         total_duration_ms = source.info.duration_ms if source.info else 0
-        source_duration_frames = self._source_duration_frames(source, fps)
+        source_duration_frames = self._source_reference_duration_frames(source, fps)
 
         review_segments = self._review_timeline_segments(project, primary_track)
         if review_segments:
@@ -1327,7 +1327,7 @@ class FCPXMLExporter(ProjectExporter):
             if not asset_id:
                 continue
             source_format_id, source_fps = source_format_map[source.id]
-            source_frames = self._source_duration_frames(source, source_fps)
+            source_frames = self._source_reference_duration_frames(source, source_fps)
             angle_offset_ms = track.offset_ms - min_offset_ms
             # Angle layout uses the multicam BASE fps.
             angle_offset_frames = self._ms_to_frames_nearest(angle_offset_ms, base_fps)
@@ -1364,8 +1364,11 @@ class FCPXMLExporter(ProjectExporter):
                 source.info and getattr(source.info, "video_frame_count", None)
             )
             clip_start_time = self._source_clip_start_time(source, source_fps, 0)
-            if not self._source_timecode_origin(source) and legacy_grid_time:
-                clip_start_time = self._frames_to_time(0, source_fps)
+            if not self._source_timecode_origin(source):
+                if legacy_grid_time:
+                    clip_start_time = self._frames_to_time(0, source_fps)
+                else:
+                    clip_start_time = "0s"
             clip_duration_time = self._frames_to_time(source_timeline_frames, base_fps)
             if legacy_grid_time and source.info and source.info.duration_ms:
                 clip_duration_time = self._frames_to_time(
@@ -1661,7 +1664,7 @@ class FCPXMLExporter(ProjectExporter):
             extra_fps = primary_fps
             if source_format_map and source.id in source_format_map:
                 extra_format_id, extra_fps = source_format_map[source.id]
-            extra_duration_frames = self._source_duration_frames(source, extra_fps)
+            extra_duration_frames = self._source_reference_duration_frames(source, extra_fps)
 
             # Track offsets are expressed on the unified timeline. Intersect
             # the parent main clip range with the extra source available span
@@ -1966,42 +1969,87 @@ class FCPXMLExporter(ProjectExporter):
 
         return result
 
-    def _source_duration_frames(self, source: MediaFile, fps: float) -> int:
-        """Return the frame count FCP may safely reference for a source."""
+    def _source_asset_duration_frames(self, source: MediaFile, fps: float) -> int:
+        """Return the frame count to describe the source asset for FCP relink."""
         if not source.info:
             return 0
 
-        available_duration = self._source_available_duration(source)
-        duration_frames = self._duration_to_frames_floor(available_duration, fps)
-        frame_count = getattr(source.info, "video_frame_count", None)
-        if frame_count and frame_count > 0:
-            return min(frame_count, duration_frames) if duration_frames > 0 else frame_count
+        if source.is_video:
+            return self._source_video_asset_duration_frames(source, fps)
 
-        has_precise_duration = bool(
-            getattr(source.info, "video_duration", None)
-            or getattr(source.info, "audio_sample_count", None)
-        )
-        if has_precise_duration:
-            return duration_frames
+        audio_duration = self._source_audio_duration(source)
+        if audio_duration > 0:
+            return self._duration_to_frames_floor(audio_duration, fps)
 
         duration_ms = getattr(source.info, "duration_ms", None)
         if duration_ms and duration_ms > 0:
             return max(0, self._ms_to_frames_nearest(duration_ms, fps))
-        return duration_frames
+        return 0
+
+    def _source_video_asset_duration_frames(self, source: MediaFile, fps: float) -> int:
+        """Return video asset duration without letting millisecond truncation remove a frame."""
+        frame_duration = self._fps_to_frame_duration_fraction(fps)
+        frame_count = getattr(source.info, "video_frame_count", None)
+        video_duration = self._source_video_duration(source)
+
+        if frame_count and frame_count > 0:
+            nominal_duration = frame_count * frame_duration
+            if video_duration > 0:
+                if abs(nominal_duration - video_duration) <= frame_duration / 2:
+                    return frame_count
+                return min(frame_count, self._duration_to_frames_floor(video_duration, fps))
+
+            duration_ms = getattr(source.info, "duration_ms", None)
+            if duration_ms and duration_ms > 0:
+                ms_duration = Fraction(duration_ms, 1000)
+                if abs(nominal_duration - ms_duration) <= frame_duration / 2:
+                    return frame_count
+                return min(frame_count, self._duration_to_frames_floor(ms_duration, fps))
+
+            return frame_count
+
+        if video_duration > 0:
+            return self._duration_to_frames_floor(video_duration, fps)
+
+        duration_ms = getattr(source.info, "duration_ms", None)
+        if duration_ms and duration_ms > 0:
+            return max(0, self._ms_to_frames_nearest(duration_ms, fps))
+        return 0
+
+    def _source_reference_duration_frames(self, source: MediaFile, fps: float) -> int:
+        """Return the frame count FCPXML clips may safely reference."""
+        return self._source_asset_duration_frames(source, fps)
+
+    def _source_duration_frames(self, source: MediaFile, fps: float) -> int:
+        """Compatibility wrapper for safe clip reference duration."""
+        return self._source_reference_duration_frames(source, fps)
+
+    def _source_asset_duration_time(self, source: MediaFile, fps: float) -> str:
+        """Return source duration for FCPXML asset metadata."""
+        if source.info and source.is_audio_only:
+            audio_duration = self._source_audio_duration(source)
+            if audio_duration > 0:
+                return self._fraction_to_time(audio_duration)
+
+        return self._frames_to_time(self._source_asset_duration_frames(source, fps), fps)
+
+    def _source_reference_duration_time(self, source: MediaFile, fps: float) -> str:
+        """Return frame-aligned source duration for safe clip references."""
+        return self._frames_to_time(self._source_reference_duration_frames(source, fps), fps)
 
     def _source_duration_time(self, source: MediaFile, fps: float) -> str:
-        """Return frame-aligned source duration for FCPXML asset metadata."""
-        return self._frames_to_time(self._source_duration_frames(source, fps), fps)
+        """Compatibility wrapper for FCPXML asset metadata duration."""
+        return self._source_asset_duration_time(source, fps)
 
     def _source_start_time(self, source: MediaFile) -> str:
         """Return the source media-range start used by FCP relink."""
-        value = getattr(getattr(source, "info", None), "timecode_start_seconds", None)
+        value = getattr(getattr(source, "info", None), "fcpxml_timecode_start_seconds", None)
         if value:
             return value if str(value).endswith("s") else f"{value}s"
         return "0s"
 
     def _source_timecode_origin(self, source: MediaFile) -> Fraction:
-        value = getattr(getattr(source, "info", None), "timecode_start_seconds", None)
+        value = getattr(getattr(source, "info", None), "fcpxml_timecode_start_seconds", None)
         if not value:
             return Fraction(0, 1)
         return self._time_fraction(value if str(value).endswith("s") else f"{value}s")
@@ -2030,25 +2078,37 @@ class FCPXMLExporter(ProjectExporter):
         if duration_ms and duration_ms > 0:
             durations.append(Fraction(duration_ms, 1000))
 
+        audio_duration = self._source_audio_duration(source)
+        if audio_duration > 0:
+            durations.append(audio_duration)
+
+        return min(durations) if durations else Fraction(0, 1)
+
+    def _source_audio_duration(self, source: MediaFile) -> Fraction:
         sample_rate = (
             getattr(source.info, "audio_sample_rate", None)
             or getattr(source.info, "sample_rate", None)
         )
         sample_count = getattr(source.info, "audio_sample_count", None)
         if sample_rate and sample_count and sample_rate > 0 and sample_count > 0:
-            durations.append(Fraction(sample_count, sample_rate))
+            return Fraction(sample_count, sample_rate)
+        return Fraction(0, 1)
 
-        return min(durations) if durations else Fraction(0, 1)
-
-    def _source_actual_video_duration(self, source: MediaFile) -> Fraction:
-        if not source.info:
-            return Fraction(0, 1)
-
+    def _source_video_duration(self, source: MediaFile) -> Fraction:
         video_duration = getattr(source.info, "video_duration", None)
         if video_duration:
             parsed_duration = self._time_fraction(video_duration)
             if parsed_duration > 0:
                 return parsed_duration
+        return Fraction(0, 1)
+
+    def _source_actual_video_duration(self, source: MediaFile) -> Fraction:
+        if not source.info:
+            return Fraction(0, 1)
+
+        video_duration = self._source_video_duration(source)
+        if video_duration > 0:
+            return video_duration
 
         return self._source_available_duration(source)
 
@@ -2112,7 +2172,9 @@ class FCPXMLExporter(ProjectExporter):
         if not retime or timeline_frames <= 0:
             return timeline_frames
 
-        asset_duration = self._time_fraction(self._source_duration_time(source, source_fps))
+        asset_duration = self._time_fraction(
+            self._source_reference_duration_time(source, source_fps)
+        )
         if asset_duration <= 0:
             return timeline_frames
 
