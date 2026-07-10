@@ -187,6 +187,7 @@ class PodcastCutService:
         edit_decision_version: str = "legacy",
         segmentation_boundary_rule: str = "word_boundary",
         segments_json_path: Path | None = None,
+        prompt_profile: str = "podcast",
     ) -> tuple[Project, dict[str, Path], list[SyncResult]]:
         """Process a podcast audio file through the full workflow.
 
@@ -204,6 +205,7 @@ class PodcastCutService:
             extra_offsets: Manual offset overrides ``{filename: ms}``.
             edit_intensity: Cut editing intensity (light, normal, heavy).
             edit_decision_version: Edit decision prompt/parser version.
+            prompt_profile: Edit Decision base prompt profile (podcast or ai_frontier).
 
         Returns:
             Tuple of (Project, dict of output paths, sync results)
@@ -256,6 +258,7 @@ class PodcastCutService:
             provider=provider,
             provider_model=provider_model,
             provider_effort=provider_effort,
+            prompt_profile=prompt_profile,
             storyline_path=storyline_path,
             edit_intensity=edit_intensity,
             edit_decision_version=edit_decision_version,
@@ -340,6 +343,7 @@ class PodcastCutService:
         storyline_path: Path | None = None,
         edit_intensity: str = "normal",
         edit_decision_version: str = "legacy",
+        prompt_profile: str = "podcast",
     ) -> None:
         """Run podcast-cut skill as subprocess.
 
@@ -353,6 +357,7 @@ class PodcastCutService:
             storyline_path: Optional storyline.json path
             edit_intensity: Cut editing intensity (light, normal, heavy)
             edit_decision_version: Edit decision prompt/parser version
+            prompt_profile: Edit Decision base prompt profile (podcast or ai_frontier)
 
         Raises:
             RuntimeError: If skill fails
@@ -369,6 +374,7 @@ class PodcastCutService:
             str(srt_path),
             str(audio_path),
             "--provider", provider,
+            "--prompt-profile", prompt_profile,
             "--output", str(output_path),
         ]
 

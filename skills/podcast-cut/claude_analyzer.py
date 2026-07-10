@@ -31,6 +31,7 @@ from _common import (
     normalize_edit_decision_version,
 )
 from models import PodcastAnalysisResult
+from prompt_profiles import PromptProfile, render_edit_decision_prompt
 
 
 # Chunk size for processing large transcripts
@@ -355,6 +356,7 @@ def analyze_chunk_once(
     storyline_context: dict | None = None,
     edit_intensity: str = "normal",
     edit_decision_version: str = "legacy",
+    prompt_profile: PromptProfile = "podcast",
 ) -> tuple[list[dict], list[dict]]:
     """Analyze a chunk of segments.
 
@@ -369,7 +371,11 @@ def analyze_chunk_once(
     """
     edit_decision_version = normalize_edit_decision_version(edit_decision_version)
     segments_text = format_segments_for_prompt(segments, edit_decision_version)
-    prompt = PODCAST_ANALYSIS_PROMPT.format(segments=segments_text)
+    prompt = render_edit_decision_prompt(
+        prompt_profile,
+        segments_text,
+        podcast_prompt=PODCAST_ANALYSIS_PROMPT,
+    )
     prompt = _apply_mixed_speaker_guidance(prompt, segments)
 
     # Inject filtered storyline context for this chunk's range
@@ -399,17 +405,19 @@ def analyze_chunk(
     storyline_context: dict | None = None,
     edit_intensity: str = "normal",
     edit_decision_version: str = "legacy",
+    prompt_profile: PromptProfile = "podcast",
 ) -> tuple[list[dict], list[dict]]:
     """Analyze a chunk of segments with retry."""
     print(f"  Processing chunk {chunk_num}/{total_chunks} ({len(segments)} segments)...")
     return _retry_analysis(
         lambda: analyze_chunk_once(
-            segments,
-            chunk_num,
-            total_chunks,
-            storyline_context,
-            edit_intensity,
-            edit_decision_version,
+            segments=segments,
+            chunk_num=chunk_num,
+            total_chunks=total_chunks,
+            storyline_context=storyline_context,
+            edit_intensity=edit_intensity,
+            edit_decision_version=edit_decision_version,
+            prompt_profile=prompt_profile,
         ),
         f"chunk {chunk_num}/{total_chunks}",
     )
@@ -420,6 +428,7 @@ def analyze_with_claude(
     storyline_context: dict | None = None,
     edit_intensity: str = "normal",
     edit_decision_version: str = "legacy",
+    prompt_profile: PromptProfile = "podcast",
 ) -> PodcastAnalysisResult:
     """Analyze podcast segments using Claude CLI.
 
@@ -438,7 +447,11 @@ def analyze_with_claude(
     if len(segments) <= CHUNK_SIZE:
         # Small enough to process at once
         segments_text = format_segments_for_prompt(segments, edit_decision_version)
-        prompt = PODCAST_ANALYSIS_PROMPT.format(segments=segments_text)
+        prompt = render_edit_decision_prompt(
+            prompt_profile,
+            segments_text,
+            podcast_prompt=PODCAST_ANALYSIS_PROMPT,
+        )
         prompt = _apply_mixed_speaker_guidance(prompt, segments)
 
         # Inject storyline context if available
@@ -463,12 +476,13 @@ def analyze_with_claude(
         all_cuts, all_keeps = process_chunks_parallel(
             segments, CHUNK_SIZE, CHUNK_OVERLAP,
             analyze_fn=lambda chunk, num, total: analyze_chunk(
-                chunk,
-                num,
-                total,
-                storyline_context,
-                edit_intensity,
-                edit_decision_version,
+                segments=chunk,
+                chunk_num=num,
+                total_chunks=total,
+                storyline_context=storyline_context,
+                edit_intensity=edit_intensity,
+                edit_decision_version=edit_decision_version,
+                prompt_profile=prompt_profile,
             ),
             max_workers=5,
         )

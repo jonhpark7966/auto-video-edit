@@ -9,6 +9,8 @@ Usage:
 
 Options:
     --provider {claude,codex}   AI provider to use (default: claude)
+    --prompt-profile {podcast,ai_frontier}
+                                Edit Decision base prompt (default: podcast)
     --edit-type {disabled,cut}  Default edit type for content edits (default: disabled)
     --output <path>             Output path for project JSON
     --source-id <id>            Use existing source file ID
@@ -32,6 +34,7 @@ if str(skills_dir) not in sys.path:
 from _common import parse_srt_file, get_video_info, load_storyline, normalize_edit_decision_version
 from claude_analyzer import analyze_with_claude
 from codex_analyzer import analyze_with_codex
+from prompt_profiles import PROMPT_PROFILES
 
 
 def generate_deterministic_uuid(file_path: str) -> str:
@@ -278,6 +281,12 @@ def main():
         help="AI provider to use (default: codex)",
     )
     parser.add_argument(
+        "--prompt-profile",
+        choices=PROMPT_PROFILES,
+        default="podcast",
+        help="Edit Decision base prompt profile (default: podcast)",
+    )
+    parser.add_argument(
         "--edit-type",
         choices=["disabled", "cut"],
         default="disabled",
@@ -342,6 +351,7 @@ def main():
 
     # Analyze with chosen provider
     print(f"\nAnalyzing podcast with {args.provider.upper()} for entertainment value...")
+    print(f"Prompt profile: {args.prompt_profile}")
     print(f"Edit intensity: {args.edit_intensity}")
     print(f"Edit decision version: {args.edit_decision_version}")
     if args.provider == "claude":
@@ -350,6 +360,7 @@ def main():
             storyline_context=storyline_context,
             edit_intensity=args.edit_intensity,
             edit_decision_version=args.edit_decision_version,
+            prompt_profile=args.prompt_profile,
         )
     else:
         result = analyze_with_codex(
@@ -357,6 +368,7 @@ def main():
             storyline_context=storyline_context,
             edit_intensity=args.edit_intensity,
             edit_decision_version=args.edit_decision_version,
+            prompt_profile=args.prompt_profile,
         )
 
     # Print report

@@ -4,7 +4,8 @@ Usage:
     avid-cli transcribe <video> [-l ko] [--chalna-url URL]
     avid-cli transcript-overview <srt> [-o storyline.json] [--provider codex] [--content-type auto]
     avid-cli subtitle-cut <video> --srt sub.srt [--provider codex] [--context storyline.json] [-o output.fcpxml]
-    avid-cli podcast-cut <audio> [--srt sub.srt] [--provider codex] [--context storyline.json] [-d output_dir]
+    avid-cli podcast-cut <audio> [--srt sub.srt] [--provider codex]
+        [--prompt-profile podcast] [--context storyline.json] [-d output_dir]
     avid-cli review-segments --project-json project.avid.json
     avid-cli apply-evaluation --project-json project.avid.json --evaluation evaluation.json --output-project-json out.avid.json
     avid-cli reexport --project-json project.avid.json --output-dir out
@@ -498,6 +499,7 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
     print(f"  프로바이더: {provider_config['provider']}")
     print(f"  모델: {provider_config['model']}")
     print(f"  effort: {provider_config['effort']}")
+    print(f"  프롬프트 프로필: {args.prompt_profile}")
     if srt_path:
         print(f"  SRT: {srt_path.name}")
         print(f"  (자막 생성 건너뜀)")
@@ -525,6 +527,7 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
         provider=args.provider,
         provider_model=args.provider_model,
         provider_effort=args.provider_effort,
+        prompt_profile=args.prompt_profile,
         extra_sources=extra_sources,
         extra_offsets=extra_offsets,
         edit_intensity=args.edit_intensity,
@@ -1767,6 +1770,12 @@ def main() -> None:
     p_podcast.add_argument("--provider", choices=["claude", "codex"], default="codex", help="AI 프로바이더 (기본: codex)")
     p_podcast.add_argument("--provider-model", type=str, help="provider model override")
     p_podcast.add_argument("--provider-effort", type=str, help="provider effort override")
+    p_podcast.add_argument(
+        "--prompt-profile",
+        choices=["podcast", "ai_frontier"],
+        default="podcast",
+        help="Edit Decision 기본 프롬프트 프로필",
+    )
     p_podcast.add_argument("-d", "--output-dir", type=str, help="출력 디렉토리")
     p_podcast.add_argument("--final", action="store_true", help="최종 편집본 (모든 편집 적용, 기본: 검토용 disabled)")
     p_podcast.add_argument("--extra-source", action="append", default=[], help="추가 소스 파일 (반복 가능)")
