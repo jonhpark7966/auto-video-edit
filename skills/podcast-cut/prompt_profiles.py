@@ -7,7 +7,7 @@ from typing import Final, Literal
 PromptProfile = Literal["podcast", "ai_frontier"]
 PROMPT_PROFILES: Final[tuple[PromptProfile, ...]] = ("podcast", "ai_frontier")
 AI_FRONTIER_PROMPT_SHA256: Final = (
-    "71965cc1e42be15d216ef26a8306b48ac7393c71876572fef1479fabd20fd28c"
+    "49665ce17e16b620032e0c1be41c5c62a68be005464ae0468b92c2b0b69e1f1d"
 )
 
 _PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
