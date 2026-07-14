@@ -19,6 +19,7 @@ def call_claude(
     timeout: int = 300,
     model: str | None = None,
     effort: str | None = None,
+    stage: str | None = None,
 ) -> str:
     """Call Claude CLI and get response."""
     return run_provider_prompt(
@@ -27,6 +28,7 @@ def call_claude(
         timeout=timeout,
         model=model,
         effort=effort,
+        stage=stage,
     )
 
 
@@ -35,6 +37,7 @@ def call_codex(
     timeout: int = 300,
     model: str | None = None,
     effort: str | None = None,
+    stage: str | None = None,
 ) -> str:
     """Call Codex CLI (exec mode) and get response."""
     return run_provider_prompt(
@@ -43,6 +46,7 @@ def call_codex(
         timeout=timeout,
         model=model,
         effort=effort,
+        stage=stage,
     )
 
 

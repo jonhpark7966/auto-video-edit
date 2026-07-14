@@ -47,6 +47,14 @@ from .edit_decision import (
     is_boundary_aware_version,
     normalize_edit_decision_version,
 )
+from .junction_audit import (
+    JunctionAuditResult,
+    PROMPT_VERSION as JUNCTION_AUDIT_PROMPT_VERSION,
+    audit_junctions,
+    build_junction_audit_prompt,
+    extract_junction_candidates,
+    junction_audit_globally_enabled,
+)
 
 __all__ = [
     "SubtitleSegment",
@@ -86,4 +94,10 @@ __all__ = [
     "format_segments_with_boundary_metadata",
     "is_boundary_aware_version",
     "normalize_edit_decision_version",
+    "JunctionAuditResult",
+    "JUNCTION_AUDIT_PROMPT_VERSION",
+    "audit_junctions",
+    "build_junction_audit_prompt",
+    "extract_junction_candidates",
+    "junction_audit_globally_enabled",
 ]

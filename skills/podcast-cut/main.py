@@ -16,6 +16,7 @@ Options:
     --source-id <id>            Use existing source file ID
     --report-only               Only print analysis report, don't save project
     --min-score <int>           Minimum entertainment score to keep (default: 4)
+    --[no-]junction-audit       Audit final joins and minimally restore continuity (default: on)
 """
 
 import argparse
@@ -31,7 +32,17 @@ skills_dir = Path(__file__).parent.parent
 if str(skills_dir) not in sys.path:
     sys.path.insert(0, str(skills_dir))
 
-from _common import parse_srt_file, get_video_info, load_storyline, normalize_edit_decision_version
+from _common import (
+    audit_junctions,
+    call_claude,
+    call_codex,
+    get_video_info,
+    junction_audit_globally_enabled,
+    load_storyline,
+    normalize_edit_decision_version,
+    parse_srt_file,
+    resolve_provider_config,
+)
 from claude_analyzer import analyze_with_claude
 from codex_analyzer import analyze_with_codex
 from prompt_profiles import PROMPT_PROFILES
@@ -76,6 +87,7 @@ def generate_project_json(
     source_file_id: str | None = None,
     edit_type: str = "disabled",
     edit_decision_version: str = "legacy",
+    junction_audit: dict | None = None,
 ) -> dict:
     """Generate project JSON from podcast analysis.
 
@@ -131,6 +143,7 @@ def generate_project_json(
         "edit_decision_version": normalize_edit_decision_version(edit_decision_version),
         "edit_decisions": [],
         "review_decision_annotations": {},
+        "junction_audit": junction_audit or {},
     }
 
     video_track_id = f"{source_file_id}_video"
@@ -184,7 +197,7 @@ def generate_project_json(
         ai_payload = {
             "action": item.get("action") or repair.get("repaired_to") or "keep",
             "reason": item.get("reason", ""),
-            "confidence": 0.9,
+            "confidence": repair.get("confidence", 0.9),
             "note": item.get("note", ""),
             "edit_type": actual_edit_type,
             "origin_kind": "content_segment",
@@ -321,6 +334,12 @@ def main():
         default="legacy",
         help="Edit decision prompt/parser version (default: legacy)",
     )
+    parser.add_argument(
+        "--junction-audit",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Audit final KEEP-CUT-KEEP joins and minimally restore broken continuity",
+    )
 
     args = parser.parse_args()
 
@@ -371,6 +390,35 @@ def main():
             prompt_profile=args.prompt_profile,
         )
 
+    global_audit_enabled = junction_audit_globally_enabled()
+    effective_audit_enabled = args.junction_audit and global_audit_enabled
+    provider_config = resolve_provider_config(args.provider)
+    provider_call = call_claude if args.provider == "claude" else call_codex
+    audit_result = audit_junctions(
+        segments,
+        result.cuts,
+        result.keeps,
+        enabled=effective_audit_enabled,
+        call_llm=lambda prompt: provider_call(prompt, stage="junction_audit"),
+        model=provider_config.model,
+        provider=args.provider,
+        storyline_context=storyline_context,
+    )
+    audit_result.summary["requested_enabled"] = args.junction_audit
+    audit_result.summary["global_enabled"] = global_audit_enabled
+    audit_result.artifact["summary"] = audit_result.summary
+    result.cuts = audit_result.cuts
+    result.keeps = audit_result.keeps
+    print(
+        "Junction audit: "
+        f"candidates={audit_result.summary['candidate_junction_count']}, "
+        f"audited={audit_result.summary['audited_junction_count']}, "
+        f"restored_junctions={audit_result.summary['restored_junction_count']}, "
+        f"restored_segments={audit_result.summary['restored_segment_count']}, "
+        f"restored_duration={audit_result.summary['restored_duration_ms']}ms, "
+        f"manual_review={audit_result.summary['manual_review_count']}"
+    )
+
     # Print report
     print_analysis_report(result.cuts, result.keeps, segments)
 
@@ -400,15 +448,23 @@ def main():
         source_file_id=args.source_id,
         edit_type=args.edit_type,
         edit_decision_version=args.edit_decision_version,
+        junction_audit=audit_result.summary,
     )
 
     # Save
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(project, f, ensure_ascii=False, indent=2)
 
+    audit_artifact_path = Path(output_path).with_name(
+        f"{Path(output_path).stem}.junction_audit.json"
+    )
+    with open(audit_artifact_path, "w", encoding="utf-8") as f:
+        json.dump(audit_result.artifact, f, ensure_ascii=False, indent=2)
+
     print(f"\nProject saved to: {output_path}")
     print(f"Edit decisions: {len(project['edit_decisions'])} cuts")
     print(f"Edit type: {args.edit_type}")
+    print(f"Junction audit artifact: {audit_artifact_path}")
 
 
 if __name__ == "__main__":

@@ -117,6 +117,10 @@ class Project(BaseModel):
         default_factory=dict,
         description="Review-only decision annotations for segments without edit decisions",
     )
+    junction_audit: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Summary and provenance for the post-Edit-Decision junction audit",
+    )
 
     # Export-time multicam behavior. Source keys are stable UI/API keys:
     # "primary", "extra:0", "extra:1", ...

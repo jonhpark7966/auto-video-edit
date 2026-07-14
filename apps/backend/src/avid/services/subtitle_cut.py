@@ -66,6 +66,7 @@ class SubtitleCutService:
         edit_decision_version: str = "legacy",
         segmentation_boundary_rule: str = "word_boundary",
         segments_json_path: Path | None = None,
+        junction_audit_enabled: bool = True,
     ) -> tuple[Project, Path, list[SyncResult]]:
         """Analyze subtitles and return Project with content + silence decisions.
 
@@ -83,6 +84,7 @@ class SubtitleCutService:
             edit_intensity: Cut editing intensity (light, normal, heavy).
             edit_decision_version: Edit decision prompt/parser version.
             segmentation_boundary_rule: Timestamp boundary rule applied upstream.
+            junction_audit_enabled: Run the restore-only final junction audit.
 
         Returns:
             Tuple of (Project with edit_decisions, path to .avid.json, sync results)
@@ -129,13 +131,14 @@ class SubtitleCutService:
 
         cmd.extend(["--edit-intensity", edit_intensity])
         cmd.extend(["--edit-decision-version", edit_decision_version])
+        cmd.append("--junction-audit" if junction_audit_enabled else "--no-junction-audit")
 
         result = await asyncio.to_thread(
             subprocess.run,
             cmd,
             capture_output=True,
             text=True,
-            timeout=1800,
+            timeout=7200,
             cwd=str(script_dir),
             env=build_provider_subprocess_env(
                 provider,

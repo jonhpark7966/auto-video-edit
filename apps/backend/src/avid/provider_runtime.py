@@ -230,6 +230,7 @@ def run_provider_prompt(
     model: str | None = None,
     effort: str | None = None,
     environ: Mapping[str, str] | None = None,
+    stage: str | None = None,
 ) -> str:
     command, input_text, config, argv_summary = build_provider_invocation(
         prompt,
@@ -241,7 +242,7 @@ def run_provider_prompt(
     base_entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "source": "avid",
-        "stage": os.environ.get("AVID_LLM_IO_STAGE", "provider_prompt"),
+        "stage": stage or os.environ.get("AVID_LLM_IO_STAGE", "provider_prompt"),
         "provider": config.provider,
         "model": config.model,
         "reasoning_effort": config.effort,

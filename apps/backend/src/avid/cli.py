@@ -407,6 +407,7 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
         edit_decision_version=args.edit_decision_version,
         segmentation_boundary_rule=args.segmentation_boundary_rule,
         segments_json_path=segments_json_path,
+        junction_audit_enabled=args.junction_audit,
     )
 
     fcpxml_path = Path(args.output).resolve() if args.output else output_dir / f"{srt_path.stem}_subtitle_cut.fcpxml"
@@ -443,6 +444,11 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
         "fcpxml": str(fcpxml_result),
         "report": str(report_path),
     }
+    junction_audit_path = project_path.with_name(
+        f"{project_path.stem}.junction_audit.json"
+    )
+    if junction_audit_path.exists():
+        artifacts["junction_audit"] = str(junction_audit_path)
     if srt_result:
         artifacts["srt"] = str(srt_result)
     diagnostics_path = _write_sync_diagnostics(output_dir, video_path.stem, sync_results)
@@ -456,6 +462,7 @@ async def cmd_subtitle_cut(args: argparse.Namespace) -> dict[str, Any]:
             "edit_decisions": len(project.edit_decisions),
             "extra_sources": len(sync_results),
             "edit_decision_version": args.edit_decision_version,
+            "junction_audit": project.junction_audit,
         },
         provider_config=provider_config,
     )
@@ -534,6 +541,7 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
         edit_decision_version=args.edit_decision_version,
         segmentation_boundary_rule=args.segmentation_boundary_rule,
         segments_json_path=segments_json_path,
+        junction_audit_enabled=args.junction_audit,
     )
 
     report_path = output_dir / f"{audio_path.stem}.report.md"
@@ -559,6 +567,8 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
         artifacts["srt"] = str(srt_path)
     if raw_srt:
         artifacts["srt_raw"] = str(raw_srt)
+    if outputs.get("junction_audit"):
+        artifacts["junction_audit"] = str(outputs["junction_audit"])
     diagnostics_path = _write_sync_diagnostics(output_dir, audio_path.stem, sync_results)
     if diagnostics_path is not None:
         artifacts["sync_diagnostics"] = str(diagnostics_path)
@@ -570,6 +580,7 @@ async def cmd_podcast_cut(args: argparse.Namespace) -> dict[str, Any]:
             "edit_decisions": len(project.edit_decisions),
             "extra_sources": len(sync_results),
             "edit_decision_version": args.edit_decision_version,
+            "junction_audit": project.junction_audit,
         },
         provider_config=provider_config,
     )
@@ -1256,15 +1267,20 @@ def _build_review_segments_payload(project_json_path: Path, project: Any) -> dic
             review_segment["overlap_protection"] = overlap_protection
         review_segments.append(review_segment)
 
+    stats = {
+        "segments": len(review_segments),
+        "indexed_decisions": sum(len(items) for items in indexed_decisions.values()),
+        "legacy_overlap_fallback": legacy_overlap_fallback,
+        "boundary_strategy": boundary_strategy,
+        "segmentation_boundary_rule": segmentation_boundary_rule,
+    }
+    junction_audit = getattr(project, "junction_audit", None)
+    if isinstance(junction_audit, dict):
+        stats["junction_audit"] = junction_audit
+
     return _payload(
         "review-segments",
-        stats={
-            "segments": len(review_segments),
-            "indexed_decisions": sum(len(items) for items in indexed_decisions.values()),
-            "legacy_overlap_fallback": legacy_overlap_fallback,
-            "boundary_strategy": boundary_strategy,
-            "segmentation_boundary_rule": segmentation_boundary_rule,
-        },
+        stats=stats,
         schema_version="review-segments/v1",
         project_json=str(project_json_path),
         review_scope="content_segments",
@@ -1760,6 +1776,7 @@ def main() -> None:
     p_subcut.add_argument("--edit-intensity", choices=["light", "normal", "heavy"], default="normal", help="컷 편집 강도")
     p_subcut.add_argument("--edit-decision-version", choices=["legacy", "boundary_aware_v1"], default="legacy", help="Edit decision prompt/parser version")
     p_subcut.add_argument("--segmentation-boundary-rule", choices=["word_boundary", "midpoint_gap", "low_energy_gap_v1"], default="word_boundary", help="Segmentation timestamp boundary rule")
+    p_subcut.add_argument("--junction-audit", action=argparse.BooleanOptionalAction, default=True, help="Edit Decision 이후 연결부 자동 검토")
     _add_machine_output_flags(p_subcut)
 
     p_podcast = subparsers.add_parser("podcast-cut", help="팟캐스트 편집 (재미 기준)")
@@ -1783,6 +1800,7 @@ def main() -> None:
     p_podcast.add_argument("--edit-intensity", choices=["light", "normal", "heavy"], default="normal", help="컷 편집 강도")
     p_podcast.add_argument("--edit-decision-version", choices=["legacy", "boundary_aware_v1"], default="legacy", help="Edit decision prompt/parser version")
     p_podcast.add_argument("--segmentation-boundary-rule", choices=["word_boundary", "midpoint_gap", "low_energy_gap_v1"], default="word_boundary", help="Segmentation timestamp boundary rule")
+    p_podcast.add_argument("--junction-audit", action=argparse.BooleanOptionalAction, default=True, help="Edit Decision 이후 연결부 자동 검토")
     _add_machine_output_flags(p_podcast)
 
     p_review_segments = subparsers.add_parser("review-segments", help="project JSON 에서 review payload 생성")

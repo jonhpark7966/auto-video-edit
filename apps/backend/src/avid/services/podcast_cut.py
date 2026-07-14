@@ -188,6 +188,7 @@ class PodcastCutService:
         segmentation_boundary_rule: str = "word_boundary",
         segments_json_path: Path | None = None,
         prompt_profile: str = "podcast",
+        junction_audit_enabled: bool = True,
     ) -> tuple[Project, dict[str, Path], list[SyncResult]]:
         """Process a podcast audio file through the full workflow.
 
@@ -206,6 +207,7 @@ class PodcastCutService:
             edit_intensity: Cut editing intensity (light, normal, heavy).
             edit_decision_version: Edit decision prompt/parser version.
             prompt_profile: Edit Decision base prompt profile (podcast or ai_frontier).
+            junction_audit_enabled: Run the restore-only final junction audit.
 
         Returns:
             Tuple of (Project, dict of output paths, sync results)
@@ -262,12 +264,19 @@ class PodcastCutService:
             storyline_path=storyline_path,
             edit_intensity=edit_intensity,
             edit_decision_version=edit_decision_version,
+            junction_audit_enabled=junction_audit_enabled,
         )
+        junction_audit_artifact = skill_output.with_name(
+            f"{skill_output.stem}.junction_audit.json"
+        )
+        if junction_audit_artifact.exists():
+            outputs["junction_audit"] = junction_audit_artifact
 
         # Step 3: Parse skill output → content decisions
         print("Step 3: Parsing skill output...")
         content_decisions = self._parse_skill_output(skill_output)
         review_decision_annotations = self._parse_review_decision_annotations(skill_output)
+        junction_audit = self._parse_junction_audit(skill_output)
         print(f"  Generated {len(content_decisions)} content edit decisions")
 
         # Step 4: Find silence gaps from SRT
@@ -285,6 +294,7 @@ class PodcastCutService:
             silence_regions=silence_regions,
             review_decision_annotations=review_decision_annotations,
             segmentation_boundary_rule=segmentation_boundary_rule,
+            junction_audit=junction_audit,
         )
         project.edit_decision_version = edit_decision_version
         project.segmentation_boundary_rule = segmentation_boundary_rule
@@ -344,6 +354,7 @@ class PodcastCutService:
         edit_intensity: str = "normal",
         edit_decision_version: str = "legacy",
         prompt_profile: str = "podcast",
+        junction_audit_enabled: bool = True,
     ) -> None:
         """Run podcast-cut skill as subprocess.
 
@@ -358,6 +369,7 @@ class PodcastCutService:
             edit_intensity: Cut editing intensity (light, normal, heavy)
             edit_decision_version: Edit decision prompt/parser version
             prompt_profile: Edit Decision base prompt profile (podcast or ai_frontier)
+            junction_audit_enabled: Run the restore-only final junction audit.
 
         Raises:
             RuntimeError: If skill fails
@@ -385,6 +397,7 @@ class PodcastCutService:
 
         cmd.extend(["--edit-intensity", edit_intensity])
         cmd.extend(["--edit-decision-version", edit_decision_version])
+        cmd.append("--junction-audit" if junction_audit_enabled else "--no-junction-audit")
 
         result = await asyncio.to_thread(
             subprocess.run,
@@ -496,6 +509,12 @@ class PodcastCutService:
             for key, value in annotations.items()
             if isinstance(value, dict)
         }
+
+    def _parse_junction_audit(self, avid_json_path: Path) -> dict:
+        with open(avid_json_path, encoding="utf-8") as f:
+            data = json.load(f)
+        audit = data.get("junction_audit")
+        return audit if isinstance(audit, dict) else {}
 
     _VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".wmv"}
 
@@ -727,6 +746,7 @@ class PodcastCutService:
         silence_regions: list[SilenceRegion],
         review_decision_annotations: dict[str, dict] | None = None,
         segmentation_boundary_rule: str = "word_boundary",
+        junction_audit: dict | None = None,
     ) -> Project:
         """Build final Project with all edit decisions."""
         file_id = str(uuid.uuid5(uuid.NAMESPACE_URL, str(audio_path)))
@@ -798,6 +818,7 @@ class PodcastCutService:
             segmentation_boundary_rule=segmentation_boundary_rule,
             edit_decisions=all_decisions,
             review_decision_annotations=review_decision_annotations or {},
+            junction_audit=junction_audit or {},
         )
 
         return project
